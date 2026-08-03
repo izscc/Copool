@@ -21,6 +21,11 @@ extension AccountsPageModel {
             segments.append(L10n.tr("accounts.notice.switch_done"))
         }
 
+        if let launchError = execution.chatGPTLaunchError, !launchError.isEmpty {
+            style = .error
+            segments.append(launchError)
+        }
+
         if let syncError = execution.opencodeSyncError, !syncError.isEmpty {
             style = .error
             segments.append(L10n.tr("accounts.notice.sync_failed_format", syncError))

@@ -20,6 +20,19 @@ final class AppSettingsCodableTests: XCTestCase {
         let decodedLegacy = try JSONDecoder().decode(AppSettings.self, from: legacyJSON)
 
         XCTAssertTrue(decodedLegacy.launchChatGPTAfterSwitch)
+
+        var disabledSettings = AppSettings.defaultValue
+        disabledSettings.launchChatGPTAfterSwitch = false
+        let disabledEncoded = try JSONEncoder().encode(disabledSettings)
+        let disabledLegacyJSON = try XCTUnwrap(
+            String(data: disabledEncoded, encoding: .utf8)?.replacingOccurrences(
+                of: "launchChatGPTAfterSwitch",
+                with: "launchCodexAfterSwitch"
+            ).data(using: .utf8)
+        )
+        let decodedDisabledLegacy = try JSONDecoder().decode(AppSettings.self, from: disabledLegacyJSON)
+
+        XCTAssertFalse(decodedDisabledLegacy.launchChatGPTAfterSwitch)
     }
 
     func testDecodeSettingsRequiresFullCurrentShape() throws {

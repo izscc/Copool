@@ -171,9 +171,10 @@ actor AccountsCoordinator {
         )
         let latestStore = try storeRepository.loadStore()
         let restartedEditorNames = result.restartedEditorApps.map(\.rawValue).joined(separator: ",")
+        let chatGPTLaunchError = result.chatGPTLaunchError ?? "nil"
         AccountSwitchDebugLog.write(
             "switchAccountAndApplySettings.end",
-            "requestedCardID=\(id) \(AccountSwitchDebugLog.describe(store: latestStore, currentAuthAccountKey: authRepository.currentAuthAccountKey())) opencodeSynced=\(result.opencodeSynced) restartedEditors=\(restartedEditorNames) didLaunchChatGPTApp=\(result.didLaunchChatGPTApp)"
+            "requestedCardID=\(id) \(AccountSwitchDebugLog.describe(store: latestStore, currentAuthAccountKey: authRepository.currentAuthAccountKey())) opencodeSynced=\(result.opencodeSynced) restartedEditors=\(restartedEditorNames) didLaunchChatGPTApp=\(result.didLaunchChatGPTApp) chatGPTLaunchError=\(chatGPTLaunchError)"
         )
         return result
     }
@@ -315,8 +316,12 @@ actor AccountsCoordinator {
         }
 
         if settings.launchChatGPTAfterSwitch {
-            try chatGPTAppService.launchApp()
-            result.didLaunchChatGPTApp = true
+            do {
+                try chatGPTAppService.launchApp()
+                result.didLaunchChatGPTApp = true
+            } catch {
+                result.chatGPTLaunchError = error.localizedDescription
+            }
         }
 
         return result

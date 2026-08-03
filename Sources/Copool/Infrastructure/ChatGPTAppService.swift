@@ -21,8 +21,17 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
     }
 
     private func forceStopRunningChatGPT() {
-        _ = try? CommandRunner.run("/usr/bin/pkill", arguments: ["-9", "-x", "ChatGPT"])
-        Thread.sleep(forTimeInterval: 0.22)
+        _ = try? CommandRunner.run("/usr/bin/pkill", arguments: ["-TERM", "-x", "ChatGPT"])
+
+        let gracefulShutdownDeadline = Date().addingTimeInterval(1)
+        while isChatGPTProcessRunning(), Date() < gracefulShutdownDeadline {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+
+        if isChatGPTProcessRunning() {
+            _ = try? CommandRunner.run("/usr/bin/pkill", arguments: ["-KILL", "-x", "ChatGPT"])
+            Thread.sleep(forTimeInterval: 0.22)
+        }
     }
 
     private func findChatGPTAppPath() -> URL? {
@@ -31,11 +40,20 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
             URL(fileURLWithPath: "/Applications/ChatGPT.app"),
             home.appendingPathComponent("Applications/ChatGPT.app")
         ]
-        if let found = candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) }) {
+        if let found = candidates.first(where: isChatGPTApp) {
             return found
         }
 
         return spotlightFindApp(named: "ChatGPT.app")
+    }
+
+    private func isChatGPTApp(at url: URL) -> Bool {
+        guard let bundle = Bundle(url: url),
+              bundle.bundleIdentifier == "com.openai.codex",
+              bundle.object(forInfoDictionaryKey: "CFBundleExecutable") as? String == "ChatGPT" else {
+            return false
+        }
+        return true
     }
 
     private func waitForChatGPTProcess(timeoutSeconds: TimeInterval) -> Bool {
@@ -59,14 +77,13 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
               output.status == 0 else {
             return nil
         }
-        let line = output.stdout
+        let paths = output.stdout
             .split(whereSeparator: \.isNewline)
             .map(String.init)
-            .first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
-        guard let line else { return nil }
-        let path = line.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard FileManager.default.fileExists(atPath: path) else { return nil }
-        return URL(fileURLWithPath: path)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map(URL.init(fileURLWithPath:))
+        return paths.first(where: isChatGPTApp)
     }
 }
 #else
