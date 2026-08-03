@@ -18,6 +18,17 @@
 "common.install" = "インストール";
 "common.none" = "なし";
 "common.quit" = "終了";
+"common.edit" = "編集";
+"common.testing" = "テスト中...";
+"common.unknown" = "不明";
+"common.yes" = "はい";
+"common.no" = "いいえ";
+"providers.import.subscription.claude" = "Claude（Claude Code ログイン）";
+"providers.import.subscription.grok" = "Grok（Grok CLI ログイン）";
+"providers.import.subscription.cursor" = "Cursor（Cursor ログイン）";
+"providers.import.subscription.antigravity" = "Antigravity（Gemini ログイン）";
+"proxy.remote.service_name" = "サービス名";
+"proxy.remote.logs.not_loaded" = "ログはまだ読み込まれていません";
 
 "settings.section.general" = "一般";
 "settings.launch_at_startup" = "ログイン時に起動";

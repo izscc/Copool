@@ -66,10 +66,10 @@ enum RemoteServerCardPresentation {
         status: RemoteProxyStatus?
     ) -> [RemoteServerMetricDescriptor] {
         [
-            RemoteServerMetricDescriptor(title: "Installed", value: RemoteServerConfiguration.boolText(status?.installed)),
+            RemoteServerMetricDescriptor(title: L10n.tr("proxy.status.installed"), value: RemoteServerConfiguration.boolText(status?.installed)),
             RemoteServerMetricDescriptor(title: "Systemd", value: RemoteServerConfiguration.boolText(status?.serviceInstalled)),
-            RemoteServerMetricDescriptor(title: "Enabled on boot", value: RemoteServerConfiguration.boolText(status?.enabled)),
-            RemoteServerMetricDescriptor(title: "Running", value: RemoteServerConfiguration.boolText(status?.running)),
+            RemoteServerMetricDescriptor(title: L10n.tr("settings.launch_at_startup"), value: RemoteServerConfiguration.boolText(status?.enabled)),
+            RemoteServerMetricDescriptor(title: L10n.tr("proxy.status.running"), value: RemoteServerConfiguration.boolText(status?.running)),
             RemoteServerMetricDescriptor(title: "PID", value: status?.pid.map(String.init) ?? "--")
         ]
     }
@@ -79,18 +79,18 @@ enum RemoteServerCardPresentation {
     ) -> [RemoteServerDetailDescriptor] {
         [
             RemoteServerDetailDescriptor(
-                title: "Remote Base URL",
+                title: L10n.tr("proxy.detail.base_url"),
                 value: status?.baseURL ?? "--",
                 canCopy: status != nil
             ),
             RemoteServerDetailDescriptor(
-                title: "Remote API key",
-                value: status?.apiKey ?? "Generated after first start",
+                title: L10n.tr("proxy.detail.api_key"),
+                value: status?.apiKey ?? L10n.tr("proxy.value.generated_after_first_start"),
                 canCopy: status?.apiKey != nil
             ),
             RemoteServerDetailDescriptor(
-                title: "Service name",
-                value: status?.serviceName ?? "Unknown",
+                title: L10n.tr("proxy.remote.service_name"),
+                value: status?.serviceName ?? L10n.tr("common.unknown"),
                 canCopy: status != nil
             )
         ]
@@ -101,7 +101,7 @@ enum RemoteServerCardPresentation {
     ) -> RemoteServerLogsPresentation {
         let content = logs?.isEmpty == false
             ? logs!
-            : "Logs have not been loaded yet"
+            : L10n.tr("proxy.remote.logs.not_loaded")
         return RemoteServerLogsPresentation(
             content: content,
             canCopy: !(logs ?? "").isEmpty

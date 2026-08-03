@@ -75,7 +75,7 @@ struct LocalSubscriptionImporter {
         guard let accessToken, !accessToken.isEmpty else { return nil }
         return ImportedSubscription(
             providerName: "claude",
-            displayName: "Claude (Claude Code login)",
+            displayName: L10n.tr("providers.import.subscription.claude"),
             baseURL: "https://api.anthropic.com",
             protocolKind: .anthropic,
             accessToken: accessToken,
@@ -108,7 +108,7 @@ struct LocalSubscriptionImporter {
 
         return ImportedSubscription(
             providerName: "grok",
-            displayName: "Grok (Grok CLI login)",
+            displayName: L10n.tr("providers.import.subscription.grok"),
             baseURL: "https://api.x.ai/v1",
             protocolKind: .chat,
             accessToken: accessToken,
@@ -143,7 +143,7 @@ struct LocalSubscriptionImporter {
 
         return ImportedSubscription(
             providerName: "cursor",
-            displayName: "Cursor (Cursor login)",
+            displayName: L10n.tr("providers.import.subscription.cursor"),
             baseURL: "https://api2.cursor.sh/v1",
             protocolKind: .chat,
             accessToken: accessToken,
@@ -174,7 +174,7 @@ struct LocalSubscriptionImporter {
 
         return ImportedSubscription(
             providerName: "antigravity",
-            displayName: "Antigravity (Gemini login)",
+            displayName: L10n.tr("providers.import.subscription.antigravity"),
             baseURL: "https://generativelanguage.googleapis.com/v1beta",
             protocolKind: .google,
             accessToken: accessToken,

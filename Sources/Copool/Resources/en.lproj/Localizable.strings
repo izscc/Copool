@@ -18,6 +18,17 @@
 "common.install" = "Install";
 "common.none" = "None";
 "common.quit" = "Quit";
+"common.edit" = "Edit";
+"common.testing" = "Testing...";
+"common.unknown" = "Unknown";
+"common.yes" = "Yes";
+"common.no" = "No";
+"providers.import.subscription.claude" = "Claude (Claude Code login)";
+"providers.import.subscription.grok" = "Grok (Grok CLI login)";
+"providers.import.subscription.cursor" = "Cursor (Cursor login)";
+"providers.import.subscription.antigravity" = "Antigravity (Gemini login)";
+"proxy.remote.service_name" = "Service name";
+"proxy.remote.logs.not_loaded" = "Logs have not been loaded yet";
 
 "settings.section.general" = "General";
 "settings.launch_at_startup" = "Launch at startup";

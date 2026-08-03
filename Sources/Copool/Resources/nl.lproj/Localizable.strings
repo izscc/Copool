@@ -18,6 +18,17 @@
 "common.install" = "Installeren";
 "common.none" = "Geen";
 "common.quit" = "Afsluiten";
+"common.edit" = "Bewerken";
+"common.testing" = "Testen...";
+"common.unknown" = "Onbekend";
+"common.yes" = "Ja";
+"common.no" = "Nee";
+"providers.import.subscription.claude" = "Claude (Claude Code-login)";
+"providers.import.subscription.grok" = "Grok (Grok CLI-login)";
+"providers.import.subscription.cursor" = "Cursor (Cursor-login)";
+"providers.import.subscription.antigravity" = "Antigravity (Gemini-login)";
+"proxy.remote.service_name" = "Servicenaam";
+"proxy.remote.logs.not_loaded" = "Logboeken zijn nog niet geladen";
 
 "settings.section.general" = "Algemeen";
 "settings.launch_at_startup" = "Start bij inloggen";

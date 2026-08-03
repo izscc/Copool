@@ -18,6 +18,17 @@
 "common.install" = "安裝";
 "common.none" = "無";
 "common.quit" = "退出";
+"common.edit" = "編輯";
+"common.testing" = "測試中...";
+"common.unknown" = "未知";
+"common.yes" = "是";
+"common.no" = "否";
+"providers.import.subscription.claude" = "Claude（Claude Code 登入）";
+"providers.import.subscription.grok" = "Grok（Grok CLI 登入）";
+"providers.import.subscription.cursor" = "Cursor（Cursor 登入）";
+"providers.import.subscription.antigravity" = "Antigravity（Gemini 登入）";
+"proxy.remote.service_name" = "服務名稱";
+"proxy.remote.logs.not_loaded" = "尚未載入日誌";
 
 "settings.section.general" = "一般";
 "settings.launch_at_startup" = "開機啟動";

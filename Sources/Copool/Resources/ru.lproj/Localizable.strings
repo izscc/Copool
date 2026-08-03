@@ -18,6 +18,17 @@
 "common.install" = "Установить";
 "common.none" = "Нет";
 "common.quit" = "Выйти";
+"common.edit" = "Изменить";
+"common.testing" = "Проверка...";
+"common.unknown" = "Неизвестно";
+"common.yes" = "Да";
+"common.no" = "Нет";
+"providers.import.subscription.claude" = "Claude (вход Claude Code)";
+"providers.import.subscription.grok" = "Grok (вход Grok CLI)";
+"providers.import.subscription.cursor" = "Cursor (вход Cursor)";
+"providers.import.subscription.antigravity" = "Antigravity (вход Gemini)";
+"proxy.remote.service_name" = "Имя службы";
+"proxy.remote.logs.not_loaded" = "Журналы еще не загружены";
 
 "settings.section.general" = "Общие";
 "settings.launch_at_startup" = "Запускать при входе";

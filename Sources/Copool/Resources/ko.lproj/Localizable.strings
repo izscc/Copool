@@ -18,6 +18,17 @@
 "common.install" = "설치";
 "common.none" = "없음";
 "common.quit" = "종료";
+"common.edit" = "편집";
+"common.testing" = "테스트 중...";
+"common.unknown" = "알 수 없음";
+"common.yes" = "예";
+"common.no" = "아니요";
+"providers.import.subscription.claude" = "Claude（Claude Code 로그인）";
+"providers.import.subscription.grok" = "Grok（Grok CLI 로그인）";
+"providers.import.subscription.cursor" = "Cursor（Cursor 로그인）";
+"providers.import.subscription.antigravity" = "Antigravity（Gemini 로그인）";
+"proxy.remote.service_name" = "서비스 이름";
+"proxy.remote.logs.not_loaded" = "로그가 아직 로드되지 않았습니다";
 
 "settings.section.general" = "일반";
 "settings.launch_at_startup" = "로그인 시 실행";

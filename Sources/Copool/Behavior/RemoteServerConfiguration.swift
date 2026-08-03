@@ -73,13 +73,13 @@ enum RemoteServerConfiguration {
     }
 
     static func statusLabel(_ status: RemoteProxyStatus?) -> String {
-        guard let status else { return "Unknown" }
+        guard let status else { return L10n.tr("common.unknown") }
         return status.running ? L10n.tr("proxy.status.running") : L10n.tr("proxy.status.stopped")
     }
 
     static func boolText(_ value: Bool?) -> String {
-        guard let value else { return "Unknown" }
-        return value ? "Yes" : "No"
+        guard let value else { return L10n.tr("common.unknown") }
+        return value ? L10n.tr("common.yes") : L10n.tr("common.no")
     }
 
     static func isPlaceholderDraft(_ server: RemoteServerConfig) -> Bool {

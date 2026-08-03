@@ -33,7 +33,7 @@ final class AppContainer {
             panel.canChooseDirectories = false
             panel.allowsMultipleSelection = false
             panel.canCreateDirectories = false
-            panel.title = "Select SSH key file"
+            panel.title = L10n.tr("proxy.remote.auth.choose_key_file")
             guard panel.runModal() == .OK else { return nil }
             return panel.url?.path
             #else

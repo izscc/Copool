@@ -18,6 +18,17 @@
 "common.install" = "安装";
 "common.none" = "无";
 "common.quit" = "退出";
+"common.edit" = "编辑";
+"common.testing" = "测试中...";
+"common.unknown" = "未知";
+"common.yes" = "是";
+"common.no" = "否";
+"providers.import.subscription.claude" = "Claude（Claude Code 登录）";
+"providers.import.subscription.grok" = "Grok（Grok CLI 登录）";
+"providers.import.subscription.cursor" = "Cursor（Cursor 登录）";
+"providers.import.subscription.antigravity" = "Antigravity（Gemini 登录）";
+"proxy.remote.service_name" = "服务名称";
+"proxy.remote.logs.not_loaded" = "尚未加载日志";
 
 "settings.section.general" = "通用";
 "settings.launch_at_startup" = "开机启动";
@@ -64,7 +75,7 @@
 "settings.usage_progress_display" = "进度条显示";
 "settings.usage_progress_display.used" = "已用";
 "settings.usage_progress_display.remaining" = "剩余";
-"language.english" = "英语";
+"language.english" = "English";
 "language.simplified_chinese" = "简体中文";
 "language.traditional_chinese" = "繁體中文";
 "language.japanese" = "日本語";
@@ -132,7 +143,7 @@
 "accounts.card.status.deactivated" = "已停用";
 "accounts.window.five_hour" = "5 小时";
 "accounts.stats.third_party.title" = "第三方模型用量";
-"accounts.stats.third_party.subtitle" = "你配置的服务商用量会单独统计，不计入 ChatGPT 账号。";
+"accounts.stats.third_party.subtitle" = "你配置的服务商用量会与 ChatGPT 账号用量分开统计。";
 "accounts.stats.third_party.requests_format" = "%@ 次请求";
 "accounts.stats.third_party.tokens_format" = "%@ 个令牌";
 "accounts.window.one_week" = "1 周";
