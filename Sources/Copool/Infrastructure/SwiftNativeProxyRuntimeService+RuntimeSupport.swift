@@ -57,8 +57,7 @@ extension SwiftNativeProxyRuntimeService {
                 authJSON: account.authJSON,
                 addedAt: account.addedAt,
                 isPreferredCurrent: account.id == currentAccountID,
-                oneWeekUsed: account.usage?.oneWeek?.usedPercent,
-                fiveHourUsed: account.usage?.fiveHour?.usedPercent
+                oneWeekUsed: account.usage?.oneWeek?.usedPercent
             )
         }
 
@@ -323,13 +322,9 @@ struct ProxyCandidate {
     var addedAt: Int64
     var isPreferredCurrent: Bool
     var oneWeekUsed: Double?
-    var fiveHourUsed: Double?
 
     var remainingScore: Double {
         let weekUsed = oneWeekUsed ?? 100
-        let fiveUsed = fiveHourUsed ?? 100
-        let weekRemaining = max(0, 100 - weekUsed)
-        let fiveRemaining = max(0, 100 - fiveUsed)
-        return weekRemaining * 0.7 + fiveRemaining * 0.3
+        return max(0, 100 - weekUsed)
     }
 }

@@ -44,13 +44,6 @@ final class AccountsWidgetSnapshotStoreTests: XCTestCase {
                 planLabel: "PRO",
                 workspaceLabel: nil,
                 accountLabel: "current@example.com",
-                fiveHour: AccountsWidgetWindowSnapshot(
-                    title: "5h",
-                    progressFraction: 0.2,
-                    usedText: "20%",
-                    remainingText: "80%",
-                    resetText: "--"
-                ),
                 oneWeek: AccountsWidgetWindowSnapshot(
                     title: "1w",
                     progressFraction: 0.3,

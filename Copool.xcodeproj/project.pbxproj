@@ -8,6 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		037DB8B9A2A1E5FA00C16E1E /* proxy_daemon.rs in Resources */ = {isa = PBXBuildFile; fileRef = 3E013D6F6786AE2EA7E9AF59 /* proxy_daemon.rs */; };
+		AA0000000000000000000001 /* ProviderModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* ProviderModels.swift */; };
+		AA0000000000000000000002 /* ProviderFileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* ProviderFileRepository.swift */; };
+		AA0000000000000000000003 /* CodexModelsCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000003 /* CodexModelsCacheService.swift */; };
+		AA0000000000000000000004 /* SwiftNativeProxyRuntimeService+ThirdParty.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000004 /* SwiftNativeProxyRuntimeService+ThirdParty.swift */; };
+		AA0000000000000000000010 /* SwiftNativeProxyRuntimeService+ProviderAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000010 /* SwiftNativeProxyRuntimeService+ProviderAdapters.swift */; };
+		AA0000000000000000000011 /* SwiftNativeProxyRuntimeService+ProviderSSE.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000011 /* SwiftNativeProxyRuntimeService+ProviderSSE.swift */; };
+		AA0000000000000000000012 /* LocalSubscriptionImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000012 /* LocalSubscriptionImporter.swift */; };
+		AA0000000000000000000013 /* ProviderTokenRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000013 /* ProviderTokenRefreshService.swift */; };
+		AA0000000000000000000014 /* ProviderPageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000014 /* ProviderPageModel.swift */; };
+		AA0000000000000000000015 /* ProviderPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000015 /* ProviderPageView.swift */; };
 		0395ED42439DA0C9E5F090EC /* SwiftNativeProxyRuntimeService+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E21A03EBE2D53313FA558D1 /* SwiftNativeProxyRuntimeService+Models.swift */; };
 		062663E216F4946D6600D1CE /* AccountRankingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96C85B608B5A700CC8557EC2 /* AccountRankingTests.swift */; };
 		0797784F1F471715624CA9CD /* AppLocaleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A146C7576AB39EFCD658BFED /* AppLocaleTests.swift */; };
@@ -299,6 +309,16 @@
 		776F4BC14F29F8D53E147B4C /* AccountsWidgetSnapshotWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountsWidgetSnapshotWriter.swift; sourceTree = "<group>"; };
 		7AA20CF2CE8BAE80E1447086 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		7AF3D2A6E0F0352C20B25EBF /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk/System/Library/Frameworks/Cocoa.framework; sourceTree = DEVELOPER_DIR; };
+		BB0000000000000000000001 /* ProviderModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderModels.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000002 /* ProviderFileRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderFileRepository.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000003 /* CodexModelsCacheService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "CodexModelsCacheService.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000004 /* SwiftNativeProxyRuntimeService+ThirdParty.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftNativeProxyRuntimeService+ThirdParty.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000010 /* SwiftNativeProxyRuntimeService+ProviderAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftNativeProxyRuntimeService+ProviderAdapters.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000011 /* SwiftNativeProxyRuntimeService+ProviderSSE.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftNativeProxyRuntimeService+ProviderSSE.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000012 /* LocalSubscriptionImporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LocalSubscriptionImporter.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000013 /* ProviderTokenRefreshService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderTokenRefreshService.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000014 /* ProviderPageModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderPageModel.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000015 /* ProviderPageView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderPageView.swift"; sourceTree = "<group>"; };
 		7E21A03EBE2D53313FA558D1 /* SwiftNativeProxyRuntimeService+Models.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftNativeProxyRuntimeService+Models.swift"; sourceTree = "<group>"; };
 		84D177FE0E597E58E234104A /* CopoolWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CopoolWidgets.swift; sourceTree = "<group>"; };
 		85BEA62E5EB96361AD117627 /* AccountsCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -478,6 +498,16 @@
 				B3F56B95BC653A8D7B00CC50 /* RemoteProxyOutputParser.swift */,
 				744F45048EC219469A97E4AD /* RemoteProxydBinaryBuilder.swift */,
 				9F7E6B167DBA6042D8D7D491 /* RemoteShellCommandRunner.swift */,
+				BB0000000000000000000001 /* ProviderModels.swift */,
+				BB0000000000000000000002 /* ProviderFileRepository.swift */,
+				BB0000000000000000000003 /* CodexModelsCacheService.swift */,
+				BB0000000000000000000004 /* SwiftNativeProxyRuntimeService+ThirdParty.swift */,
+				BB0000000000000000000010 /* SwiftNativeProxyRuntimeService+ProviderAdapters.swift */,
+				BB0000000000000000000011 /* SwiftNativeProxyRuntimeService+ProviderSSE.swift */,
+				BB0000000000000000000012 /* LocalSubscriptionImporter.swift */,
+				BB0000000000000000000013 /* ProviderTokenRefreshService.swift */,
+				BB0000000000000000000014 /* ProviderPageModel.swift */,
+				BB0000000000000000000015 /* ProviderPageView.swift */,
 				7E21A03EBE2D53313FA558D1 /* SwiftNativeProxyRuntimeService+Models.swift */,
 				6A2C7AA3A58AA9039226B0C6 /* SwiftNativeProxyRuntimeService+Reasoning.swift */,
 				72F83775D81C98F1457C952A /* SwiftNativeProxyRuntimeService+RequestTranslation.swift */,
@@ -1162,6 +1192,16 @@
 				C97B2BAEB879F4D2E4E22B54 /* RemoteProxyOutputParser.swift in Sources */,
 				D7C93806F608A3F1A6061CDA /* RemoteProxydBinaryBuilder.swift in Sources */,
 				F45812C741A5512702C8DA62 /* RemoteShellCommandRunner.swift in Sources */,
+				AA0000000000000000000001 /* ProviderModels.swift in Sources */,
+				AA0000000000000000000002 /* ProviderFileRepository.swift in Sources */,
+				AA0000000000000000000003 /* CodexModelsCacheService.swift in Sources */,
+				AA0000000000000000000004 /* SwiftNativeProxyRuntimeService+ThirdParty.swift in Sources */,
+				AA0000000000000000000010 /* SwiftNativeProxyRuntimeService+ProviderAdapters.swift in Sources */,
+				AA0000000000000000000011 /* SwiftNativeProxyRuntimeService+ProviderSSE.swift in Sources */,
+				AA0000000000000000000012 /* LocalSubscriptionImporter.swift in Sources */,
+				AA0000000000000000000013 /* ProviderTokenRefreshService.swift in Sources */,
+				AA0000000000000000000014 /* ProviderPageModel.swift in Sources */,
+				AA0000000000000000000015 /* ProviderPageView.swift in Sources */,
 				0395ED42439DA0C9E5F090EC /* SwiftNativeProxyRuntimeService+Models.swift in Sources */,
 				BC09A96AF0D6EDDDCE638354 /* SwiftNativeProxyRuntimeService+Reasoning.swift in Sources */,
 				15DB5CC3DD62EDCC284D506A /* SwiftNativeProxyRuntimeService+RequestTranslation.swift in Sources */,
@@ -1221,7 +1261,7 @@
 				CODE_SIGN_ENTITLEMENTS = Copool.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 27;
+				CURRENT_PROJECT_VERSION = 28;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
@@ -1233,16 +1273,16 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Sources/Copool/Info-macOS.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Copool;
+				INFOPLIST_KEY_CFBundleDisplayName = icopool;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool;
-				PRODUCT_NAME = Copool;
+				PRODUCT_NAME = icopool;
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
@@ -1262,7 +1302,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = CopoolWidgetsMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 27;
+				CURRENT_PROJECT_VERSION = 28;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
@@ -1280,7 +1320,7 @@
 				INFOPLIST_FILE = Sources/CopoolWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool.widgets;
 				PRODUCT_NAME = CopoolWidgetsMac;
 				REGISTER_APP_GROUPS = YES;
@@ -1304,7 +1344,7 @@
 				CODE_SIGN_ENTITLEMENTS = Copool.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 27;
+				CURRENT_PROJECT_VERSION = 28;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
@@ -1316,16 +1356,16 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "Sources/Copool/Info-macOS.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = Copool;
+				INFOPLIST_KEY_CFBundleDisplayName = icopool;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool;
-				PRODUCT_NAME = Copool;
+				PRODUCT_NAME = icopool;
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
 				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
@@ -1364,7 +1404,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = CopoolWidgetsMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 27;
+				CURRENT_PROJECT_VERSION = 28;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
@@ -1382,7 +1422,7 @@
 				INFOPLIST_FILE = Sources/CopoolWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 2.0.0;
+				MARKETING_VERSION = 2.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool.widgets;
 				PRODUCT_NAME = CopoolWidgetsMac;
 				REGISTER_APP_GROUPS = YES;

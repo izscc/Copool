@@ -430,6 +430,34 @@ struct UsageWindow: Codable, Equatable {
     var usedPercent: Double
     var windowSeconds: Int64
     var resetAt: Int64?
+
+    /// Banked rate-limit resets available for this window (Codex "resets").
+    var resetsAvailable: Int?
+    /// When the banked reset becomes usable (unix seconds), if known.
+    var resetsAvailableAt: Int64?
+
+    init(
+        usedPercent: Double,
+        windowSeconds: Int64,
+        resetAt: Int64?,
+        resetsAvailable: Int? = nil,
+        resetsAvailableAt: Int64? = nil
+    ) {
+        self.usedPercent = usedPercent
+        self.windowSeconds = windowSeconds
+        self.resetAt = resetAt
+        self.resetsAvailable = resetsAvailable
+        self.resetsAvailableAt = resetsAvailableAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        usedPercent = try container.decode(Double.self, forKey: .usedPercent)
+        windowSeconds = try container.decode(Int64.self, forKey: .windowSeconds)
+        resetAt = try container.decodeIfPresent(Int64.self, forKey: .resetAt)
+        resetsAvailable = try container.decodeIfPresent(Int.self, forKey: .resetsAvailable)
+        resetsAvailableAt = try container.decodeIfPresent(Int64.self, forKey: .resetsAvailableAt)
+    }
 }
 
 struct CreditSnapshot: Codable, Equatable {

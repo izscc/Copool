@@ -3,6 +3,7 @@ import Foundation
 struct LocalAccountsRefreshResult {
     let accounts: [AccountSummary]
     let didAutoSwitch: Bool
+    let accountSwitchError: String?
 }
 
 @MainActor
@@ -12,8 +13,9 @@ extension TrayMenuModel {
         do {
             beginAccountsRefreshActivity()
             defer { endAccountsRefreshActivity() }
-            accounts = try await executeRefresh(forceUsageRefresh: forceUsageRefresh)
-            notice = nil
+            let result = try await executeRefresh(forceUsageRefresh: forceUsageRefresh)
+            accounts = result.accounts
+            notice = result.accountSwitchError
         } catch {
             notice = error.localizedDescription
         }
@@ -24,6 +26,7 @@ extension TrayMenuModel {
     ) async throws -> [AccountSummary] {
         beginAccountsRefreshActivity()
         defer { endAccountsRefreshActivity() }
+        lastRefreshNotice = nil
         let settings = try await settingsCoordinator.currentSettings()
         applySettings(settings)
 
@@ -42,7 +45,8 @@ extension TrayMenuModel {
 
         accounts = latestAccounts
         scheduleWorkspaceMetadataRefresh(forceRemoteCheck: true)
-        notice = nil
+        lastRefreshNotice = localRefreshResult.accountSwitchError
+        notice = lastRefreshNotice
         return latestAccounts
     }
 
@@ -78,7 +82,7 @@ extension TrayMenuModel {
         workspaceMetadataRefreshTask = nil
     }
 
-    func executeRefresh(forceUsageRefresh: Bool) async throws -> [AccountSummary] {
+    func executeRefresh(forceUsageRefresh: Bool) async throws -> LocalAccountsRefreshResult {
         let settings = try await settingsCoordinator.currentSettings()
         applySettings(settings)
 
@@ -99,7 +103,7 @@ extension TrayMenuModel {
             "tray.executeRefresh.afterLocalRefresh",
             "forceUsageRefresh=\(forceUsageRefresh) didAutoSwitch=\(localRefreshResult.didAutoSwitch) \(AccountSwitchDebugLog.describe(accounts: latestAccounts))"
         )
-        return latestAccounts
+        return localRefreshResult
     }
 
     func refreshLocalAccounts(
@@ -117,7 +121,11 @@ extension TrayMenuModel {
         if forceUsageRefresh {
             let resolvedTargetAccountIDs = targetAccountIDs ?? latestAccounts.map(\.id)
             guard !resolvedTargetAccountIDs.isEmpty else {
-                return LocalAccountsRefreshResult(accounts: latestAccounts, didAutoSwitch: false)
+                return LocalAccountsRefreshResult(
+                    accounts: latestAccounts,
+                    didAutoSwitch: false,
+                    accountSwitchError: nil
+                )
             }
             beginRemoteUsageRefreshActivity(for: resolvedTargetAccountIDs)
             defer { endRemoteUsageRefreshActivity(for: resolvedTargetAccountIDs) }
@@ -139,7 +147,11 @@ extension TrayMenuModel {
                     "tray.refreshLocalAccounts.autoSwitched",
                     "selected=\(AccountSwitchDebugLog.describe(account: switchResult.selectedAccount)) \(AccountSwitchDebugLog.describe(accounts: switchResult.accounts))"
                 )
-                return LocalAccountsRefreshResult(accounts: switchResult.accounts, didAutoSwitch: true)
+                return LocalAccountsRefreshResult(
+                    accounts: switchResult.accounts,
+                    didAutoSwitch: true,
+                    accountSwitchError: switchResult.execution.chatGPTLaunchError
+                )
             }
         }
         let refreshedAccounts = try await accountsCoordinator.listAccounts(refreshWorkspaceMetadata: false)
@@ -149,7 +161,8 @@ extension TrayMenuModel {
         )
         return LocalAccountsRefreshResult(
             accounts: refreshedAccounts,
-            didAutoSwitch: false
+            didAutoSwitch: false,
+            accountSwitchError: nil
         )
     }
 
@@ -174,7 +187,7 @@ extension TrayMenuModel {
                 onPartialUpdate: nil
             )
             accounts = localRefreshResult.accounts
-            notice = nil
+            notice = localRefreshResult.accountSwitchError
         } catch {
             notice = error.localizedDescription
         }

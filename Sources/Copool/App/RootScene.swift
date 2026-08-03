@@ -39,9 +39,16 @@ struct RootScene: View {
             return chromeStore.accountsNotice
         case .proxy:
             return deferredProxyModel.model?.notice
+        case .providers:
+            return providerNotice
         case .settings:
             return chromeStore.settingsNotice
         }
+    }
+
+    /// Providers page notice surfaced in the shared banner.
+    private var providerNotice: NoticeMessage? {
+        container.providerModel.notice
     }
 
     private var currentAppLocale: AppLocale {
@@ -157,6 +164,8 @@ struct RootScene: View {
             )
         case .proxy:
             proxyTabContent
+        case .providers:
+            ProviderPageView(model: container.providerModel)
         case .settings:
             SettingsPageView(model: settingsModel)
         }
@@ -356,6 +365,7 @@ private extension AppTab {
         switch self {
         case .accounts: return "person.2"
         case .proxy: return "network"
+        case .providers: return "square.stack.3d.up"
         case .settings: return "gearshape"
         }
     }
@@ -364,6 +374,7 @@ private extension AppTab {
         switch self {
         case .accounts: return "tab.accounts"
         case .proxy: return "tab.proxy"
+        case .providers: return "tab.providers"
         case .settings: return "tab.settings"
         }
     }
@@ -372,6 +383,7 @@ private extension AppTab {
         switch self {
         case .accounts: return "tab.accounts"
         case .proxy: return "tab.proxy"
+        case .providers: return "tab.providers"
         case .settings: return "tab.settings"
         }
     }

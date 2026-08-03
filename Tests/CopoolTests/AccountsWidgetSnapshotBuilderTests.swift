@@ -47,7 +47,6 @@ struct AccountsWidgetSnapshotBuilderTests {
         #expect(snapshot.rows.count == 1)
         #expect(snapshot.rows[0].workspaceLabel == "workspace")
         #expect(snapshot.rows[0].accountLabel == "member")
-        #expect(snapshot.rows[0].fiveHour.remainingText == "55%")
         #expect(snapshot.rows[0].oneWeek.remainingText == "45%")
     }
 
@@ -72,7 +71,6 @@ struct AccountsWidgetSnapshotBuilderTests {
             now: Date(timeIntervalSince1970: 100)
         )
 
-        #expect(snapshot.currentCard?.fiveHour.resetText == "26/3/20 23:23:45")
         #expect(snapshot.currentCard?.oneWeek.resetText == "26/3/21 23:23:45")
     }
 
@@ -110,8 +108,8 @@ struct AccountsWidgetSnapshotBuilderTests {
         )
 
         #expect(snapshot.usageProgressDisplayMode == .remaining)
-        #expect(snapshot.currentCard?.fiveHour.usedText == "12%")
-        #expect(snapshot.currentCard?.fiveHour.remainingText == "88%")
+        #expect(snapshot.currentCard?.oneWeek.usedText == "34%")
+        #expect(snapshot.currentCard?.oneWeek.remainingText == "66%")
     }
 
     private func account(

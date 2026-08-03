@@ -204,7 +204,9 @@ final class DefaultUsageService: UsageService, @unchecked Sendable {
         UsageWindow(
             usedPercent: raw.usedPercent,
             windowSeconds: raw.limitWindowSeconds,
-            resetAt: raw.resetAt
+            resetAt: raw.resetAt,
+            resetsAvailable: raw.resetsAvailable,
+            resetsAvailableAt: raw.resetsAvailableAt
         )
     }
 
@@ -259,6 +261,8 @@ struct UsageWindowRaw: Equatable {
     var usedPercent: Double
     var limitWindowSeconds: Int64
     var resetAt: Int64
+    var resetsAvailable: Int?
+    var resetsAvailableAt: Int64?
 }
 
 extension UsageWindowRaw: Decodable {
@@ -266,6 +270,44 @@ extension UsageWindowRaw: Decodable {
         case usedPercent = "used_percent"
         case limitWindowSeconds = "limit_window_seconds"
         case resetAt = "reset_at"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        usedPercent = try container.decode(Double.self, forKey: .usedPercent)
+        limitWindowSeconds = try container.decode(Int64.self, forKey: .limitWindowSeconds)
+        resetAt = try container.decode(Int64.self, forKey: .resetAt)
+
+        // Codex returns banked resets under varying key names; decode
+        // tolerantly across the known spellings using a dynamic key lookup.
+        resetsAvailable = Self.decodeInt(container, keys: ["resets_available", "banked_resets", "num_resets", "reset_count"])
+        resetsAvailableAt = Self.decodeInt64(container, keys: ["resets_available_at", "banked_resets_available_at", "next_reset_available_at"])
+    }
+
+    private static func decodeInt(_ container: KeyedDecodingContainer<CodingKeys>, keys: [String]) -> Int? {
+        for key in keys {
+            guard let raw = container.allKeys.first(where: { $0.stringValue == key }) else { continue }
+            if let value = try? container.decodeIfPresent(Int.self, forKey: raw) {
+                return value
+            }
+            if let value = try? container.decodeIfPresent(Double.self, forKey: raw) {
+                return Int(value)
+            }
+        }
+        return nil
+    }
+
+    private static func decodeInt64(_ container: KeyedDecodingContainer<CodingKeys>, keys: [String]) -> Int64? {
+        for key in keys {
+            guard let raw = container.allKeys.first(where: { $0.stringValue == key }) else { continue }
+            if let value = try? container.decodeIfPresent(Int64.self, forKey: raw) {
+                return value
+            }
+            if let value = try? container.decodeIfPresent(Double.self, forKey: raw) {
+                return Int64(value)
+            }
+        }
+        return nil
     }
 }
 

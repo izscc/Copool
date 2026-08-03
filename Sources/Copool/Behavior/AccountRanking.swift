@@ -5,12 +5,7 @@ enum AccountRanking {
 
     static func remainingScore(for account: AccountSummary) -> Double {
         let oneWeekUsed = account.usage?.oneWeek?.usedPercent ?? 100
-        let fiveHourUsed = account.usage?.fiveHour?.usedPercent ?? 100
-
-        let oneWeekRemaining = max(0, 100 - oneWeekUsed)
-        let fiveHourRemaining = max(0, 100 - fiveHourUsed)
-
-        return oneWeekRemaining * 0.7 + fiveHourRemaining * 0.3
+        return max(0, 100 - oneWeekUsed)
     }
 
     static func sortByRemaining(_ accounts: [AccountSummary]) -> [AccountSummary] {
@@ -40,7 +35,7 @@ enum AccountRanking {
     }
 
     static func isQuotaExhausted(_ account: AccountSummary) -> Bool {
-        isWindowExhausted(account.usage?.fiveHour) || isWindowExhausted(account.usage?.oneWeek)
+        isWindowExhausted(account.usage?.oneWeek)
     }
 
     static func pickAutoSwitchTarget(_ accounts: [AccountSummary]) -> AccountSummary? {

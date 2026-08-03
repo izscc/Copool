@@ -4,8 +4,11 @@ struct FileSystemPaths {
     var applicationSupportDirectory: URL
     var accountStorePath: URL
     var settingsStorePath: URL
+    var providerStorePath: URL
+    var thirdPartyUsagePath: URL
     var codexAuthPath: URL
     var codexConfigPath: URL
+    var codexModelsCachePath: URL
     var proxyDaemonDataDirectory: URL
     var proxyDaemonKeyPath: URL
     var cloudflaredLogDirectory: URL
@@ -28,8 +31,11 @@ struct FileSystemPaths {
             applicationSupportDirectory: appSupportDirectory,
             accountStorePath: appSupportDirectory.appendingPathComponent("accounts.json", isDirectory: false),
             settingsStorePath: appSupportDirectory.appendingPathComponent("settings.json", isDirectory: false),
+            providerStorePath: appSupportDirectory.appendingPathComponent("providers.json", isDirectory: false),
+            thirdPartyUsagePath: appSupportDirectory.appendingPathComponent("third-party-usage.json", isDirectory: false),
             codexAuthPath: codexDirectory.appendingPathComponent("auth.json", isDirectory: false),
             codexConfigPath: codexDirectory.appendingPathComponent("config.toml", isDirectory: false),
+            codexModelsCachePath: codexDirectory.appendingPathComponent("models_cache.json", isDirectory: false),
             proxyDaemonDataDirectory: proxyDaemonDataDirectory,
             proxyDaemonKeyPath: proxyDaemonDataDirectory.appendingPathComponent("api-proxy.key", isDirectory: false),
             cloudflaredLogDirectory: cloudflaredLogDirectory

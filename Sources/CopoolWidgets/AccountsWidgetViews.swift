@@ -416,7 +416,6 @@ private struct AccountsWidgetLargeView: View {
                     planLabel: current.planLabel,
                     workspaceLabel: current.workspaceLabel,
                     accountLabel: current.accountLabel,
-                    fiveHour: current.fiveHour,
                     oneWeek: current.oneWeek
                 )
             )
@@ -429,7 +428,6 @@ private struct AccountsWidgetLargeView: View {
                     planLabel: $0.planLabel,
                     workspaceLabel: $0.workspaceLabel,
                     accountLabel: $0.accountLabel,
-                    fiveHour: $0.fiveHour,
                     oneWeek: $0.oneWeek
                 )
             }
@@ -537,18 +535,6 @@ private struct AccountsWidgetCompactCardContent: View {
 
                 HStack(spacing: ringSpacing) {
                     AccountsWidgetCompactRing(
-                        valueText: displayText(for: card.fiveHour),
-                        subtitleText: card.fiveHour.title,
-                        progress: displayProgress(for: card.fiveHour),
-                        tint: .orange,
-                        size: ringSize,
-                        lineWidth: ringLineWidth,
-                        valueFontSize: ringValueFontSize,
-                        subtitleFontSize: ringSubtitleFontSize
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    AccountsWidgetCompactRing(
                         valueText: displayText(for: card.oneWeek),
                         subtitleText: card.oneWeek.title,
                         progress: displayProgress(for: card.oneWeek),
@@ -558,7 +544,7 @@ private struct AccountsWidgetCompactCardContent: View {
                         valueFontSize: ringValueFontSize,
                         subtitleFontSize: ringSubtitleFontSize
                     )
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(height: ringAreaHeight, alignment: .center)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -668,7 +654,6 @@ private struct AccountsWidgetLargeGroup: Identifiable {
     let planLabel: String
     let workspaceLabel: String?
     let accountLabel: String
-    let fiveHour: AccountsWidgetWindowSnapshot
     let oneWeek: AccountsWidgetWindowSnapshot
 }
 
@@ -750,15 +735,6 @@ private struct AccountsWidgetLargeGroupView: View {
             }
 
             HStack(alignment: .top, spacing: metricSpacing) {
-                AccountsWidgetLargeMetric(
-                    window: group.fiveHour,
-                    usageProgressDisplayMode: usageProgressDisplayMode,
-                    tint: .orange,
-                    detailFontSize: detailFontSize,
-                    iconSize: iconSize,
-                    progressHeight: progressHeight
-                )
-
                 AccountsWidgetLargeMetric(
                     window: group.oneWeek,
                     usageProgressDisplayMode: usageProgressDisplayMode,

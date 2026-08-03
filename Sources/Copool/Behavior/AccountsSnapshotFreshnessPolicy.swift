@@ -99,6 +99,6 @@ struct AccountsUsageRefreshPlanningPolicy: Sendable {
 
 private extension UsageSnapshot {
     var windows: [UsageWindow] {
-        [fiveHour, oneWeek].compactMap { $0 }
+        [oneWeek].compactMap { $0 }
     }
 }

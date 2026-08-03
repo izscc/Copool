@@ -30,7 +30,11 @@ extension AccountsPageModel {
             let noticeKey = manualRefreshService == nil
                 ? "accounts.notice.usage_refreshed"
                 : "accounts.notice.accounts_refreshed"
-            notice = NoticeMessage(style: .info, text: L10n.tr(noticeKey))
+            if let refreshNotice = manualRefreshService?.lastRefreshNotice, !refreshNotice.isEmpty {
+                notice = NoticeMessage(style: .error, text: refreshNotice)
+            } else {
+                notice = NoticeMessage(style: .info, text: L10n.tr(noticeKey))
+            }
         } catch {
             notice = NoticeMessage(style: .error, text: error.localizedDescription)
         }

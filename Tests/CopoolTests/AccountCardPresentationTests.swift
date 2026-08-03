@@ -43,7 +43,6 @@ final class AccountCardPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.teamNameTag, "Alias A")
         XCTAssertEqual(presentation.displayAccountName, "dev")
         XCTAssertEqual(presentation.creditsText, "128")
-        XCTAssertEqual(presentation.compactUsage.fiveHourDisplayPercent, 27.2)
         XCTAssertEqual(presentation.compactUsage.oneWeekDisplayPercent, 52.6)
     }
 
@@ -81,8 +80,8 @@ final class AccountCardPresentationTests: XCTestCase {
         XCTAssertNil(presentation.teamNameTag)
         XCTAssertEqual(presentation.displayAccountName, "account-2")
         XCTAssertEqual(presentation.creditsText, L10n.tr("accounts.card.unlimited"))
-        XCTAssertEqual(presentation.fiveHourWindow.progressPercent, 100)
-        XCTAssertEqual(presentation.fiveHourWindow.resetText, L10n.tr("accounts.window.reset_at_format", "--"))
+        XCTAssertEqual(presentation.oneWeekWindow.progressPercent, 100)
+        XCTAssertEqual(presentation.oneWeekWindow.resetText, L10n.tr("accounts.window.reset_at_format", "--"))
     }
 
     func testPresentationShowsDeactivatedStatusTag() {
@@ -141,14 +140,13 @@ final class AccountCardPresentationTests: XCTestCase {
             usageProgressDisplayMode: .remaining
         )
 
-        XCTAssertEqual(presentation.fiveHourWindow.progressPercent, 28)
-        XCTAssertEqual(presentation.fiveHourWindow.primaryText, "Remaining 28%")
-        XCTAssertEqual(presentation.fiveHourWindow.secondaryText, "Used 72%")
+        XCTAssertEqual(presentation.oneWeekWindow.progressPercent, 70)
+        XCTAssertEqual(presentation.oneWeekWindow.primaryText, "Remaining 70%")
+        XCTAssertEqual(presentation.oneWeekWindow.secondaryText, "Used 30%")
         XCTAssertEqual(
-            presentation.fiveHourWindow.resetText,
-            L10n.tr("accounts.window.reset_at_format", "11/15/25, 22:13:20")
+            presentation.oneWeekWindow.resetText,
+            L10n.tr("accounts.window.reset_at_format", "11/18/25, 22:13:20")
         )
-        XCTAssertEqual(presentation.compactUsage.fiveHourDisplayPercent, 28)
         XCTAssertEqual(presentation.compactUsage.oneWeekDisplayPercent, 70)
     }
 }

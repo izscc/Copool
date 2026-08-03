@@ -41,12 +41,6 @@ struct AccountsWidgetSnapshotBuilder {
             planLabel: account.normalizedPlanLabel,
             workspaceLabel: account.displayTeamName,
             accountLabel: AccountDisplayNameFormatter.format(account: account, style: .localPart),
-            fiveHour: windowSnapshot(
-                title: "5h",
-                window: account.usage?.fiveHour,
-                locale: locale,
-                timeZone: timeZone
-            ),
             oneWeek: windowSnapshot(
                 title: "1w",
                 window: account.usage?.oneWeek,
@@ -67,12 +61,6 @@ struct AccountsWidgetSnapshotBuilder {
             planLabel: account.normalizedPlanLabel,
             workspaceLabel: account.displayTeamName,
             accountLabel: accountLabel,
-            fiveHour: windowSnapshot(
-                title: "5h",
-                window: account.usage?.fiveHour,
-                locale: locale,
-                timeZone: timeZone
-            ),
             oneWeek: windowSnapshot(
                 title: "1w",
                 window: account.usage?.oneWeek,

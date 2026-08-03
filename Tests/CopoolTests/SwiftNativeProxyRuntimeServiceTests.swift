@@ -108,8 +108,7 @@ final class SwiftNativeProxyRuntimeServiceTests: XCTestCase {
                 authJSON: .object([:]),
                 addedAt: 2,
                 isPreferredCurrent: false,
-                oneWeekUsed: nil,
-                fiveHourUsed: nil
+                oneWeekUsed: nil
             )
         )
         let candidates = try await runtime.withIsolation { runtime in
@@ -191,13 +190,45 @@ final class SwiftNativeProxyRuntimeServiceTests: XCTestCase {
             addedAt: 1,
             isPreferredCurrent: false,
             oneWeekUsed: nil,
-            fiveHourUsed: nil
         )
 
         try await runtime.recordSuccessfulCandidate(candidate)
 
         let callbackCount = callback.readCallCount()
         XCTAssertEqual(callbackCount, 1)
+    }
+
+    func testRecordSuccessfulCandidateSkipsSwitchForCurrentAccount() async throws {
+        let switchCallback = StoreChangeCallback()
+        let account = makeStoredAccount(id: "a", label: "Account A", accountID: "acct-a", addedAt: 1)
+        let repository = InMemoryAccountsStoreRepository(
+            store: AccountsStore(
+                accounts: [account],
+                currentAccountID: account.id
+            )
+        )
+        let runtime = makeRuntime(
+            storeRepository: repository,
+            switchAccount: { _ in
+                switchCallback.markCalled()
+            }
+        )
+
+        try await runtime.recordSuccessfulCandidate(
+            ProxyCandidate(
+                id: account.id,
+                label: account.label,
+                accountID: account.accountID,
+                accountKey: "acct-a|acct-a",
+                accessToken: "token-acct-a",
+                authJSON: .object([:]),
+                addedAt: account.addedAt,
+                isPreferredCurrent: true,
+                oneWeekUsed: nil,
+            )
+        )
+
+        XCTAssertEqual(switchCallback.readCallCount(), 0)
     }
 
     func testRecordSuccessfulCandidateUsesSuccessfulCandidateAsCurrentSelection() async throws {
@@ -233,7 +264,6 @@ final class SwiftNativeProxyRuntimeServiceTests: XCTestCase {
             addedAt: 1,
             isPreferredCurrent: false,
             oneWeekUsed: nil,
-            fiveHourUsed: nil
         )
 
         try await runtime.recordSuccessfulCandidate(candidate)

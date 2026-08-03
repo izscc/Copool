@@ -14,10 +14,10 @@ struct AccountWindowPresentation: Equatable {
     let primaryText: String
     let secondaryText: String
     let resetText: String
+    let resetCountText: String?
 }
 
 struct AccountCompactUsagePresentation: Equatable {
-    let fiveHourDisplayPercent: Double?
     let oneWeekDisplayPercent: Double?
 }
 
@@ -28,7 +28,6 @@ struct AccountCardPresentation: Equatable {
     let statusLabel: String?
     let displayAccountName: String
     let creditsText: String
-    let fiveHourWindow: AccountWindowPresentation
     let oneWeekWindow: AccountWindowPresentation
     let compactUsage: AccountCompactUsagePresentation
 
@@ -45,12 +44,6 @@ struct AccountCardPresentation: Equatable {
         statusLabel = account.isWorkspaceDeactivated ? L10n.tr("accounts.card.status.deactivated") : nil
         displayAccountName = Self.displayName(for: account, isCollapsed: isCollapsed)
         creditsText = Self.creditsText(for: account)
-        fiveHourWindow = Self.windowPresentation(
-            title: L10n.tr("accounts.window.five_hour"),
-            window: account.usage?.fiveHour,
-            locale: locale,
-            usageProgressDisplayMode: usageProgressDisplayMode
-        )
         oneWeekWindow = Self.windowPresentation(
             title: L10n.tr("accounts.window.one_week"),
             window: account.usage?.oneWeek,
@@ -58,10 +51,6 @@ struct AccountCardPresentation: Equatable {
             usageProgressDisplayMode: usageProgressDisplayMode
         )
         compactUsage = AccountCompactUsagePresentation(
-            fiveHourDisplayPercent: Self.compactDisplayPercent(
-                account.usage?.fiveHour,
-                usageProgressDisplayMode: usageProgressDisplayMode
-            ),
             oneWeekDisplayPercent: Self.compactDisplayPercent(
                 account.usage?.oneWeek,
                 usageProgressDisplayMode: usageProgressDisplayMode
@@ -113,12 +102,16 @@ struct AccountCardPresentation: Equatable {
         let secondaryText = usageProgressDisplayMode == .remaining
             ? L10n.tr("accounts.window.used_format", percent(used))
             : L10n.tr("accounts.window.remaining_format", percent(remaining))
+        let resetCountText = window.flatMap { window in
+            window.resetsAvailable.map { L10n.tr("accounts.card.resets_available_format", String($0)) }
+        }
         return AccountWindowPresentation(
             title: title,
             progressPercent: progress,
             primaryText: primaryText,
             secondaryText: secondaryText,
-            resetText: L10n.tr("accounts.window.reset_at_format", formatResetAt(window?.resetAt, locale: locale))
+            resetText: L10n.tr("accounts.window.reset_at_format", formatResetAt(window?.resetAt, locale: locale)),
+            resetCountText: resetCountText
         )
     }
 
@@ -148,15 +141,10 @@ struct AccountCardPresentation: Equatable {
         guard let epoch else { return "--" }
         let date = Date(timeIntervalSince1970: TimeInterval(epoch))
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = locale
-        dateFormatter.dateStyle = .short
-        dateFormatter.timeStyle = .none
-
-        let timeFormatter = DateFormatter()
-        timeFormatter.locale = locale
-        timeFormatter.setLocalizedDateFormatFromTemplate("HHmmss")
-
-        return "\(dateFormatter.string(from: date)), \(timeFormatter.string(from: date))"
+        // Show month/day/hour/minute so users see exactly when the quota resets.
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.setLocalizedDateFormatFromTemplate("MMMdHm")
+        return formatter.string(from: date)
     }
 }

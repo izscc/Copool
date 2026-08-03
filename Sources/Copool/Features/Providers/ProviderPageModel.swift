@@ -1,20 +1,38 @@
 import Foundation
 import Combine
 
+/// Preconfigured provider presets users can add with one tap.
+struct ProviderPreset: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let baseURL: String
+    let protocolKind: ProviderProtocol
+    let exampleModels: [String]
+
+    static let all: [ProviderPreset] = [
+        ProviderPreset(id: "deepseek", name: "DeepSeek", baseURL: "https://api.deepseek.com/v1", protocolKind: .chat, exampleModels: ["deepseek-chat", "deepseek-reasoner"]),
+        ProviderPreset(id: "qwen", name: "Qwen", baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", protocolKind: .chat, exampleModels: ["qwen3-max", "qwen3-plus"]),
+        ProviderPreset(id: "zai", name: "Z.ai", baseURL: "https://api.z.ai/api/v1", protocolKind: .chat, exampleModels: ["glm-5", "glm-5-flash"]),
+        ProviderPreset(id: "minimax", name: "MiniMax", baseURL: "https://api.minimax.chat/v1", protocolKind: .chat, exampleModels: ["MiniMax-M3", "MiniMax-M2.7"]),
+        ProviderPreset(id: "kimi", name: "Kimi", baseURL: "https://api.moonshot.cn/v1", protocolKind: .chat, exampleModels: ["moonshot-v1-128k", "moonshot-v1-32k"]),
+        ProviderPreset(id: "openrouter", name: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", protocolKind: .chat, exampleModels: ["anthropic/claude-sonnet-4.6", "deepseek/deepseek-chat"]),
+        ProviderPreset(id: "volcengine", name: "火山方舟", baseURL: "https://ark.cn-beijing.volces.com/api/v3", protocolKind: .chat, exampleModels: ["doubao-seed-1-6"]),
+        ProviderPreset(id: "anthropic", name: "Anthropic", baseURL: "https://api.anthropic.com", protocolKind: .anthropic, exampleModels: ["claude-sonnet-4-6", "claude-opus-4-7"]),
+        ProviderPreset(id: "gemini", name: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta", protocolKind: .google, exampleModels: ["gemini-3-pro", "gemini-3-flash"]),
+    ]
+}
+
 @MainActor
-final class SettingsPageModel: ObservableObject {
-    let settingsCoordinator: SettingsCoordinator
-    let editorAppService: EditorAppServiceProtocol
-    let onSettingsUpdated: @MainActor (AppSettings) -> Void
-    let onQuitRequested: @MainActor () -> Void
-    let providerStoreRepository: ProviderStoreRepository?
-    let onProvidersChanged: @MainActor () -> Void
+final class ProviderPageModel: ObservableObject {
+    let providerStoreRepository: ProviderStoreRepository
+    let usageRepository: ThirdPartyUsageRepository?
+    let onProvidersChanged: () -> Void
 
-    private let noticeScheduler = NoticeAutoDismissScheduler()
+    private let importer = LocalSubscriptionImporter()
 
-    @Published var settings: AppSettings = .defaultValue
-    @Published var installedEditorApps: [InstalledEditorApp] = []
     @Published var providers: [ProviderConfig] = []
+    @Published var detectedSubscriptions: [ImportedSubscription] = []
+    @Published var isDetectingSubscriptions = false
     @Published var providerForm: ProviderFormDraft = .empty
     @Published var isTestingProviderConnection = false
     @Published var providerConnectionTestResult: String?
@@ -26,31 +44,61 @@ final class SettingsPageModel: ObservableObject {
         }
     }
 
-    var hasLoaded = false
+    private let noticeScheduler = NoticeAutoDismissScheduler()
 
     init(
-        settingsCoordinator: SettingsCoordinator,
-        editorAppService: EditorAppServiceProtocol,
-        providerStoreRepository: ProviderStoreRepository? = nil,
-        onSettingsUpdated: @escaping @MainActor (AppSettings) -> Void = { _ in },
-        onQuitRequested: @escaping @MainActor () -> Void = {},
-        onProvidersChanged: @escaping @MainActor () -> Void = {}
+        providerStoreRepository: ProviderStoreRepository,
+        usageRepository: ThirdPartyUsageRepository? = nil,
+        onProvidersChanged: @escaping () -> Void = {}
     ) {
-        self.settingsCoordinator = settingsCoordinator
-        self.editorAppService = editorAppService
         self.providerStoreRepository = providerStoreRepository
-        self.onSettingsUpdated = onSettingsUpdated
-        self.onQuitRequested = onQuitRequested
+        self.usageRepository = usageRepository
         self.onProvidersChanged = onProvidersChanged
     }
 
-    func reloadProviders() {
-        guard let providerStoreRepository else { return }
+    func loadProviders() {
         providers = (try? providerStoreRepository.loadProviders())?.providers ?? []
     }
 
-    func beginAddingProvider() {
-        providerForm = .empty
+    func detectSubscriptions() {
+        isDetectingSubscriptions = true
+        detectedSubscriptions = importer.detectAll()
+        isDetectingSubscriptions = false
+    }
+
+    func importSubscription(_ subscription: ImportedSubscription) {
+        let provider = ProviderConfig(
+            name: subscription.providerName,
+            baseURL: subscription.baseURL,
+            apiKey: subscription.accessToken,
+            refreshToken: subscription.refreshToken,
+            authKind: subscription.authKind,
+            models: subscription.modelIDs.map { ProviderModel(id: $0) },
+            defaultProtocol: subscription.protocolKind
+        )
+        do {
+            _ = try providerStoreRepository.mutateProviders { store in
+                store.providers.removeAll { $0.name.lowercased() == provider.name.lowercased() }
+                store.providers.append(provider)
+            }
+            loadProviders()
+            detectedSubscriptions.removeAll { $0.providerName == subscription.providerName }
+            notice = NoticeMessage(style: .success, text: L10n.tr("providers.import.done"))
+            onProvidersChanged()
+        } catch {
+            notice = NoticeMessage(style: .error, text: error.localizedDescription)
+        }
+    }
+
+    func applyPreset(_ preset: ProviderPreset) {
+        providerForm = ProviderFormDraft(
+            id: "",
+            name: preset.name,
+            baseURL: preset.baseURL,
+            apiKey: "",
+            modelListText: preset.exampleModels.joined(separator: ","),
+            protocolMode: preset.protocolKind.rawValue
+        )
         providerConnectionTestResult = nil
     }
 
@@ -61,15 +109,12 @@ final class SettingsPageModel: ObservableObject {
             baseURL: provider.baseURL,
             apiKey: provider.apiKey,
             modelListText: provider.models.map(\.id).joined(separator: ","),
-            protocolMode: provider.models.first.map {
-                provider.resolvedProtocol(forModel: $0.id).rawValue
-            } ?? ProviderProtocol.chat.rawValue
+            protocolMode: provider.defaultProtocol.rawValue
         )
         providerConnectionTestResult = nil
     }
 
     func saveProviderForm() {
-        guard let providerStoreRepository else { return }
         let draft = providerForm
         let modelIDs = draft.modelListText
             .split(whereSeparator: { $0 == "," || $0 == "\n" || $0.isWhitespace })
@@ -89,7 +134,7 @@ final class SettingsPageModel: ObservableObject {
             baseURL: draft.baseURL.trimmingCharacters(in: .whitespaces),
             apiKey: draft.apiKey.trimmingCharacters(in: .whitespaces),
             models: modelIDs.map { ProviderModel(id: $0) },
-            modelProtocols: Dictionary(uniqueKeysWithValues: modelIDs.map { ($0, protocolKind) }),
+            defaultProtocol: protocolKind,
             addedAt: draft.id.isEmpty ? Int64(Date().timeIntervalSince1970) : 0
         )
 
@@ -101,7 +146,7 @@ final class SettingsPageModel: ObservableObject {
                     store.providers.append(provider)
                 }
             }
-            reloadProviders()
+            loadProviders()
             providerForm = .empty
             notice = NoticeMessage(style: .success, text: L10n.tr("settings.providers.saved"))
             onProvidersChanged()
@@ -111,12 +156,11 @@ final class SettingsPageModel: ObservableObject {
     }
 
     func removeProvider(_ provider: ProviderConfig) {
-        guard let providerStoreRepository else { return }
         do {
             _ = try providerStoreRepository.mutateProviders { store in
                 store.providers.removeAll { $0.id == provider.id }
             }
-            reloadProviders()
+            loadProviders()
             onProvidersChanged()
         } catch {
             notice = NoticeMessage(style: .error, text: error.localizedDescription)

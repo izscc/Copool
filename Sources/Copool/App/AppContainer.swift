@@ -13,6 +13,7 @@ final class AppContainer {
     let accountsModel: AccountsPageModel
     let settingsModel: SettingsPageModel
     let trayModel: TrayMenuModel
+    let providerModel: ProviderPageModel
 
     private let settingsCoordinator: SettingsCoordinator
     private let accountsWidgetSnapshotWriter: AccountsWidgetSnapshotWriter
@@ -47,11 +48,16 @@ final class AppContainer {
             let storeRepository = StoreFileRepository(paths: paths)
             let settingsRepository = SettingsFileRepository(paths: paths)
             let authRepository = AuthFileRepository(paths: paths)
+            let providerRepository = ProviderFileRepository(paths: paths)
+            let usageRepository = ThirdPartyUsageFileRepository(paths: paths)
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
             let workspaceMetadataService = DefaultWorkspaceMetadataService(configPath: paths.codexConfigPath)
             let chatGPTOAuthLoginService = OpenAIChatGPTOAuthLoginService(configPath: paths.codexConfigPath)
-            let chatGPTAppService = ChatGPTAppService()
+            let chatGPTAppService = ChatGPTAppService(
+                paths: paths,
+                providerStoreRepository: providerRepository
+            )
             let editorAppService = EditorAppService()
             let opencodeSyncService = OpencodeAuthSyncService()
             let launchAtStartupService = LaunchAtStartupService()
@@ -73,6 +79,8 @@ final class AppContainer {
                     storeRepository: storeRepository,
                     settingsRepository: settingsRepository,
                     authRepository: authRepository,
+                    providerRepository: providerRepository,
+                    usageRepository: usageRepository,
                     onAccountsStoreChanged: {
                         accountsStoreChangeHandlerBox.handler?()
                     },
@@ -151,11 +159,13 @@ final class AppContainer {
                 onSettingsUpdated: { settings in
                     applySettingsToContainer?(settings)
                 },
-                initialAccounts: initialAccounts
+                initialAccounts: initialAccounts,
+                thirdPartyUsageRepository: usageRepository
             )
             let settingsModel = SettingsPageModel(
                 settingsCoordinator: settingsCoordinator,
                 editorAppService: editorAppService,
+                providerStoreRepository: providerRepository,
                 onSettingsUpdated: { settings in
                     applySettingsToContainer?(settings)
                 },
@@ -163,6 +173,25 @@ final class AppContainer {
                     #if canImport(AppKit)
                     NSApp.terminate(nil)
                     #endif
+                },
+                onProvidersChanged: {
+                    // Inject the updated catalog into ~/.codex/models_cache.json so
+                    // the model menu shows third-party models after the next
+                    // ChatGPT.app restart.
+                    let providers = (try? providerRepository.loadProviders())?.providers ?? []
+                    try? chatGPTAppService.syncThirdPartyModels(providers: providers)
+                }
+            )
+
+            let providerModel = ProviderPageModel(
+                providerStoreRepository: providerRepository,
+                usageRepository: usageRepository,
+                onProvidersChanged: {
+                    // Inject the updated catalog into ~/.codex/models_cache.json so
+                    // the model menu shows third-party models after the next
+                    // ChatGPT.app restart.
+                    let providers = (try? providerRepository.loadProviders())?.providers ?? []
+                    try? chatGPTAppService.syncThirdPartyModels(providers: providers)
                 }
             )
 
@@ -174,7 +203,8 @@ final class AppContainer {
                 widgetUsageProgressDisplayMode: initialSettings.usageProgressDisplayMode,
                 accountsModel: accountsModel,
                 settingsModel: settingsModel,
-                trayModel: trayModel
+                trayModel: trayModel,
+                providerModel: providerModel
             )
             applySettingsToContainer = { settings in
                 container.applySettings(settings)
@@ -193,7 +223,8 @@ final class AppContainer {
         widgetUsageProgressDisplayMode: UsageProgressDisplayMode,
         accountsModel: AccountsPageModel,
         settingsModel: SettingsPageModel,
-        trayModel: TrayMenuModel
+        trayModel: TrayMenuModel,
+        providerModel: ProviderPageModel
     ) {
         self.settingsCoordinator = settingsCoordinator
         self.accountsWidgetSnapshotWriter = accountsWidgetSnapshotWriter
@@ -203,6 +234,7 @@ final class AppContainer {
         self.accountsModel = accountsModel
         self.settingsModel = settingsModel
         self.trayModel = trayModel
+        self.providerModel = providerModel
         accountsWidgetDisplayModeStore.save(rawValue: widgetUsageProgressDisplayMode.rawValue)
         accountsWidgetSnapshotCancellable = trayModel.$accounts
             .removeDuplicates()

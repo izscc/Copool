@@ -52,6 +52,7 @@ final class TrayMenuModel: ObservableObject, AccountsManualRefreshServiceProtoco
 
     @Published var accounts: [AccountSummary] = []
     @Published var notice: String?
+    var lastRefreshNotice: String?
     @Published var isRefreshingAccounts = false
     @Published var isFetchingRemoteUsage = false
     @Published var remoteUsageRefreshingAccountIDs: Set<String> = []
@@ -98,16 +99,14 @@ final class TrayMenuModel: ObservableObject, AccountsManualRefreshServiceProtoco
             return L10n.tr("tray.title.placeholder")
         }
 
-        let five = percent(remainingValue(window: current.usage?.fiveHour))
         let week = percent(remainingValue(window: current.usage?.oneWeek))
-        return L10n.tr("tray.title.format", five, week)
+        return L10n.tr("tray.title.format", week)
     }
 
     func accountLine(_ account: AccountSummary) -> String {
         let prefix = account.isCurrent ? L10n.tr("tray.account.current_prefix") : ""
-        let five = percent(remainingValue(window: account.usage?.fiveHour))
         let week = percent(remainingValue(window: account.usage?.oneWeek))
-        return L10n.tr("tray.account.line.format", prefix, account.label, five, week)
+        return L10n.tr("tray.account.line.format", prefix, account.label, week)
     }
 
     private func remainingValue(window: UsageWindow?) -> Double? {

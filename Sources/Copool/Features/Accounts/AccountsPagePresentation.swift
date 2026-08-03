@@ -5,10 +5,24 @@ struct AccountsPageContentPresentation: Equatable {
     let pendingWorkspaceCards: [PendingWorkspaceAuthorizationCardViewState]
     let pendingWorkspaceError: String?
     let isOverviewMode: Bool
+    let thirdPartyUsageRows: [ThirdPartyUsageRowPresentation]
 
     var shouldShowPendingWorkspaceSection: Bool {
         !isOverviewMode && (!pendingWorkspaceCards.isEmpty || pendingWorkspaceError != nil)
     }
+
+    var shouldShowThirdPartyUsageSection: Bool {
+        !thirdPartyUsageRows.isEmpty
+    }
+}
+
+/// One row in the third-party usage statistics section.
+struct ThirdPartyUsageRowPresentation: Equatable, Identifiable {
+    let id: String
+    let title: String          // providerName / modelID
+    let requestsText: String
+    let tokensText: String
+    let lastUsedText: String
 }
 
 struct AccountsActionBarPresentation: Equatable {
@@ -175,8 +189,47 @@ extension AccountsPageModel {
             state: contentState,
             pendingWorkspaceCards: pendingCards,
             pendingWorkspaceError: pendingError,
-            isOverviewMode: areAllAccountsCollapsed
+            isOverviewMode: areAllAccountsCollapsed,
+            thirdPartyUsageRows: thirdPartyUsageRows()
         )
+    }
+
+    /// Builds the third-party usage rows from the persisted ledger.
+    func thirdPartyUsageRows(locale: Locale = .autoupdatingCurrent) -> [ThirdPartyUsageRowPresentation] {
+        guard let thirdPartyUsageRepository,
+              let store = try? thirdPartyUsageRepository.loadUsage() else {
+            return []
+        }
+
+        return store.entries
+            .sorted { $0.lastUsedAt > $1.lastUsedAt }
+            .map { entry in
+                ThirdPartyUsageRowPresentation(
+                    id: entry.id,
+                    title: "\(entry.providerName) / \(entry.modelID)",
+                    requestsText: L10n.tr("accounts.stats.third_party.requests_format", String(entry.requests)),
+                    tokensText: L10n.tr(
+                        "accounts.stats.third_party.tokens_format",
+                        Self.formatTokenCount(entry.totalTokens)
+                    ),
+                    lastUsedText: Self.formatLastUsed(entry.lastUsedAt, locale: locale)
+                )
+            }
+    }
+
+    private static func formatTokenCount(_ count: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: count)) ?? String(count)
+    }
+
+    private static func formatLastUsed(_ unixSeconds: Int64, locale: Locale) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(unixSeconds))
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 
     func makeMacActionBarPresentation() -> AccountsActionBarPresentation {

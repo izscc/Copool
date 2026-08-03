@@ -20,6 +20,26 @@ protocol SettingsRepository: Sendable {
     func saveSettings(_ settings: AppSettings) throws
 }
 
+protocol ProviderStoreRepository: Sendable {
+    func loadProviders() throws -> ProviderStore
+    func saveProviders(_ store: ProviderStore) throws
+    func mutateProviders(_ transform: (inout ProviderStore) throws -> Void) throws -> ProviderStore
+}
+
+extension ProviderStoreRepository {
+    func mutateProviders(_ transform: (inout ProviderStore) throws -> Void) throws -> ProviderStore {
+        var store = try loadProviders()
+        try transform(&store)
+        try saveProviders(store)
+        return store
+    }
+}
+
+protocol ThirdPartyUsageRepository: Sendable {
+    func loadUsage() throws -> ThirdPartyUsageStore
+    func saveUsage(_ store: ThirdPartyUsageStore) throws
+}
+
 protocol AuthRepository: Sendable {
     func readCurrentAuth() throws -> JSONValue
     func readCurrentAuthOptional() throws -> JSONValue?
@@ -107,6 +127,13 @@ protocol RemoteAccountsMutationSyncServiceProtocol: Sendable {
 
 protocol ChatGPTAppServiceProtocol: Sendable {
     func launchApp() throws
+    func syncThirdPartyModels(providers: [ProviderConfig]) throws
+}
+
+extension ChatGPTAppServiceProtocol {
+    func syncThirdPartyModels(providers: [ProviderConfig]) throws {
+        _ = providers
+    }
 }
 
 protocol ChatGPTOAuthLoginServiceProtocol: Sendable {
@@ -148,6 +175,7 @@ protocol ProxyLocalCommandServiceProtocol: Sendable {
 
 @MainActor
 protocol AccountsManualRefreshServiceProtocol: AnyObject {
+    var lastRefreshNotice: String? { get }
     func performManualRefresh() async throws -> [AccountSummary]
     func performManualRefresh(
         onPartialUpdate: @escaping @MainActor ([AccountSummary]) -> Void
@@ -155,6 +183,8 @@ protocol AccountsManualRefreshServiceProtocol: AnyObject {
 }
 
 extension AccountsManualRefreshServiceProtocol {
+    var lastRefreshNotice: String? { nil }
+
     func performManualRefresh() async throws -> [AccountSummary] {
         try await performManualRefresh(onPartialUpdate: { _ in })
     }

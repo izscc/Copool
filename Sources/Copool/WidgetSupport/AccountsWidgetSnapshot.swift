@@ -177,7 +177,6 @@ struct AccountsWidgetCardSnapshot: Codable, Equatable, Sendable, Identifiable {
     var planLabel: String
     var workspaceLabel: String?
     var accountLabel: String
-    var fiveHour: AccountsWidgetWindowSnapshot
     var oneWeek: AccountsWidgetWindowSnapshot
 }
 
@@ -194,6 +193,5 @@ struct AccountsWidgetRowSnapshot: Codable, Equatable, Sendable, Identifiable {
     var planLabel: String
     var workspaceLabel: String?
     var accountLabel: String
-    var fiveHour: AccountsWidgetWindowSnapshot
     var oneWeek: AccountsWidgetWindowSnapshot
 }

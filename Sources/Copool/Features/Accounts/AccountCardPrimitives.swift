@@ -138,7 +138,6 @@ struct AccountCardExpandedUsageSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AccountWindowSection(presentation: presentation.fiveHourWindow, tint: .orange)
             AccountWindowSection(presentation: presentation.oneWeekWindow, tint: .teal)
 
             HStack(spacing: 8) {
@@ -158,13 +157,6 @@ struct AccountCardCompactUsageSection: View {
     var body: some View {
         AccountCompactUsageRow(
             rings: [
-                AccountCompactRingDescriptor(
-                    id: "five-hour",
-                    valueText: compactPercentText(presentation.compactUsage.fiveHourDisplayPercent),
-                    subtitleText: "5h",
-                    progress: compactProgress(presentation.compactUsage.fiveHourDisplayPercent),
-                    tint: .orange
-                ),
                 AccountCompactRingDescriptor(
                     id: "one-week",
                     valueText: compactPercentText(presentation.compactUsage.oneWeekDisplayPercent),
@@ -268,6 +260,13 @@ private struct AccountWindowSection: View {
             HStack {
                 Text(presentation.title)
                     .font(.caption.weight(.semibold))
+                if let resetCountText = presentation.resetCountText {
+                    AccountTagView(
+                        text: resetCountText,
+                        backgroundColor: Color.orange.opacity(0.16),
+                        foregroundColor: .orange
+                    )
+                }
                 Spacer(minLength: 0)
                 Text(presentation.primaryText)
                     .font(.caption.weight(.semibold))

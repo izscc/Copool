@@ -68,13 +68,6 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                 planLabel: "TEAM",
                 workspaceLabel: "workspace",
                 accountLabel: "current_account",
-                fiveHour: AccountsWidgetWindowSnapshot(
-                    title: "5h",
-                    progressFraction: 0.42,
-                    usedText: "42%",
-                    remainingText: "58%",
-                    resetText: "26/3/21 01:23:45"
-                ),
                 oneWeek: AccountsWidgetWindowSnapshot(
                     title: "1w",
                     progressFraction: 0.18,
@@ -88,13 +81,6 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                 planLabel: "PRO",
                 workspaceLabel: nil,
                 accountLabel: "next_account",
-                fiveHour: AccountsWidgetWindowSnapshot(
-                    title: "5h",
-                    progressFraction: 0.55,
-                    usedText: "55%",
-                    remainingText: "45%",
-                    resetText: "26/3/21 03:11:22"
-                ),
                 oneWeek: AccountsWidgetWindowSnapshot(
                     title: "1w",
                     progressFraction: 0.31,
@@ -109,13 +95,6 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                     planLabel: "TEAM",
                     workspaceLabel: "abcdefg",
                     accountLabel: "account_name",
-                    fiveHour: AccountsWidgetWindowSnapshot(
-                        title: "5h",
-                        progressFraction: 0.50,
-                        usedText: "50%",
-                        remainingText: "50%",
-                        resetText: "26/3/21 01:23:45"
-                    ),
                     oneWeek: AccountsWidgetWindowSnapshot(
                         title: "1w",
                         progressFraction: 0.02,
@@ -129,13 +108,6 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                     planLabel: "PLUS",
                     workspaceLabel: nil,
                     accountLabel: "plus_account",
-                    fiveHour: AccountsWidgetWindowSnapshot(
-                        title: "5h",
-                        progressFraction: 0.18,
-                        usedText: "18%",
-                        remainingText: "82%",
-                        resetText: "26/3/21 08:54:12"
-                    ),
                     oneWeek: AccountsWidgetWindowSnapshot(
                         title: "1w",
                         progressFraction: 0.36,

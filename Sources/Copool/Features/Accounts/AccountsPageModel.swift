@@ -11,6 +11,7 @@ final class AccountsPageModel: ObservableObject {
     let onLocalAccountsChanged: (([AccountSummary]) -> Void)?
     let onSettingsUpdated: ((AppSettings) -> Void)?
     let runtimePlatform: RuntimePlatform
+    let thirdPartyUsageRepository: ThirdPartyUsageRepository?
 
     private let noticeScheduler = NoticeAutoDismissScheduler()
     var pendingWorkspaceRefreshTask: Task<Void, Never>?
@@ -51,7 +52,8 @@ final class AccountsPageModel: ObservableObject {
         usageProgressDisplayMode: UsageProgressDisplayMode = .used,
         onLocalAccountsChanged: (([AccountSummary]) -> Void)? = nil,
         onSettingsUpdated: ((AppSettings) -> Void)? = nil,
-        initialAccounts: [AccountSummary]? = nil
+        initialAccounts: [AccountSummary]? = nil,
+        thirdPartyUsageRepository: ThirdPartyUsageRepository? = nil
     ) {
         self.coordinator = coordinator
         self.settingsCoordinator = settingsCoordinator
@@ -62,6 +64,7 @@ final class AccountsPageModel: ObservableObject {
         self.usageProgressDisplayMode = usageProgressDisplayMode
         self.onLocalAccountsChanged = onLocalAccountsChanged
         self.onSettingsUpdated = onSettingsUpdated
+        self.thirdPartyUsageRepository = thirdPartyUsageRepository
         self.state = initialAccounts.map { initialAccounts in
             Self.makeViewState(accounts: AccountRanking.sortForDisplay(initialAccounts))
         } ?? .loading

@@ -37,6 +37,10 @@ struct AccountsPageContentSection: View {
                     )
                 }
 
+                if presentation.shouldShowThirdPartyUsageSection {
+                    ThirdPartyUsageStatisticsSection(rows: presentation.thirdPartyUsageRows)
+                }
+
                 AccountsGridSection(
                     cards: self.cards,
                     isOverviewMode: presentation.isOverviewMode,
@@ -340,5 +344,61 @@ private struct PendingWorkspaceAuthorizationFailureCard: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Color.red.opacity(0.18), lineWidth: 1)
         }
+    }
+}
+
+/// Third-party provider usage statistics block shown in the accounts page.
+struct ThirdPartyUsageStatisticsSection: View {
+    let rows: [ThirdPartyUsageRowPresentation]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L10n.tr("accounts.stats.third_party.title"))
+                    .font(.headline)
+                Text(L10n.tr("accounts.stats.third_party.subtitle"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, LayoutRules.pagePadding)
+
+            VStack(spacing: 8) {
+                ForEach(rows) { row in
+                    ThirdPartyUsageRowView(row: row)
+                }
+            }
+            .padding(.horizontal, LayoutRules.pagePadding)
+        }
+    }
+}
+
+private struct ThirdPartyUsageRowView: View {
+    let row: ThirdPartyUsageRowPresentation
+
+    var body: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(row.title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(row.lastUsedText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+
+            Text(row.requestsText)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            Text(row.tokensText)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frostedRoundedSurface(cornerRadius: 10, prominent: false)
     }
 }

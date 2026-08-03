@@ -13,6 +13,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
     let storeRepository: AccountsStoreRepository
     let settingsRepository: SettingsRepository
     let authRepository: AuthRepository
+    let providerRepository: ProviderStoreRepository?
+    let usageRepository: ThirdPartyUsageRepository?
     let onAccountsStoreChanged: (@Sendable () -> Void)?
     let switchAccount: (@Sendable (String) async throws -> Void)?
     let dateProvider: DateProviding
@@ -34,6 +36,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         storeRepository: AccountsStoreRepository,
         settingsRepository: SettingsRepository,
         authRepository: AuthRepository,
+        providerRepository: ProviderStoreRepository? = nil,
+        usageRepository: ThirdPartyUsageRepository? = nil,
         onAccountsStoreChanged: (@Sendable () -> Void)? = nil,
         switchAccount: (@Sendable (String) async throws -> Void)? = nil,
         dateProvider: DateProviding = SystemDateProvider()
@@ -42,6 +46,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         self.storeRepository = storeRepository
         self.settingsRepository = settingsRepository
         self.authRepository = authRepository
+        self.providerRepository = providerRepository
+        self.usageRepository = usageRepository
         self.onAccountsStoreChanged = onAccountsStoreChanged
         self.switchAccount = switchAccount
         self.dateProvider = dateProvider
@@ -135,13 +141,21 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         }
 
         if request.path == "/v1/models" && request.method == "GET" {
-            let list = models.map { model in
+            var list = models.map { model in
                 [
                     "id": model,
                     "object": "model",
                     "created": 0,
                     "owned_by": "openai"
                 ] as [String: Any]
+            }
+            for clientModelID in thirdPartyClientModelIDs() {
+                list.append([
+                    "id": clientModelID,
+                    "object": "model",
+                    "created": 0,
+                    "owned_by": "third-party"
+                ])
             }
             return HTTPResponse.json(statusCode: 200, object: ["object": "list", "data": list])
         }
@@ -166,6 +180,17 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             object = try parseJSONObject(from: body)
         } catch {
             return jsonError(statusCode: 400, message: error.localizedDescription)
+        }
+
+        let requestedModel = (object["model"] as? String) ?? "gpt-5"
+        if let route = try? resolveThirdPartyRoute(for: requestedModel) {
+            return await handleThirdPartyRequest(
+                route: route,
+                body: body,
+                object: object,
+                downstreamHeaders: downstreamHeaders,
+                asResponses: route.protocolKind == .responses
+            )
         }
 
         let payload: [String: Any]
@@ -213,12 +238,20 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             return jsonError(statusCode: 400, message: error.localizedDescription)
         }
 
+        let requestedModel = (object["model"] as? String) ?? "gpt-5"
+        if let route = try? resolveThirdPartyRoute(for: requestedModel) {
+            return await handleThirdPartyRequest(
+                route: route,
+                body: body,
+                object: object,
+                downstreamHeaders: downstreamHeaders,
+                asResponses: route.protocolKind == .responses
+            )
+        }
+
         let payload: [String: Any]
         let downstreamStream: Bool
-        let requestedModel: String
-
         do {
-            requestedModel = (object["model"] as? String) ?? "gpt-5"
             let normalized = try convertChatRequestToResponses(object)
             payload = normalized.payload
             downstreamStream = normalized.downstreamStream
@@ -252,6 +285,275 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         } catch {
             return jsonError(statusCode: 502, message: error.localizedDescription)
         }
+    }
+
+    /// Forwards a request to a third-party provider without account failover.
+    private func handleThirdPartyRequest(
+        route: ThirdPartyRoute,
+        body: Data,
+        object: [String: Any],
+        downstreamHeaders: [String: String],
+        asResponses: Bool
+    ) async -> HTTPResponse {
+        // Preserve the client's streaming preference; normalizeResponsesRequest
+        // forces stream=true for the responses path, chat path honors it.
+        let wantsStream: Bool
+        switch route.protocolKind {
+        case .anthropic, .google:
+            wantsStream = (object["stream"] as? Bool) ?? true
+        case .responses:
+            wantsStream = true
+        case .chat:
+            wantsStream = (object["stream"] as? Bool) ?? false
+        }
+
+        if wantsStream {
+            return await handleThirdPartyStreamingRequest(
+                route: route,
+                object: object,
+                downstreamHeaders: downstreamHeaders,
+                asResponses: asResponses
+            )
+        }
+
+        do {
+            let payload: [String: Any]
+            if asResponses {
+                payload = try normalizeResponsesRequest(object).payload
+            } else {
+                payload = object
+            }
+
+            let response = try await sendThirdPartyRequest(
+                route: route,
+                payload: payload,
+                downstreamHeaders: downstreamHeaders
+            )
+
+            if response.statusCode >= 200 && response.statusCode < 300 {
+                recordThirdPartyUsage(route: route, responseBody: response.body, statusCode: response.statusCode)
+            } else {
+                let bodyText = String(data: response.body, encoding: .utf8) ?? ""
+                let message = "\(route.provider.name): \(response.statusCode) \(truncateForError(bodyText, maxLength: 120))"
+                lastError = message
+                return jsonError(statusCode: 502, message: message)
+            }
+
+            let decoded: Any
+            do {
+                decoded = try JSONSerialization.jsonObject(with: response.body)
+            } catch {
+                return jsonError(statusCode: 502, message: error.localizedDescription)
+            }
+            guard let decodedObject = decoded as? [String: Any] else {
+                return HTTPResponse.json(statusCode: 200, object: decoded)
+            }
+
+            // Translate non-OpenAI responses into the chat.completion shape
+            // the ChatGPT client expects.
+            let responseObject: [String: Any]
+            switch route.protocolKind {
+            case .anthropic:
+                responseObject = convertAnthropicResponseToChatCompletion(decodedObject, fallbackModel: route.clientModelID)
+            case .google:
+                responseObject = convertGeminiResponseToChatCompletion(decodedObject, fallbackModel: route.clientModelID)
+            case .chat, .responses:
+                responseObject = decodedObject
+            }
+            return HTTPResponse.json(statusCode: 200, object: responseObject)
+        } catch {
+            return jsonError(statusCode: 502, message: error.localizedDescription)
+        }
+    }
+
+    /// Streams a third-party response back to the client.
+    private func handleThirdPartyStreamingRequest(
+        route: ThirdPartyRoute,
+        object: [String: Any],
+        downstreamHeaders: [String: String],
+        asResponses: Bool
+    ) async -> HTTPResponse {
+        do {
+            let payload: [String: Any]
+            if asResponses {
+                payload = try normalizeResponsesRequest(object).payload
+            } else {
+                payload = object
+            }
+
+            let upstream = try await openThirdPartyStreamingRequest(
+                route: route,
+                payload: payload,
+                downstreamHeaders: downstreamHeaders
+            )
+
+            if !(upstream.statusCode >= 200 && upstream.statusCode < 300) {
+                var buffered = Data()
+                for try await byte in upstream.bytes {
+                    buffered.append(byte)
+                    if buffered.count > ProxyRuntimeLimits.maxUpstreamResponseBytes { break }
+                }
+                let bodyText = String(data: buffered, encoding: .utf8) ?? ""
+                let message = "\(route.provider.name): \(upstream.statusCode) \(truncateForError(bodyText, maxLength: 120))"
+                lastError = message
+                return jsonError(statusCode: 502, message: message)
+            }
+
+            // Usage collected by protocol-specific streaming decoders.
+            let protocolKind = route.protocolKind
+
+            let stream = AsyncThrowingStream<Data, Error> { continuation in
+                Task {
+                    // Local mutable state, serial access within this task only.
+                    let anthropicState = AnthropicStreamState()
+                    let geminiState = GeminiStreamState()
+                    do {
+                        var iterator = upstream.bytes.makeAsyncIterator()
+                        var buffer = Data()
+                        var totalBytes = 0
+                        while let byte = try await iterator.next() {
+                            buffer.append(byte)
+                            totalBytes += 1
+                            if totalBytes > ProxyRuntimeLimits.maxUpstreamResponseBytes {
+                                throw AppError.network(
+                                    L10n.tr(
+                                        "error.proxy_runtime.upstream_response_too_large_format",
+                                        ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseBytes)
+                                    )
+                                )
+                            }
+
+                            if byte == 0x0A {
+                                switch protocolKind {
+                                case .anthropic:
+                                    for chunk in consumeAnthropicSSEChunk(buffer, isFinal: false, state: anthropicState) {
+                                        continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                    }
+                                case .google:
+                                    for chunk in consumeGeminiSSEChunk(buffer, isFinal: false, state: geminiState) {
+                                        continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                    }
+                                case .responses:
+                                    for eventData in consumeResponsesPassthroughSSEChunk(
+                                        makeResponsesPassthroughSSEStreamDecoder(),
+                                        data: buffer,
+                                        isFinal: false
+                                    ) {
+                                        continuation.yield(eventData)
+                                    }
+                                case .chat:
+                                    let chunks = try consumeChatCompletionsSSEStreamChunk(
+                                        makeChatCompletionsSSEStreamDecoder(fallbackModel: route.clientModelID),
+                                        data: buffer,
+                                        isFinal: false
+                                    )
+                                    for chunk in chunks {
+                                        continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                    }
+                                }
+                                buffer.removeAll(keepingCapacity: true)
+                            }
+                        }
+
+                        switch protocolKind {
+                        case .anthropic:
+                            for chunk in consumeAnthropicSSEChunk(buffer, isFinal: true, state: anthropicState) {
+                                continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                            }
+                            recordStreamingThirdPartyUsage(route: route, usage: anthropicStreamUsage(anthropicState))
+                        case .google:
+                            for chunk in consumeGeminiSSEChunk(buffer, isFinal: true, state: geminiState) {
+                                continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                            }
+                            recordStreamingThirdPartyUsage(route: route, usage: geminiStreamUsage(geminiState))
+                        case .responses:
+                            for eventData in consumeResponsesPassthroughSSEChunk(
+                                makeResponsesPassthroughSSEStreamDecoder(),
+                                data: buffer,
+                                isFinal: true
+                            ) {
+                                continuation.yield(eventData)
+                            }
+                            recordStreamingThirdPartyUsage(route: route, usage: nil)
+                        case .chat:
+                            let finalChunks = try consumeChatCompletionsSSEStreamChunk(
+                                makeChatCompletionsSSEStreamDecoder(fallbackModel: route.clientModelID),
+                                data: buffer,
+                                isFinal: true
+                            )
+                            for chunk in finalChunks {
+                                continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                            }
+                            continuation.yield(Data("data: [DONE]\n\n".utf8))
+                            recordStreamingThirdPartyUsage(route: route, usage: nil)
+                        }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
+                    }
+                }
+            }
+
+            return HTTPResponse(
+                statusCode: 200,
+                headers: [
+                    "Content-Type": "text/event-stream; charset=utf-8",
+                    "Cache-Control": "no-cache"
+                ],
+                body: stream
+            )
+        } catch {
+            return jsonError(statusCode: 502, message: error.localizedDescription)
+        }
+    }
+
+    /// Feeds one SSE frame into the Anthropic translator.
+    private func consumeAnthropicSSEChunk(
+        _ data: Data,
+        isFinal: Bool,
+        state: AnthropicStreamState
+    ) -> [[String: Any]] {
+        let decoder = SSEStreamDecoder()
+        let events = decoder.push(data: data, isFinal: isFinal)
+        return events.flatMap { translateAnthropicSSEEvent($0, state: state) }
+    }
+
+    /// Feeds one SSE frame into the Gemini translator.
+    private func consumeGeminiSSEChunk(
+        _ data: Data,
+        isFinal: Bool,
+        state: GeminiStreamState
+    ) -> [[String: Any]] {
+        // Gemini sends `data: {json}` lines; split frames and translate each.
+        let text = String(data: data, encoding: .utf8) ?? ""
+        let lines = text.split(whereSeparator: \.isNewline)
+        var chunks: [[String: Any]] = []
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("data:") else { continue }
+            let payload = String(trimmed.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+            chunks.append(contentsOf: translateGeminiSSEChunk(payload, state: state))
+        }
+        return chunks
+    }
+
+    /// Best-effort usage record for streaming third-party requests, using the
+    /// token counts captured by the protocol decoder when available.
+    private func recordStreamingThirdPartyUsage(route: ThirdPartyRoute, usage: [String: Any]?) {
+        guard let usageRepository else { return }
+        guard let store = try? usageRepository.loadUsage() else { return }
+        var mutated = store
+        let prompt = (usage?["prompt_tokens"] as? Int) ?? 0
+        let completion = (usage?["completion_tokens"] as? Int) ?? 0
+        mutated.record(
+            providerID: route.provider.id,
+            providerName: route.provider.name,
+            modelID: route.backendModel,
+            promptTokens: prompt,
+            completionTokens: completion,
+            at: dateProvider.unixSecondsNow()
+        )
+        try? usageRepository.saveUsage(mutated)
     }
 
     private func sendOverCandidates(payload: [String: Any], downstreamHeaders: [String: String]) async throws -> UpstreamResponse {
@@ -617,10 +919,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         guard storeBefore.accounts.contains(where: { $0.id == candidate.id }) else {
             throw AppError.invalidData(L10n.tr("error.accounts.account_not_found_for_switch"))
         }
-        guard let switchAccount else {
-            throw AppError.invalidData("Proxy runtime is missing the account switch handler.")
+        if storeBefore.currentAccountID != candidate.id {
+            guard let switchAccount else {
+                throw AppError.invalidData("Proxy runtime is missing the account switch handler.")
+            }
+            try await switchAccount(candidate.id)
         }
-        try await switchAccount(candidate.id)
         let storeAfter = try storeRepository.loadStore()
         cachedCandidatesStoreModificationDate = nil
         onAccountsStoreChanged?()

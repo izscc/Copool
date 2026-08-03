@@ -16,15 +16,15 @@ targets:
       - path: Sources/Copool/Resources
     settings:
       base:
-        PRODUCT_NAME: Copool
+        PRODUCT_NAME: icopool
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleName: Copool
-        INFOPLIST_KEY_CFBundleDisplayName: Copool
+        INFOPLIST_KEY_CFBundleName: icopool
+        INFOPLIST_KEY_CFBundleDisplayName: icopool
         INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
         INFOPLIST_KEY_LSUIElement: YES
         CODE_SIGN_STYLE: Automatic
-        CURRENT_PROJECT_VERSION: 27
-        MARKETING_VERSION: 2.0.0
+        CURRENT_PROJECT_VERSION: 28
+        MARKETING_VERSION: 2.1.0
         DEVELOPMENT_TEAM: KLU8GF65GP
         PRODUCT_BUNDLE_IDENTIFIER: com.alick.copool
   CopoolTests:
