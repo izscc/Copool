@@ -105,8 +105,8 @@ protocol RemoteAccountsMutationSyncServiceProtocol: Sendable {
     func syncConfiguredRemoteAccounts() async -> RemoteAccountsMutationSyncReport
 }
 
-protocol CodexCLIServiceProtocol: Sendable {
-    func launchApp(workspacePath: String?) throws -> Bool
+protocol ChatGPTAppServiceProtocol: Sendable {
+    func launchApp() throws
 }
 
 protocol ChatGPTOAuthLoginServiceProtocol: Sendable {

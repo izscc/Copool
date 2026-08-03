@@ -29,8 +29,8 @@ Copool 是一个面向 macOS 和 iOS 的 SwiftUI 应用，用于管理 Codex/Cha
 - Cloudflared 公网隧道管理
 - Remote Linux deployment/start/stop/logs for proxy nodes over SSH
 - 远程 Linux 代理节点 SSH 部署/启停/日志
-- ChatGPT OAuth import plus editor restart / launch integration on account switch
-- ChatGPT OAuth 导入，以及切换账号时的编辑器重启 / 拉起集成
+- ChatGPT OAuth import plus ChatGPT app launch integration on account switch
+- ChatGPT OAuth 导入，以及切换账号时默认启动 ChatGPT App
 - Menu bar integration (MenuBarExtra)
 - 菜单栏集成（MenuBarExtra）
 

@@ -16,7 +16,7 @@ enum UsageProgressDisplayMode: String, Codable, Equatable, CaseIterable, Sendabl
 
 struct AppSettings: Codable, Equatable {
     var launchAtStartup: Bool
-    var launchCodexAfterSwitch: Bool
+    var launchChatGPTAfterSwitch: Bool
     var autoSmartSwitch: Bool
     var syncOpencodeOpenaiAuth: Bool
     var localProxyHostAPIOnly: Bool
@@ -30,7 +30,8 @@ struct AppSettings: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case launchAtStartup
-        case launchCodexAfterSwitch
+        case launchChatGPTAfterSwitch
+        case legacyLaunchCodexAfterSwitch = "launchCodexAfterSwitch"
         case autoSmartSwitch
         case syncOpencodeOpenaiAuth
         case localProxyHostAPIOnly
@@ -45,7 +46,7 @@ struct AppSettings: Codable, Equatable {
 
     init(
         launchAtStartup: Bool,
-        launchCodexAfterSwitch: Bool,
+        launchChatGPTAfterSwitch: Bool,
         autoSmartSwitch: Bool,
         syncOpencodeOpenaiAuth: Bool,
         localProxyHostAPIOnly: Bool = false,
@@ -58,7 +59,7 @@ struct AppSettings: Codable, Equatable {
         locale: String
     ) {
         self.launchAtStartup = launchAtStartup
-        self.launchCodexAfterSwitch = launchCodexAfterSwitch
+        self.launchChatGPTAfterSwitch = launchChatGPTAfterSwitch
         self.autoSmartSwitch = autoSmartSwitch
         self.syncOpencodeOpenaiAuth = syncOpencodeOpenaiAuth
         self.localProxyHostAPIOnly = localProxyHostAPIOnly
@@ -74,7 +75,11 @@ struct AppSettings: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         launchAtStartup = try container.decode(Bool.self, forKey: .launchAtStartup)
-        launchCodexAfterSwitch = try container.decode(Bool.self, forKey: .launchCodexAfterSwitch)
+        if let value = try container.decodeIfPresent(Bool.self, forKey: .launchChatGPTAfterSwitch) {
+            launchChatGPTAfterSwitch = value
+        } else {
+            launchChatGPTAfterSwitch = try container.decode(Bool.self, forKey: .legacyLaunchCodexAfterSwitch)
+        }
         autoSmartSwitch = try container.decode(Bool.self, forKey: .autoSmartSwitch)
         syncOpencodeOpenaiAuth = try container.decode(Bool.self, forKey: .syncOpencodeOpenaiAuth)
         localProxyHostAPIOnly = try container.decode(Bool.self, forKey: .localProxyHostAPIOnly)
@@ -93,7 +98,7 @@ struct AppSettings: Codable, Equatable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(launchAtStartup, forKey: .launchAtStartup)
-        try container.encode(launchCodexAfterSwitch, forKey: .launchCodexAfterSwitch)
+        try container.encode(launchChatGPTAfterSwitch, forKey: .launchChatGPTAfterSwitch)
         try container.encode(autoSmartSwitch, forKey: .autoSmartSwitch)
         try container.encode(syncOpencodeOpenaiAuth, forKey: .syncOpencodeOpenaiAuth)
         try container.encode(localProxyHostAPIOnly, forKey: .localProxyHostAPIOnly)
@@ -109,7 +114,7 @@ struct AppSettings: Codable, Equatable {
     static var defaultValue: AppSettings {
         AppSettings(
             launchAtStartup: false,
-            launchCodexAfterSwitch: true,
+            launchChatGPTAfterSwitch: true,
             autoSmartSwitch: false,
             syncOpencodeOpenaiAuth: false,
             localProxyHostAPIOnly: false,
@@ -126,7 +131,7 @@ struct AppSettings: Codable, Equatable {
 
 struct AppSettingsPatch {
     var launchAtStartup: Bool? = nil
-    var launchCodexAfterSwitch: Bool? = nil
+    var launchChatGPTAfterSwitch: Bool? = nil
     var autoSmartSwitch: Bool? = nil
     var syncOpencodeOpenaiAuth: Bool? = nil
     var localProxyHostAPIOnly: Bool? = nil

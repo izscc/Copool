@@ -20,7 +20,7 @@
 
 "settings.section.general" = "Generale";
 "settings.launch_at_startup" = "Avvia all'accesso";
-"settings.launch_codex_after_switch" = "Avvia Codex dopo il cambio";
+"settings.launch_chatgpt_after_switch" = "Avvia ChatGPT dopo il cambio";
 "settings.auto_start_api_proxy" = "Avvio automatico API Proxy";
 "settings.local_proxy_host_api_only" = "Proxy locale: ospita solo API";
 "settings.section.deployment" = "Distribuzione";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "L'account corrente è già la migliore opzione disponibile";
 "accounts.notice.smart_switched_prefix_format" = "Cambio intelligente a: %@ · %@";
 "accounts.notice.switch_done" = "Account cambiato";
-"accounts.notice.switch_done_fallback" = "Account cambiato (tramite comando codex app)";
+"accounts.notice.switch_done_chatgpt" = "Account cambiato (app ChatGPT avviata)";
 "accounts.notice.sync_failed_format" = "Sincronizzazione Opencode fallita: %@";
 "accounts.notice.sync_done" = "Auth Opencode sincronizzata";
 "accounts.notice.editor_restart_failed_format" = "Riavvio editor fallito: %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "Impossibile decodificare id_token";
 "error.json.unsupported_value" = "Valore JSON non supportato";
 "error.json.unsupported_payload_type" = "Tipo di payload JSON non supportato";
-"error.codex_cli.launch_login_failed_format" = "Impossibile avviare codex login: %@";
-"error.codex_cli.launch_app_open_failed" = "Impossibile avviare Codex.app";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app non trovato e anche il fallback codex app non è riuscito: %@";
-"error.codex_cli.executable_not_found" = "Eseguibile codex non trovato. Installa Codex CLI o aggiungilo al PATH.";
+"error.chatgpt_app.launch_failed" = "Impossibile avviare ChatGPT.app";
 "error.oauth.browser_open_failed" = "Impossibile aprire la pagina di accesso nel browser";
 "error.oauth.callback_server_start_failed" = "Impossibile avviare il servizio locale di callback per l’accesso";
 "error.oauth.callback_state_mismatch" = "La validazione del callback di accesso non è riuscita. Riprova.";

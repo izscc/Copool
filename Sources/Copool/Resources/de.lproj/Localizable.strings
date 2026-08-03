@@ -20,7 +20,7 @@
 
 "settings.section.general" = "Allgemein";
 "settings.launch_at_startup" = "Beim Start öffnen";
-"settings.launch_codex_after_switch" = "Codex nach Wechsel starten";
+"settings.launch_chatgpt_after_switch" = "ChatGPT nach Wechsel starten";
 "settings.auto_start_api_proxy" = "API Proxy automatisch starten";
 "settings.local_proxy_host_api_only" = "Lokaler Proxy: Nur API hosten";
 "settings.section.deployment" = "Bereitstellung";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "Das aktuelle Konto ist bereits die beste verfügbare Option";
 "accounts.notice.smart_switched_prefix_format" = "Intelligent gewechselt zu: %@ · %@";
 "accounts.notice.switch_done" = "Konto gewechselt";
-"accounts.notice.switch_done_fallback" = "Konto gewechselt (über codex app Befehl)";
+"accounts.notice.switch_done_chatgpt" = "Konto gewechselt (ChatGPT-App gestartet)";
 "accounts.notice.sync_failed_format" = "Opencode-Synchronisierung fehlgeschlagen: %@";
 "accounts.notice.sync_done" = "Opencode-Auth synchronisiert";
 "accounts.notice.editor_restart_failed_format" = "Editor-Neustart fehlgeschlagen: %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "id_token konnte nicht dekodiert werden";
 "error.json.unsupported_value" = "Nicht unterstützter JSON-Wert";
 "error.json.unsupported_payload_type" = "Nicht unterstützter JSON-Payload-Typ";
-"error.codex_cli.launch_login_failed_format" = "codex login konnte nicht gestartet werden: %@";
-"error.codex_cli.launch_app_open_failed" = "Codex.app konnte nicht gestartet werden";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app wurde nicht gefunden und auch der codex-app-Fallback ist fehlgeschlagen: %@";
-"error.codex_cli.executable_not_found" = "Die codex-Datei wurde nicht gefunden. Installieren Sie Codex CLI oder fügen Sie sie zum PATH hinzu.";
+"error.chatgpt_app.launch_failed" = "ChatGPT.app konnte nicht gestartet werden";
 "error.oauth.browser_open_failed" = "Die Browser-Anmeldeseite konnte nicht geöffnet werden";
 "error.oauth.callback_server_start_failed" = "Der lokale Callback-Dienst für die Anmeldung konnte nicht gestartet werden";
 "error.oauth.callback_state_mismatch" = "Validierung des Anmelde-Callbacks fehlgeschlagen. Bitte erneut versuchen.";

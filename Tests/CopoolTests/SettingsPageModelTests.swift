@@ -33,7 +33,7 @@ final class SettingsPageModelTests: XCTestCase {
             authRepository: SettingsTestAuthRepository(),
             usageService: SettingsTestUsageService(),
             chatGPTOAuthLoginService: SettingsStubChatGPTOAuthLoginService(),
-            codexCLIService: SettingsStubCodexCLIService(),
+            chatGPTAppService: SettingsStubChatGPTAppService(),
             editorAppService: SettingsStubEditorAppService(),
             opencodeAuthSyncService: SettingsStubOpencodeAuthSyncService(),
             dateProvider: SettingsFixedDateProvider(now: 1)
@@ -71,7 +71,7 @@ final class SettingsPageModelTests: XCTestCase {
             authRepository: SettingsTestAuthRepository(),
             usageService: SettingsTestUsageService(),
             chatGPTOAuthLoginService: SettingsStubChatGPTOAuthLoginService(),
-            codexCLIService: SettingsStubCodexCLIService(),
+            chatGPTAppService: SettingsStubChatGPTAppService(),
             editorAppService: SettingsStubEditorAppService(),
             opencodeAuthSyncService: SettingsStubOpencodeAuthSyncService(),
             dateProvider: SettingsFixedDateProvider(now: 1)
@@ -185,10 +185,8 @@ private struct SettingsStubChatGPTOAuthLoginService: ChatGPTOAuthLoginServicePro
     }
 }
 
-private struct SettingsStubCodexCLIService: CodexCLIServiceProtocol {
-    func launchApp(workspacePath: String?) throws -> Bool {
-        _ = workspacePath
-        return true
+private struct SettingsStubChatGPTAppService: ChatGPTAppServiceProtocol {
+    func launchApp() throws {
     }
 }
 

@@ -39,7 +39,7 @@ final class SettingsControlPresentationTests: XCTestCase {
     func testSwitchBehaviorSectionEnablesRestartTargetPickerWhenConfigured() {
         let settings = AppSettings(
             launchAtStartup: false,
-            launchCodexAfterSwitch: true,
+            launchChatGPTAfterSwitch: true,
             autoSmartSwitch: true,
             syncOpencodeOpenaiAuth: true,
             localProxyHostAPIOnly: true,
@@ -69,7 +69,7 @@ final class SettingsControlPresentationTests: XCTestCase {
     func testLanguageSectionNormalizesSelectedLocale() {
         let settings = AppSettings(
             launchAtStartup: false,
-            launchCodexAfterSwitch: true,
+            launchChatGPTAfterSwitch: true,
             autoSmartSwitch: false,
             syncOpencodeOpenaiAuth: false,
             localProxyHostAPIOnly: false,

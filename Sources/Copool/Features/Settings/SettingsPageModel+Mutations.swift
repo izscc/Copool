@@ -51,7 +51,7 @@ extension SettingsPageModel {
         case .launchAtStartup:
             Task { await update(AppSettingsPatch(launchAtStartup: value)) }
         case .launchAfterSwitch:
-            Task { await update(AppSettingsPatch(launchCodexAfterSwitch: value)) }
+            Task { await update(AppSettingsPatch(launchChatGPTAfterSwitch: value)) }
         case .autoStartProxy:
             Task { await update(AppSettingsPatch(autoStartApiProxy: value)) }
         case .localProxyHostAPIOnly:

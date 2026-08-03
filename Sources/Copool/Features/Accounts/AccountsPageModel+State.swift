@@ -14,9 +14,9 @@ extension AccountsPageModel {
         var style: NoticeStyle = .success
         var segments: [String] = []
 
-        if execution.usedFallbackCLI {
+        if execution.didLaunchChatGPTApp {
             style = .info
-            segments.append(L10n.tr("accounts.notice.switch_done_fallback"))
+            segments.append(L10n.tr("accounts.notice.switch_done_chatgpt"))
         } else {
             segments.append(L10n.tr("accounts.notice.switch_done"))
         }

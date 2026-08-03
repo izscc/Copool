@@ -55,7 +55,7 @@ final class AppSmokeTests: XCTestCase {
             authRepository: authRepository,
             usageService: SmokeUsageService(snapshot: makeSmokeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: SmokeChatLoginService(),
-            codexCLIService: SmokeCodexCLIService(),
+            chatGPTAppService: SmokeChatGPTAppService(),
             editorAppService: SmokeEditorAppService(),
             opencodeAuthSyncService: SmokeOpencodeAuthSyncService(),
             dateProvider: SmokeDateProvider(now: now)
@@ -174,7 +174,7 @@ final class AppSmokeTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: SmokeChatLoginService(),
-            codexCLIService: SmokeCodexCLIService(),
+            chatGPTAppService: SmokeChatGPTAppService(),
             editorAppService: SmokeEditorAppService(),
             opencodeAuthSyncService: SmokeOpencodeAuthSyncService(),
             dateProvider: SmokeDateProvider(now: now)
@@ -264,7 +264,7 @@ final class AppSmokeTests: XCTestCase {
         )
         var settings = AppSettings.defaultValue
         settings.autoSmartSwitch = true
-        settings.launchCodexAfterSwitch = false
+        settings.launchChatGPTAfterSwitch = false
         let settingsRepository = TestSettingsRepository(settings: settings)
         let authRepository = SmokeAuthRepository(currentAccountKey: "account-current")
         let accountsCoordinator = AccountsCoordinator(
@@ -290,7 +290,7 @@ final class AppSmokeTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: SmokeChatLoginService(),
-            codexCLIService: SmokeCodexCLIService(),
+            chatGPTAppService: SmokeChatGPTAppService(),
             editorAppService: SmokeEditorAppService(),
             opencodeAuthSyncService: SmokeOpencodeAuthSyncService(),
             dateProvider: SmokeDateProvider(now: now)
@@ -482,10 +482,8 @@ private struct SmokeChatLoginService: ChatGPTOAuthLoginServiceProtocol {
     }
 }
 
-private struct SmokeCodexCLIService: CodexCLIServiceProtocol {
-    func launchApp(workspacePath: String?) throws -> Bool {
-        _ = workspacePath
-        return true
+private struct SmokeChatGPTAppService: ChatGPTAppServiceProtocol {
+    func launchApp() throws {
     }
 }
 

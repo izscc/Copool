@@ -142,7 +142,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 metadata: [WorkspaceMetadata(accountID: "account-1", workspaceName: "remote-space", structure: "workspace")]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -202,7 +202,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: ReconciledPrincipalAuthRepository(),
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -255,7 +255,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -308,7 +308,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -363,7 +363,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             ),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -395,7 +395,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 metadata: [WorkspaceMetadata(accountID: "account-1", workspaceName: "remote-space", structure: "workspace")]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -444,7 +444,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: StubAuthRepository(),
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -497,7 +497,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: StubAuthRepository(),
             usageService: CountingUsageService(result: newUsage),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -541,7 +541,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: authRepository,
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -595,7 +595,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: authRepository,
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -655,7 +655,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: authRepository,
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -697,7 +697,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                     apiKey: nil
                 )
             ),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -740,7 +740,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                     apiKey: nil
                 )
             ),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -797,7 +797,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 metadata: [WorkspaceMetadata(accountID: "account-1", workspaceName: "Deactivated Workspace", structure: "workspace")]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -848,7 +848,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: usageService,
             workspaceMetadataService: StubWorkspaceMetadataService(metadata: []),
             chatGPTOAuthLoginService: loginService,
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -914,7 +914,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -967,7 +967,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             ),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1060,7 +1060,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             ),
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1111,7 +1111,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             ),
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1162,7 +1162,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             ),
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1240,7 +1240,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: authRepository,
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1284,7 +1284,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService()
         )
@@ -1321,7 +1321,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: AccountIDAwareAuthRepository(),
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1370,7 +1370,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService()
         )
@@ -1425,7 +1425,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService()
         )
@@ -1500,7 +1500,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1629,7 +1629,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService()
         )
@@ -1681,7 +1681,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService()
         )
@@ -1741,7 +1741,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 )
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService()
         )
@@ -1789,7 +1789,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1888,7 +1888,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: loginService,
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1939,7 +1939,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: StubAuthRepository(),
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -1988,7 +1988,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: StubAuthRepository(),
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2029,7 +2029,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             ),
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2097,7 +2097,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                     ]
                 )
             ),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2137,7 +2137,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                     consentWorkspaces: []
                 )
             ),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2168,7 +2168,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             ),
             workspaceMetadataService: StubWorkspaceMetadataService(metadata: []),
             chatGPTOAuthLoginService: loginService,
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: 1)
@@ -2242,7 +2242,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: usageService,
             workspaceMetadataService: StubWorkspaceMetadataService(metadata: []),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2315,7 +2315,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: usageService,
             workspaceMetadataService: StubWorkspaceMetadataService(metadata: []),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2413,7 +2413,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: loginService,
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2490,7 +2490,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: loginService,
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2552,7 +2552,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 error: AppError.unauthorized("Provided authentication token is expired. Please try signing in again.")
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2591,7 +2591,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                     apiKey: nil
                 )
             ),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2689,7 +2689,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: loginService,
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2791,7 +2791,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: loginService,
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2856,7 +2856,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -2961,7 +2961,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3030,7 +3030,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3099,7 +3099,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3159,7 +3159,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3235,7 +3235,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3359,7 +3359,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: RecordingAccountUsageService(results: [:]),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3451,7 +3451,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: RecordingAccountUsageService(results: [:]),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3525,7 +3525,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: RecordingAccountUsageService(results: [:]),
             workspaceMetadataService: ThrowingWorkspaceMetadataService(error: CancellationError()),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3634,7 +3634,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: RecordingAccountUsageService(results: [:]),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3728,7 +3728,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3804,7 +3804,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3864,7 +3864,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -3925,7 +3925,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 error: AppError.network("workspace discovery failed")
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4001,7 +4001,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4087,7 +4087,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4172,7 +4172,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4244,7 +4244,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4309,7 +4309,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4369,7 +4369,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                     apiKey: nil
                 )
             ),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4430,7 +4430,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             workspaceMetadataService: StubWorkspaceMetadataService(metadata: []),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4515,7 +4515,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4601,7 +4601,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 ]
             ),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4636,7 +4636,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 authRepository: StubAuthRepository(),
                 usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: 1)),
                 chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-                codexCLIService: StubCodexCLIService(),
+                chatGPTAppService: StubChatGPTAppService(),
                 editorAppService: StubEditorAppService(),
                 opencodeAuthSyncService: StubOpencodeAuthSyncService(),
                 dateProvider: FixedDateProvider(now: 1)
@@ -4668,7 +4668,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: RecordingAuthRepository(),
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4697,7 +4697,7 @@ final class AccountsCoordinatorTests: XCTestCase {
     }
 
     @MainActor
-    func testTrayMenuModelAutoSmartSwitchWritesAuthAndLaunchesCodex() async throws {
+    func testTrayMenuModelAutoSmartSwitchWritesAuthAndLaunchesChatGPTApp() async throws {
         let now: Int64 = 1_763_216_000
         let authRepository = RecordingMultiAccountAuthRepository(
             extractedByAccountID: [
@@ -4705,7 +4705,7 @@ final class AccountsCoordinatorTests: XCTestCase {
                 "account-2": makeExtractedAuth(accountID: "account-2")
             ]
         )
-        let codexService = RecordingCodexCLIService()
+        let chatGPTService = RecordingChatGPTAppService()
         let storeRepository = InMemoryAccountsStoreRepository(
             store: AccountsStore(
                 accounts: [
@@ -4744,7 +4744,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: authRepository,
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: codexService,
+            chatGPTAppService: chatGPTService,
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4774,7 +4774,7 @@ final class AccountsCoordinatorTests: XCTestCase {
         )
 
         XCTAssertEqual(authRepository.writtenAccountIDs.last, "account-2")
-        XCTAssertEqual(codexService.launchCallCount, 1)
+        XCTAssertEqual(chatGPTService.launchCallCount, 1)
         XCTAssertEqual(try storeRepository.loadStore().currentSelection?.cardID, "acct-2")
     }
     func testBackgroundRefreshPolicyForMacUsesTenSecondActiveUsageRefresh() {
@@ -4810,7 +4810,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: RecordingAuthRepository(),
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4876,7 +4876,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -4940,7 +4940,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             usageService: CountingUsageService(result: makeUsageSnapshot(fetchedAt: now)),
             workspaceMetadataService: metadataService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -5000,7 +5000,7 @@ final class AccountsCoordinatorTests: XCTestCase {
             authRepository: authRepository,
             usageService: usageService,
             chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-            codexCLIService: StubCodexCLIService(),
+            chatGPTAppService: StubChatGPTAppService(),
             editorAppService: StubEditorAppService(),
             opencodeAuthSyncService: StubOpencodeAuthSyncService(),
             dateProvider: FixedDateProvider(now: now)
@@ -5094,7 +5094,7 @@ private func makeAccountsPageModelForViewStoreTests(
             )
         ),
         chatGPTOAuthLoginService: StubChatGPTOAuthLoginService(),
-        codexCLIService: StubCodexCLIService(),
+        chatGPTAppService: StubChatGPTAppService(),
         editorAppService: StubEditorAppService(),
         opencodeAuthSyncService: StubOpencodeAuthSyncService()
     )
@@ -6272,20 +6272,16 @@ private final class RecordingWorkspaceAwareChatGPTOAuthLoginService: ChatGPTOAut
     }
 }
 
-private final class StubCodexCLIService: CodexCLIServiceProtocol, @unchecked Sendable {
-    func launchApp(workspacePath: String?) throws -> Bool {
-        _ = workspacePath
-        return false
+private final class StubChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
+    func launchApp() throws {
     }
 }
 
-private final class RecordingCodexCLIService: CodexCLIServiceProtocol, @unchecked Sendable {
+private final class RecordingChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
     private(set) var launchCallCount = 0
 
-    func launchApp(workspacePath: String?) throws -> Bool {
-        _ = workspacePath
+    func launchApp() throws {
         launchCallCount += 1
-        return false
     }
 }
 

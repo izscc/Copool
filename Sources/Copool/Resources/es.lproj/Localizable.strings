@@ -20,7 +20,7 @@
 
 "settings.section.general" = "General";
 "settings.launch_at_startup" = "Abrir al iniciar sesión";
-"settings.launch_codex_after_switch" = "Abrir Codex después del cambio";
+"settings.launch_chatgpt_after_switch" = "Abrir ChatGPT después del cambio";
 "settings.auto_start_api_proxy" = "Iniciar API Proxy automáticamente";
 "settings.local_proxy_host_api_only" = "Proxy local: solo alojar API";
 "settings.section.deployment" = "Despliegue";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "La cuenta actual ya es la mejor opción disponible";
 "accounts.notice.smart_switched_prefix_format" = "Cambio inteligente a: %@ · %@";
 "accounts.notice.switch_done" = "Cuenta cambiada";
-"accounts.notice.switch_done_fallback" = "Cuenta cambiada (mediante comando codex app)";
+"accounts.notice.switch_done_chatgpt" = "Cuenta cambiada (aplicación ChatGPT iniciada)";
 "accounts.notice.sync_failed_format" = "Falló la sincronización de Opencode: %@";
 "accounts.notice.sync_done" = "Auth de Opencode sincronizada";
 "accounts.notice.editor_restart_failed_format" = "Falló el reinicio del editor: %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "No se pudo decodificar id_token";
 "error.json.unsupported_value" = "Valor JSON no compatible";
 "error.json.unsupported_payload_type" = "Tipo de payload JSON no compatible";
-"error.codex_cli.launch_login_failed_format" = "No se pudo iniciar codex login: %@";
-"error.codex_cli.launch_app_open_failed" = "No se pudo iniciar Codex.app";
-"error.codex_cli.launch_app_fallback_failed_format" = "No se encontró Codex.app y también falló la alternativa codex app: %@";
-"error.codex_cli.executable_not_found" = "No se encontró el ejecutable codex. Instala Codex CLI o añádelo al PATH.";
+"error.chatgpt_app.launch_failed" = "No se pudo iniciar ChatGPT.app";
 "error.oauth.browser_open_failed" = "No se pudo abrir la página de inicio de sesión en el navegador";
 "error.oauth.callback_server_start_failed" = "No se pudo iniciar el servicio local de callback para el inicio de sesión";
 "error.oauth.callback_state_mismatch" = "Falló la validación del callback de inicio de sesión. Inténtalo de nuevo.";

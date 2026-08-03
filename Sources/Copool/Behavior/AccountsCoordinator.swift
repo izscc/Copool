@@ -16,7 +16,7 @@ actor AccountsCoordinator {
     let usageService: UsageService
     let workspaceMetadataService: WorkspaceMetadataService?
     let chatGPTOAuthLoginService: ChatGPTOAuthLoginServiceProtocol
-    let codexCLIService: CodexCLIServiceProtocol
+    let chatGPTAppService: ChatGPTAppServiceProtocol
     let editorAppService: EditorAppServiceProtocol
     let opencodeAuthSyncService: OpencodeAuthSyncServiceProtocol
     let dateProvider: DateProviding
@@ -38,7 +38,7 @@ actor AccountsCoordinator {
         usageService: UsageService,
         workspaceMetadataService: WorkspaceMetadataService? = nil,
         chatGPTOAuthLoginService: ChatGPTOAuthLoginServiceProtocol,
-        codexCLIService: CodexCLIServiceProtocol,
+        chatGPTAppService: ChatGPTAppServiceProtocol,
         editorAppService: EditorAppServiceProtocol,
         opencodeAuthSyncService: OpencodeAuthSyncServiceProtocol,
         dateProvider: DateProviding = SystemDateProvider(),
@@ -50,7 +50,7 @@ actor AccountsCoordinator {
         self.usageService = usageService
         self.workspaceMetadataService = workspaceMetadataService
         self.chatGPTOAuthLoginService = chatGPTOAuthLoginService
-        self.codexCLIService = codexCLIService
+        self.chatGPTAppService = chatGPTAppService
         self.editorAppService = editorAppService
         self.opencodeAuthSyncService = opencodeAuthSyncService
         self.dateProvider = dateProvider
@@ -153,7 +153,7 @@ actor AccountsCoordinator {
         try updateCurrentAccountProjection(account: account)
     }
 
-    func switchAccountAndApplySettings(id: String, workspacePath: String? = nil) throws -> SwitchAccountExecutionResult {
+    func switchAccountAndApplySettings(id: String) throws -> SwitchAccountExecutionResult {
         let store = try storeRepository.loadStore()
         guard let account = store.accounts.first(where: { $0.id == id }) else {
             throw AppError.invalidData(L10n.tr("error.accounts.account_not_found_for_switch"))
@@ -167,14 +167,13 @@ actor AccountsCoordinator {
         let settings = try settingsRepository.loadSettings()
         let result = try applySwitchSideEffects(
             for: account,
-            settings: settings,
-            workspacePath: workspacePath
+            settings: settings
         )
         let latestStore = try storeRepository.loadStore()
         let restartedEditorNames = result.restartedEditorApps.map(\.rawValue).joined(separator: ",")
         AccountSwitchDebugLog.write(
             "switchAccountAndApplySettings.end",
-            "requestedCardID=\(id) \(AccountSwitchDebugLog.describe(store: latestStore, currentAuthAccountKey: authRepository.currentAuthAccountKey())) opencodeSynced=\(result.opencodeSynced) restartedEditors=\(restartedEditorNames) usedFallbackCLI=\(result.usedFallbackCLI)"
+            "requestedCardID=\(id) \(AccountSwitchDebugLog.describe(store: latestStore, currentAuthAccountKey: authRepository.currentAuthAccountKey())) opencodeSynced=\(result.opencodeSynced) restartedEditors=\(restartedEditorNames) didLaunchChatGPTApp=\(result.didLaunchChatGPTApp)"
         )
         return result
     }
@@ -218,12 +217,12 @@ actor AccountsCoordinator {
         )
     }
 
-    func switchAccountAndReload(id: String, workspacePath: String? = nil) async throws -> (
+    func switchAccountAndReload(id: String) async throws -> (
         selectedAccount: AccountSummary,
         accounts: [AccountSummary],
         execution: SwitchAccountExecutionResult
     ) {
-        let execution = try switchAccountAndApplySettings(id: id, workspacePath: workspacePath)
+        let execution = try switchAccountAndApplySettings(id: id)
         let accounts = try await listAccounts(refreshWorkspaceMetadata: false)
         guard let selectedAccount = accounts.first(where: { $0.id == id }) else {
             throw AppError.invalidData(L10n.tr("error.accounts.account_not_found_for_switch"))
@@ -292,8 +291,7 @@ actor AccountsCoordinator {
 
     private func applySwitchSideEffects(
         for account: StoredAccount,
-        settings: AppSettings,
-        workspacePath: String?
+        settings: AppSettings
     ) throws -> SwitchAccountExecutionResult {
         var result = SwitchAccountExecutionResult.idle
 
@@ -316,8 +314,9 @@ actor AccountsCoordinator {
             result.editorRestartError = restart.error
         }
 
-        if settings.launchCodexAfterSwitch {
-            result.usedFallbackCLI = try codexCLIService.launchApp(workspacePath: workspacePath)
+        if settings.launchChatGPTAfterSwitch {
+            try chatGPTAppService.launchApp()
+            result.didLaunchChatGPTApp = true
         }
 
         return result

@@ -20,7 +20,7 @@
 
 "settings.section.general" = "일반";
 "settings.launch_at_startup" = "로그인 시 실행";
-"settings.launch_codex_after_switch" = "전환 후 Codex 실행";
+"settings.launch_chatgpt_after_switch" = "전환 후 ChatGPT 실행";
 "settings.auto_start_api_proxy" = "API 프록시 자동 시작";
 "settings.local_proxy_host_api_only" = "로컬 프록시: API만 호스팅";
 "settings.section.deployment" = "배포 모드";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "현재 계정이 이미 최적입니다";
 "accounts.notice.smart_switched_prefix_format" = "스마트 전환 대상: %@ · %@";
 "accounts.notice.switch_done" = "계정을 전환했습니다";
-"accounts.notice.switch_done_fallback" = "계정을 전환했습니다(codex app 명령 사용)";
+"accounts.notice.switch_done_chatgpt" = "계정을 전환했습니다(ChatGPT 앱 실행)";
 "accounts.notice.sync_failed_format" = "opencode 동기화 실패: %@";
 "accounts.notice.sync_done" = "opencode 인증 동기화 완료";
 "accounts.notice.editor_restart_failed_format" = "편집기 재시작 실패: %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "id_token 디코딩에 실패했습니다";
 "error.json.unsupported_value" = "지원되지 않는 JSON 값입니다";
 "error.json.unsupported_payload_type" = "지원되지 않는 JSON payload 타입입니다";
-"error.codex_cli.launch_login_failed_format" = "codex login 실행 실패: %@";
-"error.codex_cli.launch_app_open_failed" = "Codex.app 실행 실패";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app을 찾지 못했고 codex app 대체 실행도 실패했습니다: %@";
-"error.codex_cli.executable_not_found" = "codex 실행 파일을 찾을 수 없습니다. Codex CLI를 설치하거나 PATH에 추가하세요.";
+"error.chatgpt_app.launch_failed" = "ChatGPT.app 실행 실패";
 "error.oauth.browser_open_failed" = "브라우저 로그인 페이지를 열지 못했습니다";
 "error.oauth.callback_server_start_failed" = "로컬 로그인 콜백 서비스를 시작하지 못했습니다";
 "error.oauth.callback_state_mismatch" = "로그인 콜백 검증에 실패했습니다. 다시 시도하세요.";

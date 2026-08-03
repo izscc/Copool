@@ -301,7 +301,7 @@ final class StoreFileRepositoryTests: XCTestCase {
         let settingsPath = tempDir.appendingPathComponent("settings.json")
         let legacySettings = AppSettings(
             launchAtStartup: true,
-            launchCodexAfterSwitch: false,
+            launchChatGPTAfterSwitch: false,
             autoSmartSwitch: true,
             syncOpencodeOpenaiAuth: true,
             restartEditorsOnSwitch: true,

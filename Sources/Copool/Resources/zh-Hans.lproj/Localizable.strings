@@ -20,7 +20,7 @@
 
 "settings.section.general" = "通用";
 "settings.launch_at_startup" = "开机启动";
-"settings.launch_codex_after_switch" = "切换后启动 Codex";
+"settings.launch_chatgpt_after_switch" = "切换后启动 ChatGPT";
 "settings.auto_start_api_proxy" = "自动启动 API 代理";
 "settings.local_proxy_host_api_only" = "本地代理：仅托管 API";
 "settings.section.deployment" = "部署模式";
@@ -117,7 +117,7 @@
 "accounts.notice.already_best" = "当前账号已是最佳可用账号";
 "accounts.notice.smart_switched_prefix_format" = "智能切换到：%@ · %@";
 "accounts.notice.switch_done" = "已切换账号";
-"accounts.notice.switch_done_fallback" = "已切换账号（通过 codex app 命令启动）";
+"accounts.notice.switch_done_chatgpt" = "已切换账号（已启动 ChatGPT App）";
 "accounts.notice.sync_failed_format" = "同步 opencode 失败：%@";
 "accounts.notice.sync_done" = "已同步 opencode 认证";
 "accounts.notice.editor_restart_failed_format" = "编辑器重启失败：%@";
@@ -282,10 +282,7 @@
 "error.json.unsupported_value" = "不支持的 JSON 值";
 "error.json.unsupported_payload_type" = "不支持的 JSON payload 类型";
 
-"error.codex_cli.launch_login_failed_format" = "无法启动 codex login: %@";
-"error.codex_cli.launch_app_open_failed" = "启动 Codex.app 失败";
-"error.codex_cli.launch_app_fallback_failed_format" = "未检测到 Codex.app，且通过 codex app 启动失败: %@";
-"error.codex_cli.executable_not_found" = "未找到 codex 可执行文件。请先安装 Codex CLI，或将其所在目录加入 PATH。";
+"error.chatgpt_app.launch_failed" = "启动 ChatGPT.app 失败";
 "error.oauth.browser_open_failed" = "无法打开浏览器登录页";
 "error.oauth.callback_server_start_failed" = "无法启动本地登录回调服务";
 "error.oauth.callback_state_mismatch" = "登录回调校验失败，请重试";

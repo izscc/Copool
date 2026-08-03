@@ -26,14 +26,14 @@ struct InstalledEditorApp: Equatable, Identifiable {
 }
 
 struct SwitchAccountExecutionResult: Equatable {
-    var usedFallbackCLI: Bool
+    var didLaunchChatGPTApp: Bool
     var opencodeSynced: Bool
     var opencodeSyncError: String?
     var restartedEditorApps: [EditorAppID]
     var editorRestartError: String?
 
     static let idle = SwitchAccountExecutionResult(
-        usedFallbackCLI: false,
+        didLaunchChatGPTApp: false,
         opencodeSynced: false,
         opencodeSyncError: nil,
         restartedEditorApps: [],

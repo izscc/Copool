@@ -36,7 +36,7 @@ final class ProxyPageModelTests: XCTestCase {
             runtimePlatform: .macOS,
             settings: AppSettings(
                 launchAtStartup: false,
-                launchCodexAfterSwitch: true,
+                launchChatGPTAfterSwitch: true,
                 autoSmartSwitch: false,
                 syncOpencodeOpenaiAuth: false,
                 restartEditorsOnSwitch: false,

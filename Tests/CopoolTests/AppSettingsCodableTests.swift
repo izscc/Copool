@@ -2,6 +2,26 @@ import XCTest
 @testable import Copool
 
 final class AppSettingsCodableTests: XCTestCase {
+    func testEncodingUsesChatGPTLaunchKeyAndReadsLegacyCodexKey() throws {
+        let encoded = try JSONEncoder().encode(AppSettings.defaultValue)
+        let encodedObject = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+
+        XCTAssertEqual(encodedObject["launchChatGPTAfterSwitch"] as? Bool, true)
+        XCTAssertNil(encodedObject["launchCodexAfterSwitch"])
+
+        let legacyJSON = try XCTUnwrap(
+            String(data: encoded, encoding: .utf8)?.replacingOccurrences(
+                of: "launchChatGPTAfterSwitch",
+                with: "launchCodexAfterSwitch"
+            ).data(using: .utf8)
+        )
+        let decodedLegacy = try JSONDecoder().decode(AppSettings.self, from: legacyJSON)
+
+        XCTAssertTrue(decodedLegacy.launchChatGPTAfterSwitch)
+    }
+
     func testDecodeSettingsRequiresFullCurrentShape() throws {
         let json = """
         {

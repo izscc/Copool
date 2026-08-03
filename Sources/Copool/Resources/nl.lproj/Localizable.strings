@@ -20,7 +20,7 @@
 
 "settings.section.general" = "Algemeen";
 "settings.launch_at_startup" = "Start bij inloggen";
-"settings.launch_codex_after_switch" = "Start Codex na wisselen";
+"settings.launch_chatgpt_after_switch" = "Start ChatGPT na wisselen";
 "settings.auto_start_api_proxy" = "API Proxy automatisch starten";
 "settings.local_proxy_host_api_only" = "Lokale proxy: alleen API hosten";
 "settings.section.deployment" = "Uitrol";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "Het huidige account is al de beste beschikbare optie";
 "accounts.notice.smart_switched_prefix_format" = "Slim geschakeld naar: %@ · %@";
 "accounts.notice.switch_done" = "Account gewisseld";
-"accounts.notice.switch_done_fallback" = "Account gewisseld (via codex app-opdracht)";
+"accounts.notice.switch_done_chatgpt" = "Account gewisseld (ChatGPT-app gestart)";
 "accounts.notice.sync_failed_format" = "Opencode-synchronisatie mislukt: %@";
 "accounts.notice.sync_done" = "Opencode-auth gesynchroniseerd";
 "accounts.notice.editor_restart_failed_format" = "Editor herstarten mislukt: %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "Failed to decode id_token";
 "error.json.unsupported_value" = "Unsupported JSON value";
 "error.json.unsupported_payload_type" = "Unsupported JSON payload type";
-"error.codex_cli.launch_login_failed_format" = "Failed to launch codex login: %@";
-"error.codex_cli.launch_app_open_failed" = "Failed to launch Codex.app";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app not found, and codex app fallback failed: %@";
-"error.codex_cli.executable_not_found" = "codex executable not found. Install Codex CLI or add it to PATH.";
+"error.chatgpt_app.launch_failed" = "Failed to launch ChatGPT.app";
 "error.oauth.browser_open_failed" = "Failed to open the browser sign-in page";
 "error.oauth.callback_server_start_failed" = "Failed to start the local sign-in callback service";
 "error.oauth.callback_state_mismatch" = "Sign-in callback validation failed. Try again.";

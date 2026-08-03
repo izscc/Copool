@@ -20,7 +20,7 @@
 
 "settings.section.general" = "Général";
 "settings.launch_at_startup" = "Lancer au démarrage";
-"settings.launch_codex_after_switch" = "Lancer Codex après le changement";
+"settings.launch_chatgpt_after_switch" = "Lancer ChatGPT après le changement";
 "settings.auto_start_api_proxy" = "Démarrer automatiquement l'API Proxy";
 "settings.local_proxy_host_api_only" = "Proxy local : héberger uniquement l’API";
 "settings.section.deployment" = "Déploiement";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "Le compte actuel est déjà la meilleure option disponible";
 "accounts.notice.smart_switched_prefix_format" = "Bascule intelligente vers : %@ · %@";
 "accounts.notice.switch_done" = "Compte changé";
-"accounts.notice.switch_done_fallback" = "Compte changé (via commande codex app)";
+"accounts.notice.switch_done_chatgpt" = "Compte changé (application ChatGPT lancée)";
 "accounts.notice.sync_failed_format" = "Échec de la synchro Opencode : %@";
 "accounts.notice.sync_done" = "Auth Opencode synchronisée";
 "accounts.notice.editor_restart_failed_format" = "Échec du redémarrage de l'éditeur : %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "Impossible de décoder id_token";
 "error.json.unsupported_value" = "Valeur JSON non prise en charge";
 "error.json.unsupported_payload_type" = "Type de payload JSON non pris en charge";
-"error.codex_cli.launch_login_failed_format" = "Impossible de lancer codex login : %@";
-"error.codex_cli.launch_app_open_failed" = "Impossible de lancer Codex.app";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app est introuvable et le repli codex app a aussi échoué : %@";
-"error.codex_cli.executable_not_found" = "L’exécutable codex est introuvable. Installez Codex CLI ou ajoutez-le au PATH.";
+"error.chatgpt_app.launch_failed" = "Impossible de lancer ChatGPT.app";
 "error.oauth.browser_open_failed" = "Impossible d’ouvrir la page de connexion dans le navigateur";
 "error.oauth.callback_server_start_failed" = "Impossible de démarrer le service local de callback de connexion";
 "error.oauth.callback_state_mismatch" = "La validation du callback de connexion a échoué. Réessayez.";

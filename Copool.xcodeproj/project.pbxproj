@@ -43,7 +43,7 @@
 		2CA3BD709672017E7414EF48 /* SettingsCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC562226CDA114F63F5E91A /* SettingsCoordinator.swift */; };
 		3139A8AE6108DD3827EA8706 /* LiquidProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46A8A937EF06D12B06395D29 /* LiquidProgress.swift */; };
 		337D93A018B21F1F1833443D /* AccountsWidgetSnapshotBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFEECEA686528A0A209CD86 /* AccountsWidgetSnapshotBuilder.swift */; };
-		341FC56FB803E4544D4928E3 /* CodexCLIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB01EB2A0408FB4CA84CDEE /* CodexCLIService.swift */; };
+		341FC56FB803E4544D4928E3 /* ChatGPTAppService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB01EB2A0408FB4CA84CDEE /* ChatGPTAppService.swift */; };
 		366BB64F586C3259C64EFC29 /* models.rs in Resources */ = {isa = PBXBuildFile; fileRef = FAECC20A0EA2A2E024BEFA9E /* models.rs */; };
 		391A9A6468E3B3427CCBAADC /* AccountsCoordinator+Maintenance.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4BC9E2AF748367AF480A656 /* AccountsCoordinator+Maintenance.swift */; };
 		39796A30063610AC0A5579C5 /* CopoolApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 673441EA643693821EED4FE6 /* CopoolApp.swift */; };
@@ -266,7 +266,7 @@
 		38BD5BE0A332BCE32A46A463 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
 		3E013D6F6786AE2EA7E9AF59 /* proxy_daemon.rs */ = {isa = PBXFileReference; lastKnownFileType = text; path = proxy_daemon.rs; sourceTree = "<group>"; };
 		3EAF06F7C7AF8EC727D71D52 /* EndpointRequestCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EndpointRequestCoordinatorTests.swift; sourceTree = "<group>"; };
-		3EB01EB2A0408FB4CA84CDEE /* CodexCLIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexCLIService.swift; sourceTree = "<group>"; };
+		3EB01EB2A0408FB4CA84CDEE /* ChatGPTAppService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatGPTAppService.swift; sourceTree = "<group>"; };
 		42479015F84989E486D80B6E /* Protocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Protocols.swift; sourceTree = "<group>"; };
 		46A8A937EF06D12B06395D29 /* LiquidProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiquidProgress.swift; sourceTree = "<group>"; };
 		47F39D10FDF3E12CF67FB578 /* RemoteAccountsMutationSyncService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RemoteAccountsMutationSyncService.swift; sourceTree = "<group>"; };
@@ -453,7 +453,7 @@
 				7296C82EB9955D9DB121C941 /* AuthFlowDebugLog.swift */,
 				1856A9A4C1A74A8AA16A8B11 /* ChatGPTBaseOriginResolver.swift */,
 				C139AC44A9986277E75FA765 /* CloudflaredService.swift */,
-				3EB01EB2A0408FB4CA84CDEE /* CodexCLIService.swift */,
+				3EB01EB2A0408FB4CA84CDEE /* ChatGPTAppService.swift */,
 				2DD2673A9712C55D302564FA /* DefaultUsageService.swift */,
 				95E85D9244A64A8BB6AB5F11 /* DefaultWorkspaceMetadataService.swift */,
 				26C8D1A13F4D46AAB7E2A110 /* EndpointRequestCoordinator.swift */,
@@ -1076,7 +1076,7 @@
 				53243CFFBC40F306DCE9ED46 /* AuthFlowDebugLog.swift in Sources */,
 				A9BC31EC4BA9427A9F554D41 /* ChatGPTBaseOriginResolver.swift in Sources */,
 				8A97DF56318AACE5DA7A07A7 /* CloudflaredService.swift in Sources */,
-				341FC56FB803E4544D4928E3 /* CodexCLIService.swift in Sources */,
+				341FC56FB803E4544D4928E3 /* ChatGPTAppService.swift in Sources */,
 				39796A30063610AC0A5579C5 /* CopoolApp.swift in Sources */,
 				FA624CCECA28D7F68B1C0FF8 /* DefaultUsageService.swift in Sources */,
 				FA8F4B3E19ED4AA8B7740F31 /* DefaultWorkspaceMetadataService.swift in Sources */,
@@ -1221,7 +1221,7 @@
 				CODE_SIGN_ENTITLEMENTS = Copool.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
@@ -1240,7 +1240,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.26;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool;
 				PRODUCT_NAME = Copool;
 				REGISTER_APP_GROUPS = YES;
@@ -1262,7 +1262,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = CopoolWidgetsMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
@@ -1280,7 +1280,7 @@
 				INFOPLIST_FILE = Sources/CopoolWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.26;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool.widgets;
 				PRODUCT_NAME = CopoolWidgetsMac;
 				REGISTER_APP_GROUPS = YES;
@@ -1304,7 +1304,7 @@
 				CODE_SIGN_ENTITLEMENTS = Copool.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
@@ -1323,7 +1323,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.26;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool;
 				PRODUCT_NAME = Copool;
 				REGISTER_APP_GROUPS = YES;
@@ -1364,7 +1364,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = CopoolWidgetsMac.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
@@ -1382,7 +1382,7 @@
 				INFOPLIST_FILE = Sources/CopoolWidgets/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited)";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.26;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.alick.copool.widgets;
 				PRODUCT_NAME = CopoolWidgetsMac;
 				REGISTER_APP_GROUPS = YES;

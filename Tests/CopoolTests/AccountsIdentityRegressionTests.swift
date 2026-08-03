@@ -242,7 +242,7 @@ final class AccountsIdentityRegressionTests: XCTestCase {
             authRepository: authRepository,
             usageService: IdentityRegressionUsageService(),
             chatGPTOAuthLoginService: IdentityRegressionLoginService(),
-            codexCLIService: IdentityRegressionCodexCLIService(),
+            chatGPTAppService: IdentityRegressionChatGPTAppService(),
             editorAppService: IdentityRegressionEditorAppService(),
             opencodeAuthSyncService: IdentityRegressionOpencodeAuthSyncService(),
             dateProvider: IdentityRegressionDateProvider()
@@ -342,8 +342,8 @@ private struct IdentityRegressionLoginService: ChatGPTOAuthLoginServiceProtocol 
     }
 }
 
-private struct IdentityRegressionCodexCLIService: CodexCLIServiceProtocol {
-    func launchApp(workspacePath: String?) throws -> Bool { false }
+private struct IdentityRegressionChatGPTAppService: ChatGPTAppServiceProtocol {
+    func launchApp() throws {}
 }
 
 private struct IdentityRegressionEditorAppService: EditorAppServiceProtocol {

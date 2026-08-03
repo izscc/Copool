@@ -20,7 +20,7 @@
 
 "settings.section.general" = "一般";
 "settings.launch_at_startup" = "ログイン時に起動";
-"settings.launch_codex_after_switch" = "切替後に Codex を起動";
+"settings.launch_chatgpt_after_switch" = "切替後に ChatGPT を起動";
 "settings.auto_start_api_proxy" = "API プロキシを自動起動";
 "settings.local_proxy_host_api_only" = "ローカルプロキシ: API のみホスト";
 "settings.section.deployment" = "デプロイモード";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "現在のアカウントが最適です";
 "accounts.notice.smart_switched_prefix_format" = "スマート切替先: %@ · %@";
 "accounts.notice.switch_done" = "アカウントを切り替えました";
-"accounts.notice.switch_done_fallback" = "アカウントを切り替えました（codex app コマンド経由）";
+"accounts.notice.switch_done_chatgpt" = "アカウントを切り替えました（ChatGPT アプリを起動）";
 "accounts.notice.sync_failed_format" = "opencode 同期に失敗: %@";
 "accounts.notice.sync_done" = "opencode 認証を同期しました";
 "accounts.notice.editor_restart_failed_format" = "エディタ再起動に失敗: %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "id_token のデコードに失敗しました";
 "error.json.unsupported_value" = "サポートされていない JSON 値です";
 "error.json.unsupported_payload_type" = "サポートされていない JSON ペイロード型です";
-"error.codex_cli.launch_login_failed_format" = "codex login の起動に失敗しました: %@";
-"error.codex_cli.launch_app_open_failed" = "Codex.app の起動に失敗しました";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app が見つからず、codex app フォールバック起動も失敗しました: %@";
-"error.codex_cli.executable_not_found" = "codex 実行ファイルが見つかりません。Codex CLI をインストールするか PATH を設定してください。";
+"error.chatgpt_app.launch_failed" = "ChatGPT.app の起動に失敗しました";
 "error.oauth.browser_open_failed" = "ブラウザのサインインページを開けませんでした";
 "error.oauth.callback_server_start_failed" = "ローカルのサインインコールバックサービスを起動できませんでした";
 "error.oauth.callback_state_mismatch" = "サインインコールバックの検証に失敗しました。再試行してください。";

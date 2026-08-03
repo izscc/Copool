@@ -64,8 +64,8 @@ enum SettingsControlPresentation {
                 ),
                 SettingsToggleDescriptor(
                     intent: .launchAfterSwitch,
-                    titleKey: "settings.launch_codex_after_switch",
-                    isOn: settings.launchCodexAfterSwitch
+                    titleKey: "settings.launch_chatgpt_after_switch",
+                    isOn: settings.launchChatGPTAfterSwitch
                 ),
                 SettingsToggleDescriptor(
                     intent: .autoStartProxy,

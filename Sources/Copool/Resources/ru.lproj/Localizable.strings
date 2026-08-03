@@ -20,7 +20,7 @@
 
 "settings.section.general" = "Общие";
 "settings.launch_at_startup" = "Запускать при входе";
-"settings.launch_codex_after_switch" = "Запускать Codex после переключения";
+"settings.launch_chatgpt_after_switch" = "Запускать ChatGPT после переключения";
 "settings.auto_start_api_proxy" = "Автозапуск API Proxy";
 "settings.local_proxy_host_api_only" = "Локальный прокси: только хостить API";
 "settings.section.deployment" = "Развертывание";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "Текущий аккаунт уже является лучшим доступным вариантом";
 "accounts.notice.smart_switched_prefix_format" = "Умное переключение на: %@ · %@";
 "accounts.notice.switch_done" = "Аккаунт переключен";
-"accounts.notice.switch_done_fallback" = "Аккаунт переключен (через команду codex app)";
+"accounts.notice.switch_done_chatgpt" = "Аккаунт переключен (приложение ChatGPT запущено)";
 "accounts.notice.sync_failed_format" = "Сбой синхронизации Opencode: %@";
 "accounts.notice.sync_done" = "Auth Opencode синхронизирована";
 "accounts.notice.editor_restart_failed_format" = "Не удалось перезапустить редактор: %@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "Не удалось декодировать id_token";
 "error.json.unsupported_value" = "Неподдерживаемое значение JSON";
 "error.json.unsupported_payload_type" = "Неподдерживаемый тип JSON payload";
-"error.codex_cli.launch_login_failed_format" = "Не удалось запустить codex login: %@";
-"error.codex_cli.launch_app_open_failed" = "Не удалось запустить Codex.app";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app не найден, и резервный запуск через codex app тоже не удался: %@";
-"error.codex_cli.executable_not_found" = "Исполняемый файл codex не найден. Установите Codex CLI или добавьте его в PATH.";
+"error.chatgpt_app.launch_failed" = "Не удалось запустить ChatGPT.app";
 "error.oauth.browser_open_failed" = "Не удалось открыть страницу входа в браузере";
 "error.oauth.callback_server_start_failed" = "Не удалось запустить локальный callback-сервис входа";
 "error.oauth.callback_state_mismatch" = "Проверка callback входа не удалась. Попробуйте снова.";

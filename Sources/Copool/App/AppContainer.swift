@@ -51,7 +51,7 @@ final class AppContainer {
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
             let workspaceMetadataService = DefaultWorkspaceMetadataService(configPath: paths.codexConfigPath)
             let chatGPTOAuthLoginService = OpenAIChatGPTOAuthLoginService(configPath: paths.codexConfigPath)
-            let codexCLIService = CodexCLIService()
+            let chatGPTAppService = ChatGPTAppService()
             let editorAppService = EditorAppService()
             let opencodeSyncService = OpencodeAuthSyncService()
             let launchAtStartupService = LaunchAtStartupService()
@@ -63,7 +63,7 @@ final class AppContainer {
                 usageService: usageService,
                 workspaceMetadataService: workspaceMetadataService,
                 chatGPTOAuthLoginService: chatGPTOAuthLoginService,
-                codexCLIService: codexCLIService,
+                chatGPTAppService: chatGPTAppService,
                 editorAppService: editorAppService,
                 opencodeAuthSyncService: opencodeSyncService
             )

@@ -20,7 +20,7 @@
 
 "settings.section.general" = "General";
 "settings.launch_at_startup" = "Launch at startup";
-"settings.launch_codex_after_switch" = "Launch Codex after switch";
+"settings.launch_chatgpt_after_switch" = "Launch ChatGPT after switch";
 "settings.auto_start_api_proxy" = "Auto start API proxy";
 "settings.local_proxy_host_api_only" = "Local proxy: Host API only";
 "settings.section.deployment" = "Deployment";
@@ -117,7 +117,7 @@
 "accounts.notice.already_best" = "Current account is already the best available";
 "accounts.notice.smart_switched_prefix_format" = "Smart switched to: %@ · %@";
 "accounts.notice.switch_done" = "Switched account";
-"accounts.notice.switch_done_fallback" = "Switched account (via codex app command)";
+"accounts.notice.switch_done_chatgpt" = "Switched account (ChatGPT app launched)";
 "accounts.notice.sync_failed_format" = "Opencode sync failed: %@";
 "accounts.notice.sync_done" = "Opencode auth synced";
 "accounts.notice.editor_restart_failed_format" = "Editor restart failed: %@";
@@ -282,10 +282,7 @@
 "error.json.unsupported_value" = "Unsupported JSON value";
 "error.json.unsupported_payload_type" = "Unsupported JSON payload type";
 
-"error.codex_cli.launch_login_failed_format" = "Failed to launch codex login: %@";
-"error.codex_cli.launch_app_open_failed" = "Failed to launch Codex.app";
-"error.codex_cli.launch_app_fallback_failed_format" = "Codex.app not found, and codex app fallback failed: %@";
-"error.codex_cli.executable_not_found" = "codex executable not found. Install Codex CLI or add it to PATH.";
+"error.chatgpt_app.launch_failed" = "Failed to launch ChatGPT.app";
 "error.oauth.browser_open_failed" = "Failed to open the browser sign-in page";
 "error.oauth.callback_server_start_failed" = "Failed to start the local sign-in callback service";
 "error.oauth.callback_state_mismatch" = "Sign-in callback validation failed. Try again.";

@@ -22,7 +22,7 @@ actor SettingsCoordinator {
         var settings = try settingsRepository.loadSettings()
 
         if let value = patch.launchAtStartup { settings.launchAtStartup = value }
-        if let value = patch.launchCodexAfterSwitch { settings.launchCodexAfterSwitch = value }
+        if let value = patch.launchChatGPTAfterSwitch { settings.launchChatGPTAfterSwitch = value }
         if let value = patch.autoSmartSwitch { settings.autoSmartSwitch = value }
         if let value = patch.syncOpencodeOpenaiAuth { settings.syncOpencodeOpenaiAuth = value }
         if let value = patch.localProxyHostAPIOnly { settings.localProxyHostAPIOnly = value }

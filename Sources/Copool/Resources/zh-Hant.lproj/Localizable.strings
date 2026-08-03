@@ -20,7 +20,7 @@
 
 "settings.section.general" = "一般";
 "settings.launch_at_startup" = "開機啟動";
-"settings.launch_codex_after_switch" = "切換後啟動 Codex";
+"settings.launch_chatgpt_after_switch" = "切換後啟動 ChatGPT";
 "settings.auto_start_api_proxy" = "自動啟動 API Proxy";
 "settings.local_proxy_host_api_only" = "本地代理：僅託管 API";
 "settings.section.deployment" = "部署";
@@ -105,7 +105,7 @@
 "accounts.notice.already_best" = "目前帳號已是最佳可用選項";
 "accounts.notice.smart_switched_prefix_format" = "已智慧切換到：%@ · %@";
 "accounts.notice.switch_done" = "帳號已切換";
-"accounts.notice.switch_done_fallback" = "帳號已切換（透過 codex app 指令）";
+"accounts.notice.switch_done_chatgpt" = "帳號已切換（已啟動 ChatGPT App）";
 "accounts.notice.sync_failed_format" = "Opencode 同步失敗：%@";
 "accounts.notice.sync_done" = "Opencode 授權已同步";
 "accounts.notice.editor_restart_failed_format" = "編輯器重啟失敗：%@";
@@ -262,10 +262,7 @@
 "error.auth.decode_id_token_failed" = "解碼 id_token 失敗";
 "error.json.unsupported_value" = "不支援的 JSON 值";
 "error.json.unsupported_payload_type" = "不支援的 JSON payload 類型";
-"error.codex_cli.launch_login_failed_format" = "啟動 codex login 失敗：%@";
-"error.codex_cli.launch_app_open_failed" = "啟動 Codex.app 失敗";
-"error.codex_cli.launch_app_fallback_failed_format" = "找不到 Codex.app，且 codex app 備援啟動也失敗：%@";
-"error.codex_cli.executable_not_found" = "找不到 codex 執行檔。請安裝 Codex CLI 或加入 PATH。";
+"error.chatgpt_app.launch_failed" = "啟動 ChatGPT.app 失敗";
 "error.oauth.browser_open_failed" = "無法開啟瀏覽器登入頁面";
 "error.oauth.callback_server_start_failed" = "無法啟動本地登入 callback 服務";
 "error.oauth.callback_state_mismatch" = "登入 callback 驗證失敗，請再試一次。";
