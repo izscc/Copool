@@ -23,7 +23,7 @@ targets:
         INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
         INFOPLIST_KEY_LSUIElement: YES
         CODE_SIGN_STYLE: Automatic
-        CURRENT_PROJECT_VERSION: 28
+        CURRENT_PROJECT_VERSION: 29
         MARKETING_VERSION: 2.1.0
         DEVELOPMENT_TEAM: KLU8GF65GP
         PRODUCT_BUNDLE_IDENTIFIER: com.alick.copool
