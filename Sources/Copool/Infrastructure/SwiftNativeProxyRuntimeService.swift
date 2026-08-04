@@ -23,7 +23,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
     private var runningPort: Int?
     private var activeAccountID: String?
     private var activeAccountLabel: String?
-    private var lastError: String?
+    var lastError: String?
     var cachedCandidates: [ProxyCandidate]?
     var cachedCandidatesStoreModificationDate: Date?
     var stickyAccountID: String?
@@ -75,32 +75,50 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             return await status()
         }
 
-        let desiredPort = preferredPort ?? 8787
-        guard desiredPort > 0 && desiredPort < 65536 else {
-            throw AppError.invalidData(L10n.tr("error.proxy_runtime.invalid_port_format", String(desiredPort)))
+        let requestedPort = preferredPort ?? 8787
+        guard requestedPort > 0 && requestedPort < 65536 else {
+            throw AppError.invalidData(L10n.tr("error.proxy_runtime.invalid_port_format", String(requestedPort)))
         }
 
         _ = try ensurePersistedAPIKey()
 
-        let boundServer: SimpleHTTPServer
-        do {
-            boundServer = try SimpleHTTPServer(port: UInt16(desiredPort)) { [weak self] request in
-                guard let self else {
-                    return HTTPResponse.json(statusCode: 500, object: ["error": ["message": "Proxy runtime unavailable"]])
+        var boundServer: SimpleHTTPServer?
+        var selectedPort: Int?
+        var lastStartError: Error?
+
+        // A stale local development service or another app may already own
+        // 8787. Try a small deterministic range instead of making the proxy
+        // unusable; the actual selected port is returned in ApiProxyStatus.
+        for port in Self.proxyPortCandidates(preferredPort: requestedPort) {
+            var candidate: SimpleHTTPServer?
+            do {
+                candidate = try SimpleHTTPServer(port: UInt16(port)) { [weak self] request in
+                    guard let self else {
+                        return HTTPResponse.json(statusCode: 500, object: ["error": ["message": "Proxy runtime unavailable"]])
+                    }
+                    return await self.handle(request: request)
                 }
-                return await self.handle(request: request)
+                try await candidate?.start()
+                boundServer = candidate
+                selectedPort = port
+                break
+            } catch {
+                candidate?.stop()
+                lastStartError = error
             }
-            try await boundServer.start()
-        } catch {
-            lastError = L10n.tr("error.proxy_runtime.start_swift_proxy_failed_format", error.localizedDescription)
-            throw AppError.io(lastError ?? L10n.tr("error.proxy_runtime.start_failed"))
+        }
+
+        guard let boundServer, let selectedPort else {
+            let detail = lastStartError?.localizedDescription ?? L10n.tr("error.proxy_runtime.start_failed")
+            lastError = L10n.tr("error.proxy_runtime.start_swift_proxy_failed_format", detail)
+            throw AppError.io(lastError ?? detail)
         }
 
         server = boundServer
-        runningPort = desiredPort
+        runningPort = selectedPort
         lastError = nil
 
-        let healthy = await waitForHealth(port: desiredPort)
+        let healthy = await waitForHealth(port: selectedPort)
         if !healthy {
             _ = await stop()
             lastError = L10n.tr("error.proxy_runtime.health_check_failed")
@@ -108,6 +126,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         }
 
         return await status()
+    }
+
+    static func proxyPortCandidates(preferredPort: Int, fallbackCount: Int = 10) -> [Int] {
+        guard preferredPort > 0 && preferredPort < 65536 else { return [] }
+        let upperBound = min(65535, preferredPort + max(0, fallbackCount))
+        return Array(preferredPort...upperBound)
     }
 
     func stop() async -> ApiProxyStatus {
@@ -329,6 +353,26 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                 payload: payload,
                 downstreamHeaders: downstreamHeaders
             )
+
+            // Retry once with a refreshed token on auth failures for
+            // subscription-imported providers (401/403).
+            if response.statusCode == 401 || response.statusCode == 403 {
+                if let refreshed = await refreshProviderTokenIfNeeded(route: route) {
+                    let retried = try await sendThirdPartyRequest(
+                        route: route,
+                        payload: payload,
+                        downstreamHeaders: downstreamHeaders,
+                        apiKeyOverride: refreshed
+                    )
+                    if retried.statusCode >= 200 && retried.statusCode < 300 {
+                        return self.thirdPartySuccessResponse(
+                            route: route,
+                            response: retried
+                        )
+                    }
+                    return self.thirdPartyErrorResponse(route: route, response: retried)
+                }
+            }
 
             if response.statusCode >= 200 && response.statusCode < 300 {
                 recordThirdPartyUsage(route: route, responseBody: response.body, statusCode: response.statusCode)
@@ -851,7 +895,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         return "{}"
     }
 
-    private func jsonError(statusCode: Int, message: String) -> HTTPResponse {
+    func jsonError(statusCode: Int, message: String) -> HTTPResponse {
         HTTPResponse.json(statusCode: statusCode, object: [
             "error": [
                 "message": message,

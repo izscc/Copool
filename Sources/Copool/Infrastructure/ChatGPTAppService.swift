@@ -57,7 +57,7 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
     }
 
     func syncThirdPartyModels(providers: [ProviderConfig]) throws {
-        try modelsCacheService.sync(providers: providers)
+        _ = try modelsCacheService.sync(providers: providers)
     }
 
     private func currentProviders() -> [ProviderConfig] {

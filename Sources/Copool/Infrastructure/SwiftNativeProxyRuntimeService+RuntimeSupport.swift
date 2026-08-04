@@ -131,7 +131,18 @@ extension SwiftNativeProxyRuntimeService {
         let lower = authorization.lowercased()
         if lower.hasPrefix("bearer ") {
             let provided = String(authorization.dropFirst("Bearer ".count)).trimmingCharacters(in: .whitespacesAndNewlines)
-            return provided == expected
+            if provided == expected {
+                return true
+            }
+            // Accept the ChatGPT.app/Codex OAuth access token of the current
+            // account so the desktop app can talk to this proxy without
+            // manual API-key configuration.
+            if let currentAuth = authRepository.readCurrentExtractedAuth(),
+               !currentAuth.accessToken.isEmpty,
+               currentAuth.accessToken == provided {
+                return true
+            }
+            return false
         }
 
         return authorization == expected

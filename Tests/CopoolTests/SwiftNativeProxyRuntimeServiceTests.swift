@@ -2,6 +2,25 @@ import XCTest
 @testable import Copool
 
 final class SwiftNativeProxyRuntimeServiceTests: XCTestCase {
+    func testProxyPortCandidatesFallbackFromOccupiedPreferredPort() {
+        XCTAssertEqual(
+            SwiftNativeProxyRuntimeService.proxyPortCandidates(preferredPort: 8787, fallbackCount: 3),
+            [8787, 8788, 8789, 8790]
+        )
+    }
+
+    func testProxyPortCandidatesStopsAtMaximumPort() {
+        XCTAssertEqual(
+            SwiftNativeProxyRuntimeService.proxyPortCandidates(preferredPort: 65534, fallbackCount: 5),
+            [65534, 65535]
+        )
+    }
+
+    func testProxyPortCandidatesRejectsInvalidPort() {
+        XCTAssertTrue(SwiftNativeProxyRuntimeService.proxyPortCandidates(preferredPort: 0).isEmpty)
+        XCTAssertTrue(SwiftNativeProxyRuntimeService.proxyPortCandidates(preferredPort: 65536).isEmpty)
+    }
+
     func testLoadCandidatesPrefersCurrentSelectionWhenUsageIsUnavailable() async throws {
         let runtime = makeRuntime(
             store: AccountsStore(

@@ -6,6 +6,15 @@ import AppKit
 
 @MainActor
 final class AppContainer {
+    /// Sendable weak reference used to bridge the file-watch callback into the
+    /// main actor without capturing a main-actor-isolated value directly.
+    private final class WeakBox: @unchecked Sendable {
+        weak var value: AppContainer?
+        init(_ value: AppContainer?) {
+            self.value = value
+        }
+    }
+
     private final class AccountsStoreChangeHandlerBox: @unchecked Sendable {
         var handler: (@Sendable () -> Void)?
     }
@@ -19,6 +28,9 @@ final class AppContainer {
     private let accountsWidgetSnapshotWriter: AccountsWidgetSnapshotWriter
     private let accountsWidgetDisplayModeStore: AccountsWidgetDisplayModeStore
     private let proxyCoordinator: ProxyCoordinator
+    private let localProxyCommandService: ProxyLocalCommandService
+    private let providerRepository: ProviderStoreRepository
+    private let chatGPTAppService: ChatGPTAppServiceProtocol
     private var accountsWidgetSnapshotCancellable: AnyCancellable?
     private var accountsPageSnapshotCancellable: AnyCancellable?
     private var widgetUsageProgressDisplayMode: UsageProgressDisplayMode
@@ -26,6 +38,7 @@ final class AppContainer {
     lazy var proxyModel: ProxyPageModel = ProxyPageModel(
         coordinator: proxyCoordinator,
         settingsCoordinator: settingsCoordinator,
+        localProxyCommandService: localProxyCommandService,
         chooseIdentityFilePath: {
             #if canImport(AppKit)
             let panel = NSOpenPanel()
@@ -97,6 +110,10 @@ final class AppContainer {
             let settingsCoordinator = SettingsCoordinator(
                 settingsRepository: settingsRepository,
                 launchAtStartupService: launchAtStartupService
+            )
+            let localProxyCommandService = ProxyLocalCommandService(
+                coordinator: proxyCoordinator,
+                settingsRepository: settingsRepository
             )
             let initialSettings = try settingsRepository.loadSettings()
             var applySettingsToContainer: ((AppSettings) -> Void)?
@@ -200,6 +217,9 @@ final class AppContainer {
                 accountsWidgetSnapshotWriter: accountsWidgetSnapshotWriter,
                 accountsWidgetDisplayModeStore: accountsWidgetDisplayModeStore,
                 proxyCoordinator: proxyCoordinator,
+                localProxyCommandService: localProxyCommandService,
+                providerRepository: providerRepository,
+                chatGPTAppService: chatGPTAppService,
                 widgetUsageProgressDisplayMode: initialSettings.usageProgressDisplayMode,
                 accountsModel: accountsModel,
                 settingsModel: settingsModel,
@@ -220,6 +240,9 @@ final class AppContainer {
         accountsWidgetSnapshotWriter: AccountsWidgetSnapshotWriter,
         accountsWidgetDisplayModeStore: AccountsWidgetDisplayModeStore,
         proxyCoordinator: ProxyCoordinator,
+        localProxyCommandService: ProxyLocalCommandService,
+        providerRepository: ProviderStoreRepository,
+        chatGPTAppService: ChatGPTAppServiceProtocol,
         widgetUsageProgressDisplayMode: UsageProgressDisplayMode,
         accountsModel: AccountsPageModel,
         settingsModel: SettingsPageModel,
@@ -230,6 +253,9 @@ final class AppContainer {
         self.accountsWidgetSnapshotWriter = accountsWidgetSnapshotWriter
         self.accountsWidgetDisplayModeStore = accountsWidgetDisplayModeStore
         self.proxyCoordinator = proxyCoordinator
+        self.localProxyCommandService = localProxyCommandService
+        self.providerRepository = providerRepository
+        self.chatGPTAppService = chatGPTAppService
         self.widgetUsageProgressDisplayMode = widgetUsageProgressDisplayMode
         self.accountsModel = accountsModel
         self.settingsModel = settingsModel
@@ -258,6 +284,47 @@ final class AppContainer {
                 usageProgressDisplayMode: widgetUsageProgressDisplayMode
             )
         }
+    }
+
+    /// Rebuilds `~/.codex/models_cache.json` with the current third-party
+    /// provider catalog. Called at launch and whenever providers change so the
+    /// ChatGPT.app model menu reflects imported models even when Codex has
+    /// overwritten the cache with its own server-side list.
+    func syncThirdPartyModelsToCodex() {
+        let providers = (try? providerRepository.loadProviders())?.providers ?? []
+        try? chatGPTAppService.syncThirdPartyModels(providers: providers)
+    }
+
+    /// Watches `~/.codex/models_cache.json` and re-injects the third-party
+    /// catalog whenever Codex overwrites it (e.g. on ChatGPT.app launch).
+    private var modelsCacheWatchSource: DispatchSourceFileSystemObject?
+
+    func startModelsCacheWatch() {
+        let path = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".codex/models_cache.json")
+        let descriptor = open(path.path, O_EVTONLY)
+        guard descriptor >= 0 else { return }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: descriptor,
+            eventMask: [.write, .extend, .delete, .rename],
+            queue: .global(qos: .utility)
+        )
+        source.setEventHandler { [weak self] in
+            // Debounce: Codex may write several times during a refresh.
+            let box = WeakBox(self)
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.5) {
+                guard let instance = box.value else { return }
+                Task { @MainActor in
+                    instance.syncThirdPartyModelsToCodex()
+                }
+            }
+        }
+        source.setCancelHandler {
+            close(descriptor)
+        }
+        source.resume()
+        modelsCacheWatchSource = source
     }
 
     func applySettings(_ settings: AppSettings) {

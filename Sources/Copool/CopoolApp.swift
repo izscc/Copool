@@ -15,6 +15,12 @@ struct CopoolApp: App {
         Task { @MainActor in
             container.trayModel.startBackgroundRefresh()
             await container.settingsModel.loadIfNeeded()
+            // Write the third-party catalog into ~/.codex/models_cache.json at
+            // launch so ChatGPT.app's model menu shows imported models even if
+            // Codex overwrote the cache with its server-side list.
+            container.syncThirdPartyModelsToCodex()
+            // Re-inject whenever Codex rewrites the cache (e.g. on app launch).
+            container.startModelsCacheWatch()
             await container.proxyModel.bootstrapOnAppLaunch(using: container.settingsModel.settings)
         }
     }

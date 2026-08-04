@@ -18,6 +18,7 @@
 		AA0000000000000000000013 /* ProviderTokenRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000013 /* ProviderTokenRefreshService.swift */; };
 		AA0000000000000000000014 /* ProviderPageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000014 /* ProviderPageModel.swift */; };
 		AA0000000000000000000015 /* ProviderPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000015 /* ProviderPageView.swift */; };
+		AA0000000000000000000020 /* ProxyLocalCommandService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000020 /* ProxyLocalCommandService.swift */; };
 		0395ED42439DA0C9E5F090EC /* SwiftNativeProxyRuntimeService+Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E21A03EBE2D53313FA558D1 /* SwiftNativeProxyRuntimeService+Models.swift */; };
 		062663E216F4946D6600D1CE /* AccountRankingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96C85B608B5A700CC8557EC2 /* AccountRankingTests.swift */; };
 		0797784F1F471715624CA9CD /* AppLocaleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A146C7576AB39EFCD658BFED /* AppLocaleTests.swift */; };
@@ -319,6 +320,7 @@
 		BB0000000000000000000013 /* ProviderTokenRefreshService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderTokenRefreshService.swift"; sourceTree = "<group>"; };
 		BB0000000000000000000014 /* ProviderPageModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderPageModel.swift"; sourceTree = "<group>"; };
 		BB0000000000000000000015 /* ProviderPageView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProviderPageView.swift"; sourceTree = "<group>"; };
+		BB0000000000000000000020 /* ProxyLocalCommandService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "ProxyLocalCommandService.swift"; sourceTree = "<group>"; };
 		7E21A03EBE2D53313FA558D1 /* SwiftNativeProxyRuntimeService+Models.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SwiftNativeProxyRuntimeService+Models.swift"; sourceTree = "<group>"; };
 		84D177FE0E597E58E234104A /* CopoolWidgets.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CopoolWidgets.swift; sourceTree = "<group>"; };
 		85BEA62E5EB96361AD117627 /* AccountsCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountsCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -508,6 +510,7 @@
 				BB0000000000000000000013 /* ProviderTokenRefreshService.swift */,
 				BB0000000000000000000014 /* ProviderPageModel.swift */,
 				BB0000000000000000000015 /* ProviderPageView.swift */,
+				BB0000000000000000000020 /* ProxyLocalCommandService.swift */,
 				7E21A03EBE2D53313FA558D1 /* SwiftNativeProxyRuntimeService+Models.swift */,
 				6A2C7AA3A58AA9039226B0C6 /* SwiftNativeProxyRuntimeService+Reasoning.swift */,
 				72F83775D81C98F1457C952A /* SwiftNativeProxyRuntimeService+RequestTranslation.swift */,
@@ -1202,6 +1205,7 @@
 				AA0000000000000000000013 /* ProviderTokenRefreshService.swift in Sources */,
 				AA0000000000000000000014 /* ProviderPageModel.swift in Sources */,
 				AA0000000000000000000015 /* ProviderPageView.swift in Sources */,
+				AA0000000000000000000020 /* ProxyLocalCommandService.swift in Sources */,
 				0395ED42439DA0C9E5F090EC /* SwiftNativeProxyRuntimeService+Models.swift in Sources */,
 				BC09A96AF0D6EDDDCE638354 /* SwiftNativeProxyRuntimeService+Reasoning.swift in Sources */,
 				15DB5CC3DD62EDCC284D506A /* SwiftNativeProxyRuntimeService+RequestTranslation.swift in Sources */,
