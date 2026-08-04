@@ -148,6 +148,7 @@ struct CodexModelsCacheService {
             "upgrade": NSNull(),
             "priority": 100,
             "prefer_websockets": false,
+            "supports_websockets": false,
             "available_in_plans": ["free", "plus", "pro", "team", "business", "enterprise"],
             "base_instructions": "You are a helpful AI coding assistant in Codex.",
             "supports_computer_use": false,

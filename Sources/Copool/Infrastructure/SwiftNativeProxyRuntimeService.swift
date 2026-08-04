@@ -160,6 +160,29 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             return HTTPResponse.json(statusCode: 200, object: ["ok": true])
         }
 
+        // Codex attempts a WebSocket transport for /v1/responses when the base
+        // URL points at a local gateway. We only speak HTTP, so answer 426
+        // (Upgrade Required) — opencodex does the same — which makes Codex
+        // fall back to plain HTTP responses. Connection: close is required for
+        // the fallback to trigger.
+        if isWebSocketUpgrade(request) {
+            let body = (try? JSONSerialization.data(withJSONObject: [
+                "error": [
+                    "message": "Responses WebSocket transport is disabled; use HTTP",
+                    "type": "upgrade_required",
+                ],
+            ])) ?? Data("{}".utf8)
+            return HTTPResponse(
+                statusCode: 426,
+                headers: [
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Sec-WebSocket-Version": "13",
+                    "Connection": "close",
+                ],
+                body: body
+            )
+        }
+
         guard isAuthorized(request.headers) else {
             return jsonError(statusCode: 401, message: "Invalid proxy api key.")
         }
@@ -885,6 +908,14 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         if value.count <= maxLength { return value }
         let index = value.index(value.startIndex, offsetBy: maxLength)
         return "\(value[..<index])..."
+    }
+
+    /// True when the request is a WebSocket upgrade (Codex's responses
+    /// transport). Answered with 426 so Codex falls back to HTTP.
+    func isWebSocketUpgrade(_ request: HTTPRequest) -> Bool {
+        let connection = request.headers["connection"]?.lowercased() ?? ""
+        let upgrade = request.headers["upgrade"]?.lowercased() ?? ""
+        return connection.contains("upgrade") || upgrade == "websocket"
     }
 
     func jsonString(_ object: Any) -> String {
