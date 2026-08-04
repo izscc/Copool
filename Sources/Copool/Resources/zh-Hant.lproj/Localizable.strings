@@ -139,6 +139,9 @@
 "accounts.stats.third_party.subtitle" = "Usage from your configured providers is tracked separately from ChatGPT accounts.";
 "accounts.stats.third_party.requests_format" = "%@ requests";
 "accounts.stats.third_party.tokens_format" = "%@ tokens";
+"accounts.stats.third_party.tokens_under_format" = "< %@";
+"accounts.stats.third_party.expand" = "展開明細";
+"accounts.stats.third_party.collapse" = "收起明細";
 "accounts.window.one_week" = "1 週";
 "accounts.window.used_format" = "已用 %@";
 "accounts.window.remaining_format" = "剩餘 %@";

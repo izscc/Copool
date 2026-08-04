@@ -23,6 +23,11 @@ struct ThirdPartyUsageRowPresentation: Equatable, Identifiable {
     let requestsText: String
     let tokensText: String
     let lastUsedText: String
+    /// Slice of the section's total tokens, 0...1.
+    let shareFraction: Double
+    let sharePercentText: String
+    /// Position in the token ranking, used to pick a stable slice colour.
+    let colorIndex: Int
 }
 
 struct AccountsActionBarPresentation: Equatable {
@@ -195,32 +200,57 @@ extension AccountsPageModel {
     }
 
     /// Builds the third-party usage rows from the persisted ledger.
+    ///
+    /// Ordered by token spend rather than recency so the share chart, its
+    /// legend and the detail list all read in the same order.
     func thirdPartyUsageRows(locale: Locale = .autoupdatingCurrent) -> [ThirdPartyUsageRowPresentation] {
         guard let thirdPartyUsageRepository,
               let store = try? thirdPartyUsageRepository.loadUsage() else {
             return []
         }
 
-        return store.entries
-            .sorted { $0.lastUsedAt > $1.lastUsedAt }
-            .map { entry in
-                ThirdPartyUsageRowPresentation(
-                    id: entry.id,
-                    title: "\(entry.providerName) / \(entry.modelID)",
-                    requestsText: L10n.tr("accounts.stats.third_party.requests_format", String(entry.requests)),
-                    tokensText: L10n.tr(
-                        "accounts.stats.third_party.tokens_format",
-                        Self.formatTokenCount(entry.totalTokens)
-                    ),
-                    lastUsedText: Self.formatLastUsed(entry.lastUsedAt, locale: locale)
-                )
-            }
+        let entries = store.entries.sorted {
+            $0.totalTokens == $1.totalTokens
+                ? $0.lastUsedAt > $1.lastUsedAt
+                : $0.totalTokens > $1.totalTokens
+        }
+        let totalTokens = entries.reduce(0) { $0 + $1.totalTokens }
+
+        return entries.enumerated().map { index, entry in
+            let share = totalTokens > 0 ? Double(entry.totalTokens) / Double(totalTokens) : 0
+            return ThirdPartyUsageRowPresentation(
+                id: entry.id,
+                title: "\(entry.providerName) / \(entry.modelID)",
+                requestsText: L10n.tr("accounts.stats.third_party.requests_format", String(entry.requests)),
+                tokensText: L10n.tr(
+                    "accounts.stats.third_party.tokens_format",
+                    Self.formatTokenCount(entry.totalTokens)
+                ),
+                lastUsedText: Self.formatLastUsed(entry.lastUsedAt, locale: locale),
+                shareFraction: share,
+                sharePercentText: Self.formatShare(share),
+                colorIndex: index
+            )
+        }
     }
 
-    private static func formatTokenCount(_ count: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter.string(from: NSNumber(value: count)) ?? String(count)
+    /// Tokens are always shown in millions so figures stay comparable across
+    /// models; anything that would round away to zero is marked as such
+    /// instead of reading like no usage at all.
+    static func formatTokenCount(_ count: Int) -> String {
+        let millions = Double(count) / 1_000_000
+        if count > 0 && millions < 0.005 {
+            return L10n.tr("accounts.stats.third_party.tokens_under_format", "0.01M")
+        }
+        return String(format: "%.2fM", millions)
+    }
+
+    static func formatShare(_ fraction: Double) -> String {
+        let percent = fraction * 100
+        if percent > 0 && percent < 0.1 {
+            return "<0.1%"
+        }
+        return String(format: "%.1f%%", percent)
     }
 
     private static func formatLastUsed(_ unixSeconds: Int64, locale: Locale) -> String {

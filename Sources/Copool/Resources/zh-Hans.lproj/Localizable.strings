@@ -150,6 +150,9 @@
 "accounts.stats.third_party.subtitle" = "你配置的服务商用量会与 ChatGPT 账号用量分开统计。";
 "accounts.stats.third_party.requests_format" = "%@ 次请求";
 "accounts.stats.third_party.tokens_format" = "%@ 个令牌";
+"accounts.stats.third_party.tokens_under_format" = "< %@";
+"accounts.stats.third_party.expand" = "展开明细";
+"accounts.stats.third_party.collapse" = "收起明细";
 "accounts.window.one_week" = "1 周";
 "accounts.window.used_format" = "已用 %@";
 "accounts.window.remaining_format" = "剩余 %@";

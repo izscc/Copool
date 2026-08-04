@@ -37,10 +37,6 @@ struct AccountsPageContentSection: View {
                     )
                 }
 
-                if presentation.shouldShowThirdPartyUsageSection {
-                    ThirdPartyUsageStatisticsSection(rows: presentation.thirdPartyUsageRows)
-                }
-
                 AccountsGridSection(
                     cards: self.cards,
                     isOverviewMode: presentation.isOverviewMode,
@@ -51,6 +47,12 @@ struct AccountsPageContentSection: View {
                     onReauthenticateAccount: onReauthenticateAccount,
                     onDeleteAccount: onDeleteAccount
                 )
+
+                // Kept below the accounts: it is a summary of side traffic,
+                // not something to scroll past to reach the account cards.
+                if presentation.shouldShowThirdPartyUsageSection {
+                    ThirdPartyUsageStatisticsSection(rows: presentation.thirdPartyUsageRows)
+                }
             }
         }
     }
@@ -348,11 +350,43 @@ private struct PendingWorkspaceAuthorizationFailureCard: View {
 }
 
 /// Third-party provider usage statistics block shown in the accounts page.
+///
+/// The share chart is the resting state; the per-model breakdown sits behind a
+/// disclosure so the block stays compact under the account cards.
 struct ThirdPartyUsageStatisticsSection: View {
     let rows: [ThirdPartyUsageRowPresentation]
 
+    @State private var isExpanded = false
+
+    private var hasTokenData: Bool {
+        rows.contains { $0.shareFraction > 0 }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+                .padding(.horizontal, LayoutRules.pagePadding)
+
+            if hasTokenData {
+                ThirdPartyUsageShareChart(rows: rows)
+                    .padding(.horizontal, LayoutRules.pagePadding)
+            }
+
+            if isExpanded || !hasTokenData {
+                VStack(spacing: 8) {
+                    ForEach(rows) { row in
+                        ThirdPartyUsageRowView(row: row)
+                    }
+                }
+                .padding(.horizontal, LayoutRules.pagePadding)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.easeInOut(duration: 0.22), value: isExpanded)
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(L10n.tr("accounts.stats.third_party.title"))
                     .font(.headline)
@@ -360,14 +394,104 @@ struct ThirdPartyUsageStatisticsSection: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, LayoutRules.pagePadding)
 
-            VStack(spacing: 8) {
-                ForEach(rows) { row in
-                    ThirdPartyUsageRowView(row: row)
+            Spacer(minLength: 0)
+
+            if hasTokenData {
+                Button {
+                    isExpanded.toggle()
+                } label: {
+                    Label(
+                        L10n.tr(isExpanded
+                            ? "accounts.stats.third_party.collapse"
+                            : "accounts.stats.third_party.expand"),
+                        systemImage: isExpanded ? "chevron.up" : "chevron.down"
+                    )
+                    .font(.caption)
+                    .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// Donut of each model's share of the section's total tokens, with a legend.
+private struct ThirdPartyUsageShareChart: View {
+    let rows: [ThirdPartyUsageRowPresentation]
+
+    private static let palette: [Color] = [
+        .indigo, .teal, .orange, .pink, .green, .purple, .blue, .brown,
+    ]
+
+    static func color(at index: Int) -> Color {
+        palette[index % palette.count]
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            ZStack {
+                ForEach(Array(segments.enumerated()), id: \.element.id) { _, segment in
+                    Circle()
+                        .trim(from: segment.start, to: segment.end)
+                        .stroke(
+                            Self.color(at: segment.colorIndex),
+                            style: StrokeStyle(lineWidth: 22, lineCap: .butt)
+                        )
+                        .rotationEffect(.degrees(-90))
                 }
             }
-            .padding(.horizontal, LayoutRules.pagePadding)
+            .frame(width: 116, height: 116)
+            // The stroke straddles the circle path, so half its width sits
+            // outside the frame.
+            .padding(11)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(rows) { row in
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Self.color(at: row.colorIndex))
+                            .frame(width: 8, height: 8)
+                        Text(row.title)
+                            .font(.caption)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 8)
+                        Text(row.sharePercentText)
+                            .font(.caption.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
+    }
+
+    private struct Segment: Identifiable {
+        let id: String
+        let colorIndex: Int
+        let start: CGFloat
+        let end: CGFloat
+    }
+
+    /// Trim ranges are cumulative, so each slice starts where the previous
+    /// one ended.
+    private var segments: [Segment] {
+        var offset: CGFloat = 0
+        return rows.compactMap { row in
+            guard row.shareFraction > 0 else { return nil }
+            let start = offset
+            offset += CGFloat(row.shareFraction)
+            return Segment(
+                id: row.id,
+                colorIndex: row.colorIndex,
+                start: start,
+                end: min(offset, 1)
+            )
         }
     }
 }
@@ -377,6 +501,10 @@ private struct ThirdPartyUsageRowView: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            Circle()
+                .fill(ThirdPartyUsageShareChart.color(at: row.colorIndex))
+                .frame(width: 8, height: 8)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(row.title)
                     .font(.subheadline.weight(.semibold))
@@ -395,6 +523,7 @@ private struct ThirdPartyUsageRowView: View {
 
             Text(row.tokensText)
                 .font(.caption.weight(.medium))
+                .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
