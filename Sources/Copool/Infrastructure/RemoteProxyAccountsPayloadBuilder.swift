@@ -40,7 +40,7 @@ struct RemoteProxyAccountsPayloadBuilder {
         do {
             return try JSONDecoder().decode(AccountsStore.self, from: data)
         } catch {
-            throw AppError.invalidData("Invalid accounts.json format")
+            throw AppError.invalidData(L10n.tr("error.remote.accounts_json_invalid"))
         }
     }
 

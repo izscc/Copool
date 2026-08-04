@@ -198,7 +198,7 @@ extension ProxyPageModel {
         removeRemoteDirectory: Bool? = nil
     ) async throws -> ProxyControlSnapshot {
         guard let localProxyCommandService else {
-            throw AppError.invalidData("Local proxy command service is unavailable.")
+            throw AppError.invalidData(L10n.tr("error.proxy.local_service_unavailable"))
         }
 
         let command = makeProxyControlCommand(

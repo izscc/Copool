@@ -14,5 +14,7 @@ enum PlatformCapabilities {
     static var supportsCloudflared: Bool { true }
     static var supportsRemoteShellManagement: Bool { true }
 
-    static let unsupportedOperationMessage = "This operation is unavailable."
+    static var unsupportedOperationMessage: String {
+        L10n.tr("error.platform.unsupported_operation")
+    }
 }

@@ -31,7 +31,9 @@ struct RemoteProxydBinaryBuilder {
             throw AppError.io(L10n.tr("error.remote.unavailable_missing_proxyd_source"))
         }
         guard CommandRunner.resolveExecutable("cargo") != nil else {
-            throw AppError.io("\(L10n.tr("error.remote.build_proxyd_failed")): cargo command not found")
+            throw AppError.io(
+                "\(L10n.tr("error.remote.build_proxyd_failed")): \(L10n.tr("error.remote.cargo_not_found"))"
+            )
         }
 
         try ensureLinuxBuildDependenciesIfNeeded()
@@ -61,7 +63,9 @@ struct RemoteProxydBinaryBuilder {
                 }
                 let details = result.stderr.isEmpty ? result.stdout : result.stderr
                 let compact = details.trimmingCharacters(in: .whitespacesAndNewlines)
-                let message = compact.isEmpty ? "exit \(result.status)" : compact
+                let message = compact.isEmpty
+                    ? L10n.tr("error.remote.exit_status_format", String(result.status))
+                    : compact
                 buildErrors.append("\(build.label): \(message)")
             }
         }
@@ -210,7 +214,7 @@ struct RemoteProxydBinaryBuilder {
         let destinationCapacity = max(64, data.count * 8)
         return try data.withUnsafeBytes { sourceBuffer in
             guard let sourceBaseAddress = sourceBuffer.bindMemory(to: UInt8.self).baseAddress else {
-                throw AppError.io("Compressed proxyd archive is empty")
+                throw AppError.io(L10n.tr("error.remote.archive_empty"))
             }
 
             var decoded = Data()
@@ -226,7 +230,7 @@ struct RemoteProxydBinaryBuilder {
 
             let status = compression_stream_init(&stream.pointee, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB)
             guard status != COMPRESSION_STATUS_ERROR else {
-                throw AppError.io("Failed to initialize proxyd archive decompression")
+                throw AppError.io(L10n.tr("error.remote.archive_decompression_init_failed"))
             }
             defer { compression_stream_destroy(&stream.pointee) }
 
@@ -251,7 +255,7 @@ struct RemoteProxydBinaryBuilder {
                 case COMPRESSION_STATUS_END:
                     return decoded
                 default:
-                    throw AppError.io("Failed to decompress proxyd archive")
+                    throw AppError.io(L10n.tr("error.remote.archive_decompression_failed"))
                 }
             }
         }
@@ -345,7 +349,7 @@ struct RemoteProxydBinaryBuilder {
             _ = try CommandRunner.runChecked(
                 "/usr/bin/env",
                 arguments: ["brew", "install", "zig"],
-                errorPrefix: "\(L10n.tr("error.remote.build_proxyd_failed")) (install zig)"
+                errorPrefix: "\(L10n.tr("error.remote.build_proxyd_failed")) (\(L10n.tr("error.remote.install_zig")))"
             )
         }
 
@@ -353,7 +357,7 @@ struct RemoteProxydBinaryBuilder {
             _ = try CommandRunner.runChecked(
                 "/usr/bin/env",
                 arguments: ["cargo", "install", "cargo-zigbuild", "--locked"],
-                errorPrefix: "\(L10n.tr("error.remote.build_proxyd_failed")) (install cargo-zigbuild)"
+                errorPrefix: "\(L10n.tr("error.remote.build_proxyd_failed")) (\(L10n.tr("error.remote.install_cargo_zigbuild")))"
             )
         }
         #endif
@@ -373,8 +377,8 @@ struct RemoteProxydBinaryBuilder {
         let arch = lines.count > 1 ? lines[1] : ""
 
         guard os == "Linux" else {
-            let value = os.isEmpty ? "unknown" : os
-            throw AppError.io("Remote deploy supports Linux only (detected: \(value))")
+            let value = os.isEmpty ? L10n.tr("common.unknown") : os
+            throw AppError.io(L10n.tr("error.remote.linux_only_format", value))
         }
 
         switch arch {
@@ -389,8 +393,8 @@ struct RemoteProxydBinaryBuilder {
                 fallbackTarget: "aarch64-unknown-linux-gnu"
             )
         default:
-            let value = arch.isEmpty ? "unknown" : arch
-            throw AppError.io("Unsupported remote Linux architecture: \(value)")
+            let value = arch.isEmpty ? L10n.tr("common.unknown") : arch
+            throw AppError.io(L10n.tr("error.remote.architecture_unsupported_format", value))
         }
     }
 
