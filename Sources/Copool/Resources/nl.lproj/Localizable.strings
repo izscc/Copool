@@ -18,6 +18,7 @@
 "common.install" = "Installeren";
 "common.none" = "Geen";
 "common.quit" = "Afsluiten";
+"common.sections" = "Secties";
 "common.edit" = "Bewerken";
 "common.testing" = "Testen...";
 "common.unknown" = "Onbekend";

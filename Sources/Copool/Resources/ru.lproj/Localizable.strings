@@ -18,6 +18,7 @@
 "common.install" = "Установить";
 "common.none" = "Нет";
 "common.quit" = "Выйти";
+"common.sections" = "Разделы";
 "common.edit" = "Изменить";
 "common.testing" = "Проверка...";
 "common.unknown" = "Неизвестно";

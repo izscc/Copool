@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C0A000000000000000000001 /* en.lproj/Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = C0B000000000000000000001 /* en */; };
+		C0A000000000000000000002 /* zh-Hans.lproj/Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = C0B000000000000000000002 /* zh-Hans */; };
 		037DB8B9A2A1E5FA00C16E1E /* proxy_daemon.rs in Resources */ = {isa = PBXBuildFile; fileRef = 3E013D6F6786AE2EA7E9AF59 /* proxy_daemon.rs */; };
 		AA0000000000000000000001 /* ProviderModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000001 /* ProviderModels.swift */; };
 		AA0000000000000000000002 /* ProviderFileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0000000000000000000002 /* ProviderFileRepository.swift */; };
@@ -236,6 +238,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C0B000000000000000000001 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = "en.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		C0B000000000000000000002 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		00E0EE08E1645AD783C2DED1 /* ShellCommandRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShellCommandRunner.swift; sourceTree = "<group>"; };
 		01A60F9FBC201EBACCB9D21A /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		02F62FFF50C0BF2ECE9417EF /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -822,8 +826,18 @@
 			children = (
 				84D177FE0E597E58E234104A /* CopoolWidgets.swift */,
 				6A541962BDDFDAF6E6C1F8F0 /* AccountsWidgetViews.swift */,
+				C0C000000000000000000001 /* Resources */,
 			);
 			path = CopoolWidgets;
+			sourceTree = "<group>";
+		};
+		C0C000000000000000000001 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C0B000000000000000000001 /* en */,
+				C0B000000000000000000002 /* zh-Hans */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		F208C475F2DEF2452FFE4564 /* Frameworks */ = {
@@ -959,6 +973,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0A000000000000000000001 /* en.lproj/Localizable.strings in Resources */,
+				C0A000000000000000000002 /* zh-Hans.lproj/Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

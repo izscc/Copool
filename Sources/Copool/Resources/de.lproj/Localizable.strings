@@ -18,6 +18,7 @@
 "common.install" = "Installieren";
 "common.none" = "Keine";
 "common.quit" = "Beenden";
+"common.sections" = "Abschnitte";
 "common.edit" = "Bearbeiten";
 "common.testing" = "Wird getestet...";
 "common.unknown" = "Unbekannt";

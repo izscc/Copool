@@ -18,6 +18,7 @@
 "common.install" = "설치";
 "common.none" = "없음";
 "common.quit" = "종료";
+"common.sections" = "섹션";
 "common.edit" = "편집";
 "common.testing" = "테스트 중...";
 "common.unknown" = "알 수 없음";

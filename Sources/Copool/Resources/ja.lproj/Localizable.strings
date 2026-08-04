@@ -18,6 +18,7 @@
 "common.install" = "インストール";
 "common.none" = "なし";
 "common.quit" = "終了";
+"common.sections" = "セクション";
 "common.edit" = "編集";
 "common.testing" = "テスト中...";
 "common.unknown" = "不明";

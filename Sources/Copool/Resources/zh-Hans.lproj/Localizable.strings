@@ -18,6 +18,7 @@
 "common.install" = "安装";
 "common.none" = "无";
 "common.quit" = "退出";
+"common.sections" = "分区";
 "common.edit" = "编辑";
 "common.testing" = "测试中...";
 "common.unknown" = "未知";

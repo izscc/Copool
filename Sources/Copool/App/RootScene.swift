@@ -308,7 +308,7 @@ private struct AppTabToolbarSwitcher: View {
         }
         .clipShape(Capsule())
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Sections"))
+        .accessibilityLabel(Text(L10n.tr("common.sections")))
     }
 
     @ViewBuilder
