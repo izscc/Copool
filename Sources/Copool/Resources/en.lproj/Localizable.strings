@@ -18,6 +18,9 @@
 "common.install" = "Install";
 "common.none" = "None";
 "common.quit" = "Quit";
+"auth.callback.success.title" = "Completing sign-in";
+"auth.callback.success.message" = "Copool is completing authorization. You can return to the app now.";
+"auth.callback.error.title" = "Sign-in failed";
 "common.sections" = "Sections";
 "common.edit" = "Edit";
 "common.testing" = "Testing...";

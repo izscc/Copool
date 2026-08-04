@@ -18,6 +18,9 @@
 "common.install" = "설치";
 "common.none" = "없음";
 "common.quit" = "종료";
+"auth.callback.success.title" = "로그인 완료 중";
+"auth.callback.success.message" = "Copool에서 인증을 완료하고 있습니다. 이제 앱으로 돌아가도 됩니다.";
+"auth.callback.error.title" = "로그인 실패";
 "common.sections" = "섹션";
 "common.edit" = "편집";
 "common.testing" = "테스트 중...";

@@ -16,8 +16,8 @@ struct CopoolAccountsWidget: Widget {
         ) { entry in
             AccountsWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Copool Accounts")
-        .description("See the current account and remaining quota at a glance.")
+        .configurationDisplayName("Copool 账号")
+        .description("一眼查看当前账号和剩余额度。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -69,7 +69,7 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                 workspaceLabel: "workspace",
                 accountLabel: "current_account",
                 oneWeek: AccountsWidgetWindowSnapshot(
-                    title: "1w",
+                    title: "1 周",
                     progressFraction: 0.18,
                     usedText: "18%",
                     remainingText: "82%",
@@ -82,7 +82,7 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                 workspaceLabel: nil,
                 accountLabel: "next_account",
                 oneWeek: AccountsWidgetWindowSnapshot(
-                    title: "1w",
+                    title: "1 周",
                     progressFraction: 0.31,
                     usedText: "31%",
                     remainingText: "69%",
@@ -96,7 +96,7 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                     workspaceLabel: "abcdefg",
                     accountLabel: "account_name",
                     oneWeek: AccountsWidgetWindowSnapshot(
-                        title: "1w",
+                        title: "1 周",
                         progressFraction: 0.02,
                         usedText: "2%",
                         remainingText: "98%",
@@ -109,7 +109,7 @@ struct AccountsWidgetTimelineProvider: TimelineProvider {
                     workspaceLabel: nil,
                     accountLabel: "plus_account",
                     oneWeek: AccountsWidgetWindowSnapshot(
-                        title: "1w",
+                        title: "1 周",
                         progressFraction: 0.36,
                         usedText: "36%",
                         remainingText: "64%",

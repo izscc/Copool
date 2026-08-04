@@ -18,6 +18,9 @@
 "common.install" = "Installieren";
 "common.none" = "Keine";
 "common.quit" = "Beenden";
+"auth.callback.success.title" = "Anmeldung wird abgeschlossen";
+"auth.callback.success.message" = "Copool schließt die Autorisierung ab. Sie können jetzt zur App zurückkehren.";
+"auth.callback.error.title" = "Anmeldung fehlgeschlagen";
 "common.sections" = "Abschnitte";
 "common.edit" = "Bearbeiten";
 "common.testing" = "Wird getestet...";

@@ -811,10 +811,10 @@ private struct AccountsWidgetEmptyState: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("No Accounts")
+            Text("暂无账号")
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(AccountsWidgetStyle.primaryTextColor(for: colorScheme))
-            Text("Open Copool to sync account usage into the widget.")
+            Text("打开 Copool，将账号用量同步到小组件。")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(AccountsWidgetStyle.secondaryTextColor(for: colorScheme))
         }

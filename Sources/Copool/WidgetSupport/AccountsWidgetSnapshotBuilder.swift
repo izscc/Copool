@@ -42,7 +42,7 @@ struct AccountsWidgetSnapshotBuilder {
             workspaceLabel: account.displayTeamName,
             accountLabel: AccountDisplayNameFormatter.format(account: account, style: .localPart),
             oneWeek: windowSnapshot(
-                title: "1w",
+                title: L10n.tr("accounts.window.one_week"),
                 window: account.usage?.oneWeek,
                 locale: locale,
                 timeZone: timeZone
@@ -62,7 +62,7 @@ struct AccountsWidgetSnapshotBuilder {
             workspaceLabel: account.displayTeamName,
             accountLabel: accountLabel,
             oneWeek: windowSnapshot(
-                title: "1w",
+                title: L10n.tr("accounts.window.one_week"),
                 window: account.usage?.oneWeek,
                 locale: locale,
                 timeZone: timeZone

@@ -160,7 +160,7 @@ struct AccountCardCompactUsageSection: View {
                 AccountCompactRingDescriptor(
                     id: "one-week",
                     valueText: compactPercentText(presentation.compactUsage.oneWeekDisplayPercent),
-                    subtitleText: "1w",
+                    subtitleText: L10n.tr("accounts.window.one_week"),
                     progress: compactProgress(presentation.compactUsage.oneWeekDisplayPercent),
                     tint: .teal
                 ),

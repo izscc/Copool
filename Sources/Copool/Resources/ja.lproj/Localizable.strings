@@ -18,6 +18,9 @@
 "common.install" = "インストール";
 "common.none" = "なし";
 "common.quit" = "終了";
+"auth.callback.success.title" = "サインインを完了しています";
+"auth.callback.success.message" = "Copool が認証を完了しています。アプリに戻ってください。";
+"auth.callback.error.title" = "サインインに失敗しました";
 "common.sections" = "セクション";
 "common.edit" = "編集";
 "common.testing" = "テスト中...";

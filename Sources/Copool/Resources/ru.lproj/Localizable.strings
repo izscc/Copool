@@ -18,6 +18,9 @@
 "common.install" = "Установить";
 "common.none" = "Нет";
 "common.quit" = "Выйти";
+"auth.callback.success.title" = "Завершение входа";
+"auth.callback.success.message" = "Copool завершает авторизацию. Теперь можно вернуться в приложение.";
+"auth.callback.error.title" = "Не удалось войти";
 "common.sections" = "Разделы";
 "common.edit" = "Изменить";
 "common.testing" = "Проверка...";

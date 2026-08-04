@@ -18,6 +18,9 @@
 "common.install" = "Installer";
 "common.none" = "Aucun";
 "common.quit" = "Quitter";
+"auth.callback.success.title" = "Finalisation de la connexion";
+"auth.callback.success.message" = "Copool termine l’autorisation. Vous pouvez maintenant revenir à l’app.";
+"auth.callback.error.title" = "Échec de la connexion";
 "common.sections" = "Sections";
 "common.edit" = "Modifier";
 "common.testing" = "Test en cours...";

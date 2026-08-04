@@ -18,6 +18,9 @@
 "common.install" = "安裝";
 "common.none" = "無";
 "common.quit" = "退出";
+"auth.callback.success.title" = "正在完成登入";
+"auth.callback.success.message" = "Copool 正在完成授權，你現在可以返回 App。";
+"auth.callback.error.title" = "登入失敗";
 "common.sections" = "區段";
 "common.edit" = "編輯";
 "common.testing" = "測試中...";

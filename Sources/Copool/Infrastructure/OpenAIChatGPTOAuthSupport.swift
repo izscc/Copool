@@ -30,7 +30,9 @@ enum OpenAIChatGPTOAuthSupport {
     }
 
     static func successPageHTML() -> Data {
-        Data(
+        let title = htmlEscape(L10n.tr("auth.callback.success.title"))
+        let message = htmlEscape(L10n.tr("auth.callback.success.message"))
+        return Data(
             """
             <html>
             <head>
@@ -39,8 +41,8 @@ enum OpenAIChatGPTOAuthSupport {
             <title>Copool</title>
             </head>
             <body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:32px;">
-            <h2>Finishing sign-in</h2>
-            <p>Copool is completing the authorization. You can return to the app now.</p>
+            <h2>\(title)</h2>
+            <p>\(message)</p>
             <script>
             (function () {
               function tryClose() {
@@ -60,7 +62,8 @@ enum OpenAIChatGPTOAuthSupport {
 
     static func errorPageHTML(message: String) -> Data {
         let escapedMessage = htmlEscape(message)
-        return Data("<html><head><meta charset=\"utf-8\"><title>Copool</title></head><body style=\"font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:32px;\"><h2>Sign-in failed</h2><p>\(escapedMessage)</p></body></html>".utf8)
+        let title = htmlEscape(L10n.tr("auth.callback.error.title"))
+        return Data("<html><head><meta charset=\"utf-8\"><title>Copool</title></head><body style=\"font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:32px;\"><h2>\(title)</h2><p>\(escapedMessage)</p></body></html>".utf8)
     }
 
     static func bestHTTPErrorMessage(

@@ -18,6 +18,9 @@
 "common.install" = "Installeren";
 "common.none" = "Geen";
 "common.quit" = "Afsluiten";
+"auth.callback.success.title" = "Aanmelden wordt voltooid";
+"auth.callback.success.message" = "Copool voltooit de autorisatie. Je kunt nu teruggaan naar de app.";
+"auth.callback.error.title" = "Aanmelden mislukt";
 "common.sections" = "Secties";
 "common.edit" = "Bewerken";
 "common.testing" = "Testen...";

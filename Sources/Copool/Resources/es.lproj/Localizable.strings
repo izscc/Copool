@@ -18,6 +18,9 @@
 "common.install" = "Instalar";
 "common.none" = "Ninguno";
 "common.quit" = "Salir";
+"auth.callback.success.title" = "Finalizando el inicio de sesión";
+"auth.callback.success.message" = "Copool está completando la autorización. Ya puedes volver a la app.";
+"auth.callback.error.title" = "Error al iniciar sesión";
 "common.sections" = "Secciones";
 "common.edit" = "Editar";
 "common.testing" = "Probando...";
