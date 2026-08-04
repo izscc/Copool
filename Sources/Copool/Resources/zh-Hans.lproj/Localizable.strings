@@ -280,7 +280,7 @@
 "proxy.notice.cloudflared_started" = "cloudflared 隧道已启动";
 "proxy.notice.cloudflared_stopped" = "cloudflared 已停止";
 "proxy.notice.auto_start_updated" = "默认启动设置已更新";
-"proxy.notice.server_draft_added" = "已添加服务器草稿，请到 Settings 的 JSON 配置补全字段";
+"proxy.notice.server_draft_added" = "已添加服务器草稿，请到设置中的 JSON 配置补全字段";
 "proxy.notice.remote_deploying_format" = "远程部署已开始：%@";
 "proxy.notice.remote_deploy_done_format" = "远程部署完成：%@";
 "proxy.notice.remote_started_format" = "远程服务已启动：%@";
