@@ -246,7 +246,6 @@ extension SwiftNativeProxyRuntimeService {
             }
 
             if let toolCalls = message["tool_calls"] as? [[String: Any]] {
-                var functionCalls: [[String: Any]] = []
                 for toolCall in toolCalls {
                     let fn = (toolCall["function"] as? [String: Any]) ?? [:]
                     var args: [String: Any] = [:]
@@ -254,18 +253,18 @@ extension SwiftNativeProxyRuntimeService {
                        let parsed = try? JSONSerialization.jsonObject(with: Data(argsString.utf8)) as? [String: Any] {
                         args = parsed
                     }
-                    functionCalls.append([
-                        "name": fn["name"] as? String ?? "",
-                        "args": args,
+                    // Gemini 3.x rejects a replayed function call whose
+                    // `thoughtSignature` is missing, so the one it issued has
+                    // to travel back with the call.
+                    let callID = (toolCall["id"] as? String) ?? ""
+                    let signature = geminiThoughtSignatures[callID] ?? Self.defaultGeminiThoughtSignature
+                    parts.append([
+                        "functionCall": [
+                            "name": fn["name"] as? String ?? "",
+                            "args": args,
+                        ],
+                        "thoughtSignature": signature,
                     ])
-                }
-                if !functionCalls.isEmpty {
-                    parts.append(["functionCall": ["name": "", "args": [:]]])
-                    // Replace placeholder with actual function calls.
-                    parts.removeLast()
-                    for call in functionCalls {
-                        parts.append(["functionCall": call])
-                    }
                 }
             }
 
@@ -319,6 +318,10 @@ extension SwiftNativeProxyRuntimeService {
         var content = ""
         var toolCalls: [[String: Any]] = []
         var finishReason = "stop"
+
+        // Antigravity's internal CloudCode endpoint nests the payload under
+        // `response`; the public API returns it at the top level.
+        let response = (response["response"] as? [String: Any]) ?? response
 
         if let candidates = response["candidates"] as? [[String: Any]], let first = candidates.first {
             if let contentBlock = first["content"] as? [String: Any],

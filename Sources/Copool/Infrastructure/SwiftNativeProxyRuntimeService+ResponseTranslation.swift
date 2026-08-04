@@ -138,6 +138,31 @@ extension SwiftNativeProxyRuntimeService {
         SSEStreamDecoder()
     }
 
+    /// Decodes chat-completions SSE coming *from* an upstream chat provider.
+    ///
+    /// `consumeChatCompletionsSSEStreamChunk` goes the other way — it turns
+    /// Responses events into chat chunks — so a `chat` provider's own chunks
+    /// have to be read here instead, with the model rewritten to whatever the
+    /// client asked for.
+    func consumeUpstreamChatSSEChunk(
+        _ decoder: SSEStreamDecoder,
+        data: Data,
+        isFinal: Bool,
+        clientModel: String
+    ) -> [[String: Any]] {
+        var chunks: [[String: Any]] = []
+        for event in decoder.push(data: data, isFinal: isFinal) {
+            guard event.data != "[DONE]",
+                  let payload = event.data.data(using: .utf8),
+                  var object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any] else {
+                continue
+            }
+            object["model"] = clientModel
+            chunks.append(object)
+        }
+        return chunks
+    }
+
     func consumeResponsesPassthroughSSEChunk(
         _ decoder: SSEStreamDecoder,
         data: Data,

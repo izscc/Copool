@@ -362,6 +362,7 @@ final class SimpleHTTPServer: @unchecked Sendable {
         case 413: return "Payload Too Large"
         case 404: return "Not Found"
         case 429: return "Too Many Requests"
+        case 426: return "Upgrade Required"
         case 500: return "Internal Server Error"
         case 502: return "Bad Gateway"
         default: return "HTTP"

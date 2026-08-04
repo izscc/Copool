@@ -15,7 +15,7 @@ struct ImportedSubscription: Equatable, Sendable {
 
 /// Detects local subscription logins (Claude Code, Grok, Cursor, Antigravity)
 /// so users can import them as third-party providers without API keys.
-struct LocalSubscriptionImporter {
+struct LocalSubscriptionImporter: @unchecked Sendable {
     private let fileManager: FileManager
     private let homeDirectory: URL
 
@@ -27,12 +27,12 @@ struct LocalSubscriptionImporter {
     // MARK: - Detection
 
     /// Returns all detectable local subscriptions.
-    func detectAll() -> [ImportedSubscription] {
+    func detectAll() async -> [ImportedSubscription] {
         var results: [ImportedSubscription] = []
         if let claude = detectClaudeCode() { results.append(claude) }
         if let grok = detectGrok() { results.append(grok) }
         if let cursor = detectCursor() { results.append(cursor) }
-        if let antigravity = detectAntigravity() { results.append(antigravity) }
+        if let antigravity = await detectAntigravity() { results.append(antigravity) }
         return results
     }
 
@@ -155,7 +155,7 @@ struct LocalSubscriptionImporter {
 
     /// Antigravity stores Google OAuth in the macOS Keychain
     /// (`security find-generic-password -a antigravity -s gemini`).
-    func detectAntigravity() -> ImportedSubscription? {
+    func detectAntigravity() async -> ImportedSubscription? {
         let output = runCommand(
             "/usr/bin/security",
             arguments: ["find-generic-password", "-a", "antigravity", "-s", "gemini", "-w"]
@@ -179,9 +179,56 @@ struct LocalSubscriptionImporter {
             protocolKind: .google,
             accessToken: accessToken,
             refreshToken: token["refresh_token"] as? String,
-            modelIDs: ["gemini-3-pro", "gemini-3-flash"],
+            modelIDs: await Self.antigravityModelIDs(accessToken: accessToken)
+                ?? Self.antigravityFallbackModelIDs,
             authKind: .subscriptionImport
         )
+    }
+
+    /// Model ids the CloudCode endpoint actually accepts, used when the live
+    /// list cannot be fetched.
+    ///
+    /// The endpoint answers an unknown model with `429 Resource has been
+    /// exhausted`, which reads like a quota problem, so guessing ids (there is
+    /// no plain `gemini-3.6-flash` — only `-low` / `-medium` / `-high`) sends
+    /// users chasing a quota that is actually full.
+    static let antigravityFallbackModelIDs = [
+        "gemini-3.6-flash-medium",
+        "gemini-3.1-pro-high",
+        "claude-sonnet-4-6",
+    ]
+
+    /// Asks the Antigravity CloudCode endpoint which models the subscription
+    /// can use. Entries without a `displayName` are internal (autocomplete,
+    /// chat shims) and are skipped.
+    static func antigravityModelIDs(accessToken: String) async -> [String]? {
+        guard let url = URL(string: "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels") else {
+            return nil
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("antigravity/hub/2.2.1 darwin/arm64", forHTTPHeaderField: "User-Agent")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["project": "default-cli-project"])
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let status = (response as? HTTPURLResponse)?.statusCode,
+              (200..<300).contains(status),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let models = json["models"] as? [String: Any] else {
+            return nil
+        }
+
+        let ids = models.compactMap { key, value -> String? in
+            guard let entry = value as? [String: Any],
+                  let displayName = entry["displayName"] as? String,
+                  !displayName.isEmpty else { return nil }
+            return key
+        }.sorted()
+
+        return ids.isEmpty ? nil : ids
     }
 
     // MARK: - Helpers

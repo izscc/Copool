@@ -62,8 +62,13 @@ final class ProviderPageModel: ObservableObject {
 
     func detectSubscriptions() {
         isDetectingSubscriptions = true
-        detectedSubscriptions = importer.detectAll()
-        isDetectingSubscriptions = false
+        Task {
+            // Antigravity's model list comes from the network, so detection
+            // cannot block the main thread.
+            let detected = await importer.detectAll()
+            detectedSubscriptions = detected
+            isDetectingSubscriptions = false
+        }
     }
 
     func importSubscription(_ subscription: ImportedSubscription) {

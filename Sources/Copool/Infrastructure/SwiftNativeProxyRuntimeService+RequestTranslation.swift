@@ -209,8 +209,148 @@ extension SwiftNativeProxyRuntimeService {
         return (payload, downstreamStream)
     }
 
-    func convertMessageContentToCodexParts(role: String, content: Any?) -> [[String: Any]] {
-        let textType = role == "assistant" ? "output_text" : "input_text"
+    /// Converts a Responses-shaped request into the chat shape.
+    ///
+    /// Codex only ever speaks the Responses API (`wire_api = "responses"` is
+    /// the only supported value), so every third-party request arrives as
+    /// `{instructions, input: [...]}`. The chat / Anthropic / Gemini adapters
+    /// all read `messages`, so without this they see an empty conversation and
+    /// the provider rejects the call ("Messages cannot be empty").
+    func convertResponsesRequestToChat(_ request: [String: Any]) -> [String: Any] {
+        var chat: [String: Any] = [:]
+        for (key, value) in request where !Self.responsesOnlyKeys.contains(key) {
+            chat[key] = value
+        }
+        if let maxOutputTokens = request["max_output_tokens"] {
+            chat["max_tokens"] = maxOutputTokens
+        }
+
+        var messages: [[String: Any]] = []
+        if let instructions = request["instructions"] as? String, !instructions.isEmpty {
+            messages.append(["role": "system", "content": instructions])
+        }
+
+        let items: [Any]
+        if let text = request["input"] as? String {
+            items = [["type": "message", "role": "user", "content": text]]
+        } else {
+            items = request["input"] as? [Any] ?? []
+        }
+
+        for raw in items {
+            guard let item = raw as? [String: Any] else { continue }
+            let type = (item["type"] as? String) ?? "message"
+
+            switch type {
+            case "function_call":
+                messages.append([
+                    "role": "assistant",
+                    "content": NSNull(),
+                    "tool_calls": [[
+                        "id": (item["call_id"] as? String) ?? "",
+                        "type": "function",
+                        "function": [
+                            "name": (item["name"] as? String) ?? "",
+                            "arguments": stringifyJSONField(item["arguments"]),
+                        ],
+                    ]],
+                ])
+            case "function_call_output":
+                messages.append([
+                    "role": "tool",
+                    "tool_call_id": (item["call_id"] as? String) ?? "",
+                    "content": stringifyMessageContent(item["output"]),
+                ])
+            case "reasoning":
+                // Encrypted provider-specific state; not portable.
+                continue
+            default:
+                let role = (item["role"] as? String) ?? "user"
+                let content = Self.chatContent(from: item["content"])
+                // Drop empty turns rather than sending blank messages, which
+                // several providers reject.
+                if content is NSNull { continue }
+                messages.append([
+                    "role": role == "developer" ? "system" : role,
+                    "content": content,
+                ])
+            }
+        }
+
+        chat["messages"] = messages
+
+        if let tools = request["tools"] as? [Any] {
+            var converted: [[String: Any]] = []
+            for rawTool in tools {
+                guard let tool = rawTool as? [String: Any] else { continue }
+                guard (tool["type"] as? String) == "function", tool["function"] == nil else {
+                    converted.append(tool)
+                    continue
+                }
+                var function: [String: Any] = [:]
+                for key in ["name", "description", "parameters", "strict"] {
+                    if let value = tool[key] { function[key] = value }
+                }
+                converted.append(["type": "function", "function": function])
+            }
+            if !converted.isEmpty { chat["tools"] = converted }
+        }
+
+        return chat
+    }
+
+    /// Responses-only keys that have no chat equivalent.
+    private static let responsesOnlyKeys: Set<String> = [
+        "input",
+        "instructions",
+        "include",
+        "store",
+        "reasoning",
+        "text",
+        "max_output_tokens",
+        "prompt_cache_key",
+        "prompt_cache_retention",
+        "safety_identifier",
+        "tools",
+    ]
+
+    /// Flattens Responses content parts into a chat `content` value: a plain
+    /// string when it is text only, the multipart array when images are
+    /// present, `NSNull` when there is nothing to send.
+    private static func chatContent(from content: Any?) -> Any {
+        guard let content else { return NSNull() }
+        if let text = content as? String {
+            return text.isEmpty ? NSNull() : text
+        }
+        guard let items = content as? [Any] else { return NSNull() }
+
+        var texts: [String] = []
+        var parts: [[String: Any]] = []
+        for raw in items {
+            guard let item = raw as? [String: Any] else { continue }
+            switch item["type"] as? String {
+            case "input_text", "output_text", "text":
+                if let text = item["text"] as? String, !text.isEmpty {
+                    texts.append(text)
+                    parts.append(["type": "text", "text": text])
+                }
+            case "input_image":
+                if let url = item["image_url"] as? String {
+                    parts.append(["type": "image_url", "image_url": ["url": url]])
+                } else if let image = item["image_url"] as? [String: Any] {
+                    parts.append(["type": "image_url", "image_url": image])
+                }
+            default:
+                continue
+            }
+        }
+
+        if parts.isEmpty { return NSNull() }
+        if parts.count == texts.count { return texts.joined(separator: "\n") }
+        return parts
+    }
+
+    func convertMessageContentToCodexParts(role: String, content: Any?) -> [[String: Any]] {        let textType = role == "assistant" ? "output_text" : "input_text"
 
         guard let content else { return [] }
 

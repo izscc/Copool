@@ -27,6 +27,10 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
     var cachedCandidates: [ProxyCandidate]?
     var cachedCandidatesStoreModificationDate: Date?
     var stickyAccountID: String?
+    /// `thoughtSignature` per Gemini tool call id. Gemini 3.x refuses a turn
+    /// that replays a function call without the signature it issued, and the
+    /// signature does not survive Codex's Responses item round trip.
+    var geminiThoughtSignatures: [String: String] = [:]
     var cooldownUntilByAccountID: [String: Int64] = [:]
 
     private let models = SwiftNativeProxyRuntimeService.clientVisibleModels
@@ -111,6 +115,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         guard let boundServer, let selectedPort else {
             let detail = lastStartError?.localizedDescription ?? L10n.tr("error.proxy_runtime.start_failed")
             lastError = L10n.tr("error.proxy_runtime.start_swift_proxy_failed_format", detail)
+            // Never leave Codex pointing at a port nothing is listening on.
+            try? CodexModelsCacheService(paths: paths).removeProxyRouting()
             throw AppError.io(lastError ?? detail)
         }
 
@@ -125,6 +131,9 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             throw AppError.io(lastError ?? L10n.tr("error.proxy_runtime.start_failed"))
         }
 
+        // Only route Codex here once the port is confirmed serving.
+        applyCodexProxyRouting(port: selectedPort)
+
         return await status()
     }
 
@@ -134,10 +143,20 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         return Array(preferredPort...upperBound)
     }
 
+    /// Points Codex at this proxy so third-party models resolve to a provider
+    /// instead of chatgpt.com. Applied unconditionally while the proxy runs:
+    /// gating it on "has third-party providers" would leave routing stale when
+    /// providers are added later, and native models are already meant to flow
+    /// through the proxy for account failover.
+    private func applyCodexProxyRouting(port: Int) {
+        try? CodexModelsCacheService(paths: paths).applyProxyRouting(port: port)
+    }
+
     func stop() async -> ApiProxyStatus {
         server?.stop()
         server = nil
         runningPort = nil
+        try? CodexModelsCacheService(paths: paths).removeProxyRouting()
         activeAccountID = nil
         activeAccountLabel = nil
         stickyAccountID = nil
@@ -177,7 +196,6 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                 headers: [
                     "Content-Type": "application/json; charset=utf-8",
                     "Sec-WebSocket-Version": "13",
-                    "Connection": "close",
                 ],
                 body: body
             )
@@ -236,7 +254,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                 body: body,
                 object: object,
                 downstreamHeaders: downstreamHeaders,
-                asResponses: route.protocolKind == .responses
+                asResponses: route.protocolKind == .responses,
+                clientWantsResponses: true
             )
         }
 
@@ -292,7 +311,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                 body: body,
                 object: object,
                 downstreamHeaders: downstreamHeaders,
-                asResponses: route.protocolKind == .responses
+                asResponses: route.protocolKind == .responses,
+                clientWantsResponses: false
             )
         }
 
@@ -340,18 +360,25 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         body: Data,
         object: [String: Any],
         downstreamHeaders: [String: String],
-        asResponses: Bool
+        asResponses: Bool,
+        clientWantsResponses: Bool
     ) async -> HTTPResponse {
         // Preserve the client's streaming preference; normalizeResponsesRequest
         // forces stream=true for the responses path, chat path honors it.
+        // Responses clients always get SSE — the non-streaming branch answers
+        // with a chat.completion object they cannot read.
         let wantsStream: Bool
-        switch route.protocolKind {
-        case .anthropic, .google:
-            wantsStream = (object["stream"] as? Bool) ?? true
-        case .responses:
+        if clientWantsResponses {
             wantsStream = true
-        case .chat:
-            wantsStream = (object["stream"] as? Bool) ?? false
+        } else {
+            switch route.protocolKind {
+            case .anthropic, .google:
+                wantsStream = (object["stream"] as? Bool) ?? true
+            case .responses:
+                wantsStream = true
+            case .chat:
+                wantsStream = (object["stream"] as? Bool) ?? false
+            }
         }
 
         if wantsStream {
@@ -359,17 +386,17 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                 route: route,
                 object: object,
                 downstreamHeaders: downstreamHeaders,
-                asResponses: asResponses
+                asResponses: asResponses,
+                clientWantsResponses: clientWantsResponses
             )
         }
 
         do {
-            let payload: [String: Any]
-            if asResponses {
-                payload = try normalizeResponsesRequest(object).payload
-            } else {
-                payload = object
-            }
+            let payload = try thirdPartyUpstreamPayload(
+                route: route,
+                object: object,
+                asResponses: asResponses
+            )
 
             let response = try await sendThirdPartyRequest(
                 route: route,
@@ -433,26 +460,63 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         }
     }
 
+    /// Shapes the client request for the provider's wire protocol.
+    ///
+    /// Codex only speaks the Responses API, so chat / Anthropic / Gemini
+    /// providers need the request converted back to the chat shape their
+    /// adapters read.
+    private func thirdPartyUpstreamPayload(
+        route: ThirdPartyRoute,
+        object: [String: Any],
+        asResponses: Bool
+    ) throws -> [String: Any] {
+        if asResponses {
+            return try normalizeResponsesRequest(object).payload
+        }
+        guard object["messages"] == nil, object["input"] != nil else { return object }
+        return convertResponsesRequestToChat(object)
+    }
+
     /// Streams a third-party response back to the client.
     private func handleThirdPartyStreamingRequest(
         route: ThirdPartyRoute,
         object: [String: Any],
         downstreamHeaders: [String: String],
-        asResponses: Bool
+        asResponses: Bool,
+        clientWantsResponses: Bool
     ) async -> HTTPResponse {
         do {
-            let payload: [String: Any]
-            if asResponses {
-                payload = try normalizeResponsesRequest(object).payload
-            } else {
-                payload = object
-            }
+            var payload = try thirdPartyUpstreamPayload(
+                route: route,
+                object: object,
+                asResponses: asResponses
+            )
+            // This path only streams, so the upstream request must too.
+            payload["stream"] = true
 
-            let upstream = try await openThirdPartyStreamingRequest(
+            var upstream = try await openThirdPartyStreamingRequest(
                 route: route,
                 payload: payload,
                 downstreamHeaders: downstreamHeaders
             )
+
+            // Retry once with a refreshed token on auth failures. ChatGPT.app
+            // and Codex always stream, so without this the refresh path in
+            // handleThirdPartyRequest never runs for real traffic.
+            if upstream.statusCode == 401 || upstream.statusCode == 403,
+               let refreshed = await refreshProviderTokenIfNeeded(route: route) {
+                var discarded = 0
+                for try await _ in upstream.bytes {
+                    discarded += 1
+                    if discarded > ProxyRuntimeLimits.maxUpstreamResponseBytes { break }
+                }
+                upstream = try await openThirdPartyStreamingRequest(
+                    route: route,
+                    payload: payload,
+                    downstreamHeaders: downstreamHeaders,
+                    apiKeyOverride: refreshed
+                )
+            }
 
             if !(upstream.statusCode >= 200 && upstream.statusCode < 300) {
                 var buffered = Data()
@@ -469,11 +533,47 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             // Usage collected by protocol-specific streaming decoders.
             let protocolKind = route.protocolKind
 
+            // Echo back the model the client asked for, not the internal
+            // provider-qualified id.
+            let clientModelID = (object["model"] as? String) ?? route.clientModelID
             let stream = AsyncThrowingStream<Data, Error> { continuation in
                 Task {
                     // Local mutable state, serial access within this task only.
                     let anthropicState = AnthropicStreamState()
                     let geminiState = GeminiStreamState()
+                    // Codex speaks the Responses API, so chat-shaped chunks
+                    // produced by the provider adapters get replayed as
+                    // Responses events before they reach the client.
+                    let responsesState = clientWantsResponses ? ChatToResponsesStreamState() : nil
+                    // One decoder for the whole stream: SSE events span several
+                    // lines, so rebuilding it per line would drop every event.
+                    let sseDecoder = SSEStreamDecoder()
+                    let emitChatChunk: ([String: Any]) -> Void = { chunk in
+                        guard let responsesState else {
+                            continuation.yield(Data("data: \(self.jsonString(chunk))\n\n".utf8))
+                            return
+                        }
+                        for event in self.responsesEvents(
+                            forChatChunk: chunk,
+                            state: responsesState,
+                            fallbackModel: clientModelID
+                        ) {
+                            continuation.yield(event)
+                        }
+                    }
+                    let emitChatStreamEnd: ([String: Any]?) -> Void = { usage in
+                        guard let responsesState else {
+                            continuation.yield(Data("data: [DONE]\n\n".utf8))
+                            return
+                        }
+                        if let usage { responsesState.usage = usage }
+                        for event in self.responsesFinalEvents(
+                            state: responsesState,
+                            fallbackModel: clientModelID
+                        ) {
+                            continuation.yield(event)
+                        }
+                    }
                     do {
                         var iterator = upstream.bytes.makeAsyncIterator()
                         var buffer = Data()
@@ -494,28 +594,28 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                                 switch protocolKind {
                                 case .anthropic:
                                     for chunk in consumeAnthropicSSEChunk(buffer, isFinal: false, state: anthropicState) {
-                                        continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                        emitChatChunk(chunk)
                                     }
                                 case .google:
                                     for chunk in consumeGeminiSSEChunk(buffer, isFinal: false, state: geminiState) {
-                                        continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                        emitChatChunk(chunk)
                                     }
                                 case .responses:
                                     for eventData in consumeResponsesPassthroughSSEChunk(
-                                        makeResponsesPassthroughSSEStreamDecoder(),
+                                        sseDecoder,
                                         data: buffer,
                                         isFinal: false
                                     ) {
                                         continuation.yield(eventData)
                                     }
                                 case .chat:
-                                    let chunks = try consumeChatCompletionsSSEStreamChunk(
-                                        makeChatCompletionsSSEStreamDecoder(fallbackModel: route.clientModelID),
+                                    for chunk in consumeUpstreamChatSSEChunk(
+                                        sseDecoder,
                                         data: buffer,
-                                        isFinal: false
-                                    )
-                                    for chunk in chunks {
-                                        continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                        isFinal: false,
+                                        clientModel: clientModelID
+                                    ) {
+                                        emitChatChunk(chunk)
                                     }
                                 }
                                 buffer.removeAll(keepingCapacity: true)
@@ -525,17 +625,19 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                         switch protocolKind {
                         case .anthropic:
                             for chunk in consumeAnthropicSSEChunk(buffer, isFinal: true, state: anthropicState) {
-                                continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                emitChatChunk(chunk)
                             }
+                            emitChatStreamEnd(anthropicStreamUsage(anthropicState))
                             recordStreamingThirdPartyUsage(route: route, usage: anthropicStreamUsage(anthropicState))
                         case .google:
                             for chunk in consumeGeminiSSEChunk(buffer, isFinal: true, state: geminiState) {
-                                continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                emitChatChunk(chunk)
                             }
+                            emitChatStreamEnd(geminiStreamUsage(geminiState))
                             recordStreamingThirdPartyUsage(route: route, usage: geminiStreamUsage(geminiState))
                         case .responses:
                             for eventData in consumeResponsesPassthroughSSEChunk(
-                                makeResponsesPassthroughSSEStreamDecoder(),
+                                sseDecoder,
                                 data: buffer,
                                 isFinal: true
                             ) {
@@ -543,15 +645,15 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
                             }
                             recordStreamingThirdPartyUsage(route: route, usage: nil)
                         case .chat:
-                            let finalChunks = try consumeChatCompletionsSSEStreamChunk(
-                                makeChatCompletionsSSEStreamDecoder(fallbackModel: route.clientModelID),
+                            for chunk in consumeUpstreamChatSSEChunk(
+                                sseDecoder,
                                 data: buffer,
-                                isFinal: true
-                            )
-                            for chunk in finalChunks {
-                                continuation.yield(Data("data: \(jsonString(chunk))\n\n".utf8))
+                                isFinal: true,
+                                clientModel: clientModelID
+                            ) {
+                                emitChatChunk(chunk)
                             }
-                            continuation.yield(Data("data: [DONE]\n\n".utf8))
+                            emitChatStreamEnd(nil)
                             recordStreamingThirdPartyUsage(route: route, usage: nil)
                         }
                         continuation.finish()

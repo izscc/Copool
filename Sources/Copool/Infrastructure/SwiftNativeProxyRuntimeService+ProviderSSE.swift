@@ -142,9 +142,14 @@ extension SwiftNativeProxyRuntimeService {
     func translateGeminiSSEChunk(_ data: String, state: GeminiStreamState) -> [[String: Any]] {
         guard data != "[DONE]",
               let payloadData = data.data(using: .utf8),
-              let parsed = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else {
+              let root = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else {
             return []
         }
+
+        // Antigravity's internal CloudCode endpoint nests the Gemini payload
+        // under `response` (alongside traceId/metadata); the public
+        // generativelanguage API returns it at the top level.
+        let parsed = (root["response"] as? [String: Any]) ?? root
 
         if let usage = parsed["usageMetadata"] as? [String: Any] {
             state.usage = usage
@@ -170,13 +175,19 @@ extension SwiftNativeProxyRuntimeService {
                 state.functionCallIndex += 1
                 let args = (functionCall["args"] as? [String: Any]) ?? [:]
                 let argsData = (try? JSONSerialization.data(withJSONObject: args)) ?? Data()
+                let callID = "call_\(UUID().uuidString.prefix(8))"
+                if let signature = (part["thoughtSignature"] as? String)
+                    ?? (part["thought_signature"] as? String)
+                    ?? (contentBlock["thoughtSignature"] as? String) {
+                    rememberGeminiThoughtSignature(signature, forCallID: callID)
+                }
                 chunks.append([
                     "choices": [[
                         "index": 0,
                         "delta": [
                             "tool_calls": [[
                                 "index": index,
-                                "id": "call_\(UUID().uuidString.prefix(8))",
+                                "id": callID,
                                 "type": "function",
                                 "function": [
                                     "name": functionCall["name"] as? String ?? "",
@@ -201,5 +212,20 @@ extension SwiftNativeProxyRuntimeService {
             "completion_tokens": completion,
             "total_tokens": prompt + completion,
         ]
+    }
+}
+
+extension SwiftNativeProxyRuntimeService {
+    /// opencodex's fallback signature, accepted by Gemini when the original is
+    /// unavailable (e.g. a conversation resumed after a proxy restart).
+    static let defaultGeminiThoughtSignature = "EocDCoQDARFNMg/wQatFS7RFDS/KgCjQ6PF5Ftu7blOIEB1GIMFDxWS15lf54PftREjCt22MZCJUvG8TJlo7t2Zxd7PI6ZaJUykSf/mgzo++cO8oirHVi7QETe5HrdvR9Y7aH09xNADrqwtADWS/Jr/JRKNWGEFlbBf0hRhp/U/WzJQsek8Dg/wHPeWV7VEESUz9SRVTVkN4NuPAmhtQvW5ekCQjrcQagIaYhd/dFIrz5We5WZYXlLefPT4FHI/5AP7dwWhv8ZK8uYwdJ1twAzsjF7HgVc5mJhtlTjY2blQb7jkfnw5oAKX7Stl6JuZNMQ0yiB3RrpLCcIxb377FjKpeKxob37SHwzfr1qFQsaVJe1m2SySbQqmoYzDRx956QPT0dgoztsSPrrqSFutXGOcGkEc9xj198GPhn5R2JfiGBb6rjGVgFjGlr9dhzZOWSrNzwlkpKJTSA5OcXDmsJMRfWRMhovJMaYTITR2UwEzNc75nKHL/Xh/Rsh4/+IRQSagYbV1luM8yYA=="
+
+    /// Retains the signature for a tool call, bounded so a long-lived proxy
+    /// cannot grow the map without limit.
+    func rememberGeminiThoughtSignature(_ signature: String, forCallID callID: String) {
+        if geminiThoughtSignatures.count > 500 {
+            geminiThoughtSignatures.removeAll(keepingCapacity: true)
+        }
+        geminiThoughtSignatures[callID] = signature
     }
 }

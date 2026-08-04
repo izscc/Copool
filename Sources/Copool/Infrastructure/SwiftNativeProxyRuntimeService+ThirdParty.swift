@@ -91,12 +91,14 @@ extension SwiftNativeProxyRuntimeService {
     func openThirdPartyStreamingRequest(
         route: ThirdPartyRoute,
         payload: [String: Any],
-        downstreamHeaders: [String: String]
+        downstreamHeaders: [String: String],
+        apiKeyOverride: String? = nil
     ) async throws -> UpstreamStreamingResponse {
         let request = try makeThirdPartyRequest(
             route: route,
             payload: payload,
-            downstreamHeaders: downstreamHeaders
+            downstreamHeaders: downstreamHeaders,
+            apiKeyOverride: apiKeyOverride
         )
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
@@ -125,12 +127,18 @@ extension SwiftNativeProxyRuntimeService {
         }
 
         let apiKey = apiKeyOverride ?? route.provider.apiKey
+        // Some upstreams gate on the client User-Agent; when a branch sets one
+        // it must survive the generic downstream header forwarding below.
+        var providerUserAgent: String?
         var request: URLRequest
         switch route.protocolKind {
         case .chat:
             request = URLRequest(url: baseURL.appendingPathComponent("chat/completions"))
             request.httpBody = try JSONSerialization.data(withJSONObject: replacingModel(in: payload, with: route.backendModel))
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            if route.provider.name.lowercased() == "grok" || route.provider.baseURL.contains("x.ai") {
+                providerUserAgent = "grok-cli/1.89.0"
+            }
         case .responses:
             request = URLRequest(url: baseURL.appendingPathComponent("responses"))
             request.httpBody = try JSONSerialization.data(withJSONObject: replacingModel(in: payload, with: route.backendModel))
@@ -163,7 +171,10 @@ extension SwiftNativeProxyRuntimeService {
                     "request": geminiBody,
                 ])
                 request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-                request.setValue("antigravity/hub/2.2.1 darwin/arm64", forHTTPHeaderField: "User-Agent")
+                // The CloudCode endpoint answers a foreign User-Agent with
+                // `429 Resource has been exhausted`, which looks exactly like
+                // a spent quota even when the account is untouched.
+                providerUserAgent = "antigravity/hub/2.2.1 darwin/arm64"
             } else {
                 let method = streaming ? ":streamGenerateContent" : ":generateContent"
                 let escapedModel = model.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? model
@@ -183,7 +194,9 @@ extension SwiftNativeProxyRuntimeService {
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("Keep-Alive", forHTTPHeaderField: "Connection")
 
-        if let userAgent = Self.normalizedForwardHeader(downstreamHeaders["user-agent"]) {
+        if let providerUserAgent {
+            request.setValue(providerUserAgent, forHTTPHeaderField: "User-Agent")
+        } else if let userAgent = Self.normalizedForwardHeader(downstreamHeaders["user-agent"]) {
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         }
         return request

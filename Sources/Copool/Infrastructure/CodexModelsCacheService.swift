@@ -86,6 +86,125 @@ struct CodexModelsCacheService {
         try text.write(to: configPath, atomically: true, encoding: .utf8)
     }
 
+    // MARK: - Provider routing (config.toml)
+
+    /// Provider id registered in config.toml. Codex resolves the per-turn
+    /// provider from `model_provider`, so third-party models only reach the
+    /// proxy when this provider is selected globally.
+    static let managedProviderID = "opencodex"
+
+    private static let managedScalarStart = "# >>> copool managed >>>"
+    private static let managedScalarEnd = "# <<< copool managed <<<"
+    private static let managedProviderStart = "# >>> copool managed provider >>>"
+    private static let managedProviderEnd = "# <<< copool managed provider <<<"
+
+    /// Routes Codex through the local proxy by setting `model_provider` and
+    /// declaring `[model_providers.opencodex]` in `~/.codex/config.toml`.
+    ///
+    /// Codex's model catalog has no per-model provider field — the `provider` /
+    /// `model_provider` keys we write into catalog entries are ignored — and
+    /// ChatGPT.app always sends `modelProvider: null` on `thread/start`. So the
+    /// global `model_provider` key is the only lever that makes Codex route a
+    /// third-party model anywhere but chatgpt.com, which otherwise answers
+    /// "The '<model>' model is not supported when using Codex with a ChatGPT
+    /// account". Native models keep working because the proxy forwards them to
+    /// the official backend with account failover.
+    ///
+    /// `supports_websockets = false` matters: without it Codex tries
+    /// `ws://127.0.0.1:<port>/v1/responses` five times before falling back to
+    /// HTTP, costing ~8s per turn.
+    func applyProxyRouting(port: Int) throws {
+        try rewriteManagedConfig { text in
+            let provider = """
+            \(Self.managedProviderStart)
+            [model_providers.\(Self.managedProviderID)]
+            name = "Copool"
+            base_url = "http://127.0.0.1:\(port)/v1"
+            wire_api = "responses"
+            requires_openai_auth = true
+            supports_websockets = false
+            request_max_retries = 3
+            stream_max_retries = 3
+            stream_idle_timeout_ms = 600000
+            \(Self.managedProviderEnd)
+            """
+            // Scalars must stay in the global section (before any table) and
+            // the provider table must come last, or the user's own top-level
+            // keys would be swallowed into it.
+            return """
+            \(Self.managedScalarStart)
+            model_provider = "\(Self.managedProviderID)"
+            \(Self.managedScalarEnd)
+            \(text)
+
+            \(provider)
+            """
+        }
+    }
+
+    /// Removes the managed routing keys so Codex talks to the official backend
+    /// directly. Called when the proxy stops, so a stopped Copool never leaves
+    /// ChatGPT.app pointing at a dead port.
+    func removeProxyRouting() throws {
+        try rewriteManagedConfig { $0 }
+    }
+
+    /// Strips every managed region (and any hand-written
+    /// `[model_providers.opencodex]` table) from config.toml, then lets the
+    /// caller rebuild it.
+    private func rewriteManagedConfig(_ rebuild: (String) -> String) throws {
+        let configPath = paths.codexConfigPath
+        guard fileManager.fileExists(atPath: configPath.path) else { return }
+
+        let original = try String(contentsOf: configPath, encoding: .utf8)
+        let stripped = Self.stripManagedConfig(original)
+        let rebuilt = rebuild(stripped).trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
+        guard rebuilt != original else { return }
+        try rebuilt.write(to: configPath, atomically: true, encoding: .utf8)
+    }
+
+    /// Removes managed blocks and any `[model_providers.opencodex]` table.
+    static func stripManagedConfig(_ text: String) -> String {
+        var result: [String] = []
+        var skipUntil: String?
+        var inManagedProviderTable = false
+
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if let marker = skipUntil {
+                if trimmed == marker { skipUntil = nil }
+                continue
+            }
+            if trimmed == managedScalarStart {
+                skipUntil = managedScalarEnd
+                continue
+            }
+            if trimmed == managedProviderStart {
+                skipUntil = managedProviderEnd
+                continue
+            }
+
+            // A previously hand-added provider table would collide with the
+            // one we write; drop it up to the next table header.
+            if trimmed == "[model_providers.\(managedProviderID)]" {
+                inManagedProviderTable = true
+                continue
+            }
+            if inManagedProviderTable {
+                if trimmed.hasPrefix("[") { inManagedProviderTable = false } else { continue }
+            }
+
+            // Unmarked leftovers from earlier versions.
+            if trimmed.hasPrefix("model_provider") && trimmed.contains("\"\(managedProviderID)\"") { continue }
+            if trimmed.hasPrefix("openai_base_url") && trimmed.contains("127.0.0.1") { continue }
+
+            result.append(line)
+        }
+
+        return result.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Merging
 
     /// True when the entry is a native Codex/OpenAI model that must be preserved as-is.
