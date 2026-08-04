@@ -17,7 +17,7 @@ enum AppError: LocalizedError, Sendable {
              .unauthorized(let message):
             return message
         case .workspaceDeactivated:
-            return Self.localizedString("error.accounts.workspace_deactivated")
+            return L10n.tr("error.accounts.workspace_deactivated")
         }
     }
 
@@ -42,15 +42,4 @@ enum AppError: LocalizedError, Sendable {
         return .workspaceDeactivated
     }
 
-    private static func localizedString(_ key: String) -> String {
-        bundle.localizedString(forKey: key, value: key, table: nil)
-    }
-
-    private static var bundle: Bundle {
-        #if SWIFT_PACKAGE
-        return .module
-        #else
-        return .main
-        #endif
-    }
 }
