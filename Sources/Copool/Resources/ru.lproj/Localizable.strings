@@ -500,3 +500,13 @@
 "providers.usage.tokens_today" = "Токены сегодня";
 "menu.usage.tokens_today" = "токены сторонних сервисов сегодня";
 "menu.usage.quota_drained" = "Квота исчерпана";
+"providers.curate.title" = "Доступные модели";
+"providers.curate.add" = "Добавить";
+"providers.curate.discover" = "Найти модели";
+"providers.curate.discovering" = "Запрос…";
+"providers.curate.more_format" = "ещё %d";
+"providers.curate.add_failed" = "Не удалось добавить модель";
+"settings.section.doctor" = "Диагностика";
+"settings.doctor.subtitle" = "Проверяет прокси, конфигурацию Codex, кэш моделей и хранилища учётных данных.";
+"settings.doctor.run" = "Запустить";
+"settings.doctor.rerun" = "Запустить снова";

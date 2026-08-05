@@ -500,3 +500,13 @@
 "providers.usage.tokens_today" = "Token oggi";
 "menu.usage.tokens_today" = "token di terze parti oggi";
 "menu.usage.quota_drained" = "Quota esaurita";
+"providers.curate.title" = "Modelli disponibili";
+"providers.curate.add" = "Aggiungi";
+"providers.curate.discover" = "Scopri modelli";
+"providers.curate.discovering" = "Interrogazione…";
+"providers.curate.more_format" = "+%d altri";
+"providers.curate.add_failed" = "Impossibile aggiungere il modello";
+"settings.section.doctor" = "Diagnostica";
+"settings.doctor.subtitle" = "Controlla proxy, configurazione Codex, cache dei modelli e archivi di credenziali.";
+"settings.doctor.run" = "Esegui";
+"settings.doctor.rerun" = "Esegui di nuovo";

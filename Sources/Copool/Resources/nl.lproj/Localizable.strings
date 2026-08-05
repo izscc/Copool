@@ -500,3 +500,13 @@
 "providers.usage.tokens_today" = "Tokens vandaag";
 "menu.usage.tokens_today" = "tokens van derden vandaag";
 "menu.usage.quota_drained" = "Quota uitgeput";
+"providers.curate.title" = "Beschikbare modellen";
+"providers.curate.add" = "Toevoegen";
+"providers.curate.discover" = "Modellen ontdekken";
+"providers.curate.discovering" = "Opvragen…";
+"providers.curate.more_format" = "+%d meer";
+"providers.curate.add_failed" = "Kan model niet toevoegen";
+"settings.section.doctor" = "Diagnostiek";
+"settings.doctor.subtitle" = "Controleert proxy, Codex-config, modelcache en referentie-opslag.";
+"settings.doctor.run" = "Uitvoeren";
+"settings.doctor.rerun" = "Opnieuw uitvoeren";

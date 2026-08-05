@@ -189,6 +189,7 @@ final class AppContainer {
                 settingsCoordinator: settingsCoordinator,
                 editorAppService: editorAppService,
                 providerStoreRepository: providerRepository,
+                paths: paths,
                 onSettingsUpdated: { settings in
                     applySettingsToContainer?(settings)
                 },

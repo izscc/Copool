@@ -500,3 +500,13 @@
 "providers.usage.tokens_today" = "今日 tokens";
 "menu.usage.tokens_today" = "第三方今日 tokens";
 "menu.usage.quota_drained" = "配額已耗盡";
+"providers.curate.title" = "可用模型";
+"providers.curate.add" = "添加";
+"providers.curate.discover" = "發現模型";
+"providers.curate.discovering" = "正在查詢…";
+"providers.curate.more_format" = "還有 %d 個";
+"providers.curate.add_failed" = "無法新增模型";
+"settings.section.doctor" = "診斷";
+"settings.doctor.subtitle" = "檢查代理、Codex 設定、模型快取與憑證儲存。";
+"settings.doctor.run" = "執行";
+"settings.doctor.rerun" = "重新執行";

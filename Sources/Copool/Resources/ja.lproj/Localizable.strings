@@ -518,3 +518,13 @@
 "providers.usage.tokens_today" = "今日のトークン";
 "menu.usage.tokens_today" = "サードパーティ今日のトークン";
 "menu.usage.quota_drained" = "クォータ枯渇";
+"providers.curate.title" = "利用可能なモデル";
+"providers.curate.add" = "追加";
+"providers.curate.discover" = "モデルを検出";
+"providers.curate.discovering" = "照会中…";
+"providers.curate.more_format" = "他 %d 件";
+"providers.curate.add_failed" = "モデルを追加できません";
+"settings.section.doctor" = "診断";
+"settings.doctor.subtitle" = "プロキシ、Codex 設定、モデルキャッシュ、資格情報ストアを確認します。";
+"settings.doctor.run" = "実行";
+"settings.doctor.rerun" = "再実行";

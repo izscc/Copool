@@ -63,6 +63,11 @@ final class ProviderPageModel: ObservableObject {
     @Published var usageAggregates: [DailyUsageAggregate] = []
     @Published var isRefreshingAccountUsage = false
 
+    /// Models the provider advertises but the user has not configured yet,
+    /// keyed by provider id (curation candidates).
+    @Published var discoverableModels: [String: [String]] = [:]
+    @Published var discoveringModelIDs: Set<String> = []
+
     init(
         providerStoreRepository: ProviderStoreRepository,
         usageRepository: ThirdPartyUsageRepository? = nil,
@@ -130,6 +135,51 @@ final class ProviderPageModel: ObservableObject {
             }
             self.accountUsage = results
             self.isRefreshingAccountUsage = false
+        }
+    }
+
+    /// Pulls the provider's advertised model list and keeps the ids the user
+    /// has not configured yet, so the card can offer to add them.
+    func discoverModels(providerID: String) async {
+        guard let provider = providers.first(where: { $0.id == providerID }) else { return }
+        guard !discoveringModelIDs.contains(providerID) else { return }
+        discoveringModelIDs.insert(providerID)
+        defer { discoveringModelIDs.remove(providerID) }
+
+        let advertised = await ModelCapabilityDiscovery().listModelIDs(provider: provider)
+        let configured = Set(provider.models.map { $0.id.lowercased() })
+        let unconfigured = advertised.filter { !configured.contains($0.lowercased()) }
+        discoverableModels[providerID] = unconfigured
+    }
+
+    /// Adds a curated model to the provider's config (with conservative
+    /// defaults, like codex-router's `userModelEntry`).
+    func addDiscoveredModel(providerID: String, modelID: String) {
+        guard var provider = providers.first(where: { $0.id == providerID }) else { return }
+        guard !provider.models.contains(where: { $0.id == modelID }) else { return }
+        let entry = ModelCapabilityRegistry.lookup(modelID)
+        provider.models.append(
+            ProviderModel(
+                id: modelID,
+                displayName: modelID,
+                contextWindow: entry?.contextWindow ?? ProviderModel.fallbackContextWindow,
+                contextWindowSource: entry != nil ? .registry : .fallback,
+                supportedReasoningEfforts: entry?.supportedReasoningEfforts,
+                defaultReasoningEffort: entry?.defaultReasoningEffort,
+                reasoningSource: entry != nil ? .registry : .fallback
+            )
+        )
+        do {
+            _ = try providerStoreRepository.mutateProviders { store in
+                if let index = store.providers.firstIndex(where: { $0.id == providerID }) {
+                    store.providers[index] = provider
+                }
+            }
+            discoverableModels[providerID]?.removeAll { $0 == modelID }
+            loadProviders()
+            onProvidersChanged()
+        } catch {
+            notice = NoticeMessage(style: .error, text: L10n.tr("providers.curate.add_failed"))
         }
     }
 

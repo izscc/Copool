@@ -518,3 +518,13 @@
 "providers.usage.tokens_today" = "오늘 토큰";
 "menu.usage.tokens_today" = "서드파티 오늘 토큰";
 "menu.usage.quota_drained" = "할당량 소진";
+"providers.curate.title" = "사용 가능한 모델";
+"providers.curate.add" = "추가";
+"providers.curate.discover" = "모델 찾기";
+"providers.curate.discovering" = "조회 중…";
+"providers.curate.more_format" = "+%d개 더";
+"providers.curate.add_failed" = "모델을 추가할 수 없습니다";
+"settings.section.doctor" = "진단";
+"settings.doctor.subtitle" = "프록시, Codex 설정, 모델 캐시, 자격 증명 저장소를 확인합니다.";
+"settings.doctor.run" = "실행";
+"settings.doctor.rerun" = "다시 실행";

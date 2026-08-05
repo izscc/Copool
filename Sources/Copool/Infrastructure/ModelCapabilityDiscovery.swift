@@ -31,6 +31,41 @@ struct ModelCapabilityDiscovery: Sendable {
         }
     }
 
+    /// Lists every model id the provider advertises, for curation ("add this
+    /// model" affordance) — the discovery half of codex-router's
+    /// `curate-models`. Returns an empty list when the listing cannot be read.
+    func listModelIDs(provider: ProviderConfig) async -> [String] {
+        guard let url = modelsURL(for: provider) else { return [] }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 15
+        switch provider.defaultProtocol {
+        case .anthropic:
+            request.setValue(provider.apiKey, forHTTPHeaderField: "x-api-key")
+            request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        case .chat, .responses, .google:
+            request.setValue("Bearer \(provider.apiKey)", forHTTPHeaderField: "Authorization")
+        }
+
+        guard let (data, response) = try? await session.data(for: request),
+              let status = (response as? HTTPURLResponse)?.statusCode,
+              (200..<300).contains(status),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return []
+        }
+
+        let entries = (json["data"] as? [Any]) ?? (json["models"] as? [Any]) ?? []
+        return entries.compactMap { raw in
+            guard let object = raw as? [String: Any],
+                  let id = (object["id"] as? String) ?? (object["name"] as? String),
+                  !id.isEmpty else {
+                return nil
+            }
+            return id
+        }
+    }
+
     // MARK: - Provider metadata
 
     /// Queries the provider's model listing. Only OpenAI-compatible and

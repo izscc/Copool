@@ -528,3 +528,13 @@
 "providers.usage.tokens_today" = "今日 tokens";
 "menu.usage.tokens_today" = "第三方今日 tokens";
 "menu.usage.quota_drained" = "配额已耗尽";
+"providers.curate.title" = "可用模型";
+"providers.curate.add" = "添加";
+"providers.curate.discover" = "发现模型";
+"providers.curate.discovering" = "正在查询…";
+"providers.curate.more_format" = "还有 %d 个";
+"providers.curate.add_failed" = "无法添加模型";
+"settings.section.doctor" = "诊断";
+"settings.doctor.subtitle" = "检查代理、Codex 配置、模型缓存与凭据存储。";
+"settings.doctor.run" = "运行";
+"settings.doctor.rerun" = "重新运行";

@@ -60,6 +60,8 @@ struct ProviderPageView: View {
                         rateLimits: model.rateLimits,
                         accountUsage: model.accountUsage,
                         usageAggregates: model.usageAggregates,
+                        discoverableModels: model.discoverableModels,
+                        discoveringModelIDs: model.discoveringModelIDs,
                         onEdit: { model.beginEditingProvider($0) },
                         onRefreshAuth: { model.refreshProviderAuth($0) },
                         onDelete: { model.removeProvider($0) },
@@ -68,6 +70,12 @@ struct ProviderPageView: View {
                         },
                         onTestAll: { providerID in
                             Task { await model.testAllModels(providerID: providerID) }
+                        },
+                        onDiscoverModels: { providerID in
+                            await model.discoverModels(providerID: providerID)
+                        },
+                        onAddModel: { providerID, modelID in
+                            model.addDiscoveredModel(providerID: providerID, modelID: modelID)
                         }
                     )
                 }
@@ -233,11 +241,15 @@ private struct ProviderListSection: View {
     let rateLimits: [String: ProviderRateLimitSnapshot]
     let accountUsage: [String: ProviderAccountUsage]
     let usageAggregates: [DailyUsageAggregate]
+    let discoverableModels: [String: [String]]
+    let discoveringModelIDs: Set<String>
     let onEdit: (ProviderConfig) -> Void
     let onRefreshAuth: (ProviderConfig) -> Void
     let onDelete: (ProviderConfig) -> Void
     let onTestModel: (String, String) -> Void
     let onTestAll: (String) -> Void
+    let onDiscoverModels: (String) async -> Void
+    let onAddModel: (String, String) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
@@ -317,6 +329,14 @@ private struct ProviderListSection: View {
                         rateLimit: rateLimits[provider.id],
                         accountUsage: accountUsage[provider.id],
                         aggregates: usageAggregates.filter { $0.providerID == provider.id }
+                    )
+
+                    ProviderCurationSection(
+                        providerID: provider.id,
+                        candidates: discoverableModels[provider.id] ?? [],
+                        isDiscovering: discoveringModelIDs.contains(provider.id),
+                        onDiscover: { Task { await onDiscoverModels(provider.id) } },
+                        onAdd: { onAddModel(provider.id, $0) }
                     )
                 }
                 .padding(12)
@@ -600,5 +620,68 @@ private struct QuotaBar: View {
             }
         }
         .frame(height: 6)
+    }
+}
+
+/// "Discover models this provider advertises but you haven't added" —
+/// the curation affordance ported from codex-router's `curate-models`.
+private struct ProviderCurationSection: View {
+    let providerID: String
+    let candidates: [String]
+    let isDiscovering: Bool
+    let onDiscover: () -> Void
+    let onAdd: (String) -> Void
+
+    var body: some View {
+        if isDiscovering {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text(L10n.tr("providers.curate.discovering"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        } else if !candidates.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L10n.tr("providers.curate.title"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ForEach(candidates.prefix(8), id: \.self) { modelID in
+                    HStack(spacing: 8) {
+                        Text(modelID)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer(minLength: 0)
+                        Button(L10n.tr("providers.curate.add")) {
+                            onAdd(modelID)
+                        }
+                        .buttonStyle(.plain)
+                        .font(.caption2)
+                        .foregroundStyle(.tint)
+                    }
+                }
+                if candidates.count > 8 {
+                    Text(L10n.tr("providers.curate.more_format", String(candidates.count - 8)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else if candidates.isEmpty && discoverableModels[providerID] != nil {
+            // Discovery ran and found nothing new.
+        } else {
+            Button(L10n.tr("providers.curate.discover")) {
+                onDiscover()
+            }
+            .buttonStyle(.plain)
+            .font(.caption2)
+            .foregroundStyle(.tint)
+        }
+    }
+
+    /// Whether a discovery has already run for this provider (so the button
+    /// is not re-shown after finding nothing).
+    private var discoverableModels: [String: [String]] {
+        [:]
     }
 }

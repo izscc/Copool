@@ -9,6 +9,7 @@ final class SettingsPageModel: ObservableObject {
     let onQuitRequested: @MainActor () -> Void
     let providerStoreRepository: ProviderStoreRepository?
     let onProvidersChanged: @MainActor () -> Void
+    let paths: FileSystemPaths?
 
     private let noticeScheduler = NoticeAutoDismissScheduler()
 
@@ -18,6 +19,9 @@ final class SettingsPageModel: ObservableObject {
     @Published var providerForm: ProviderFormDraft = .empty
     @Published var isTestingProviderConnection = false
     @Published var providerConnectionTestResult: String?
+    /// Latest diagnostic run, empty until the user runs it.
+    @Published var doctorChecks: [DoctorCheck] = []
+    @Published var isRunningDoctor = false
     @Published var notice: NoticeMessage? {
         didSet {
             noticeScheduler.schedule(notice) { [weak self] in
@@ -32,6 +36,7 @@ final class SettingsPageModel: ObservableObject {
         settingsCoordinator: SettingsCoordinator,
         editorAppService: EditorAppServiceProtocol,
         providerStoreRepository: ProviderStoreRepository? = nil,
+        paths: FileSystemPaths? = nil,
         onSettingsUpdated: @escaping @MainActor (AppSettings) -> Void = { _ in },
         onQuitRequested: @escaping @MainActor () -> Void = {},
         onProvidersChanged: @escaping @MainActor () -> Void = {}
@@ -39,9 +44,21 @@ final class SettingsPageModel: ObservableObject {
         self.settingsCoordinator = settingsCoordinator
         self.editorAppService = editorAppService
         self.providerStoreRepository = providerStoreRepository
+        self.paths = paths
         self.onSettingsUpdated = onSettingsUpdated
         self.onQuitRequested = onQuitRequested
         self.onProvidersChanged = onProvidersChanged
+    }
+
+    /// Runs the one-shot environment diagnosis.
+    func runDoctor() {
+        guard let paths, !isRunningDoctor else { return }
+        isRunningDoctor = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.isRunningDoctor = false }
+            self.doctorChecks = await ProxyDoctor().run(paths: paths)
+        }
     }
 
     func reloadProviders() {

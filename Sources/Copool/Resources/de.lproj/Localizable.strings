@@ -500,3 +500,13 @@
 "providers.usage.tokens_today" = "Tokens heute";
 "menu.usage.tokens_today" = "Drittanbieter-Tokens heute";
 "menu.usage.quota_drained" = "Kontingent erschöpft";
+"providers.curate.title" = "Verfügbare Modelle";
+"providers.curate.add" = "Hinzufügen";
+"providers.curate.discover" = "Modelle entdecken";
+"providers.curate.discovering" = "Abfrage…";
+"providers.curate.more_format" = "+%d weitere";
+"providers.curate.add_failed" = "Modell konnte nicht hinzugefügt werden";
+"settings.section.doctor" = "Diagnose";
+"settings.doctor.subtitle" = "Prüft Proxy, Codex-Konfiguration, Modell-Cache und Anmeldedaten-Speicher.";
+"settings.doctor.run" = "Ausführen";
+"settings.doctor.rerun" = "Erneut ausführen";

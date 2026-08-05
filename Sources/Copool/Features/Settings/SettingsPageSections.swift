@@ -22,6 +22,7 @@ private struct MacSettingsPageContent: View {
                 SettingsGeneralSection(model: model)
                 SettingsLanguageSection(model: model)
                 SettingsSwitchBehaviorSection(model: model)
+                SettingsDoctorSection(model: model)
             }
             .formStyle(.grouped)
             .scrollIndicators(.hidden)
@@ -117,6 +118,54 @@ private struct SettingsLanguageSection: View {
                 descriptor: model.languageSectionPresentation.picker,
                 onSelect: model.updateLocale
             )
+        }
+    }
+}
+
+/// One-shot environment diagnosis (codex-router's `doctor`, adapted).
+private struct SettingsDoctorSection: View {
+    @ObservedObject var model: SettingsPageModel
+
+    var body: some View {
+        Section("settings.section.doctor") {
+            if model.doctorChecks.isEmpty {
+                HStack {
+                    Text(L10n.tr("settings.doctor.subtitle"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button(L10n.tr("settings.doctor.run")) {
+                        model.runDoctor()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(model.isRunningDoctor)
+                }
+            } else {
+                ForEach(model.doctorChecks) { check in
+                    HStack(spacing: 8) {
+                        Image(systemName: check.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundStyle(check.passed ? .green : .red)
+                            .font(.caption)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(check.name)
+                                .font(.caption)
+                            if let message = check.message {
+                                Text(message)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+                Button(L10n.tr("settings.doctor.rerun")) {
+                    model.runDoctor()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(model.isRunningDoctor)
+            }
         }
     }
 }

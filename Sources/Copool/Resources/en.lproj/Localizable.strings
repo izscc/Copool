@@ -528,3 +528,13 @@
 "providers.usage.tokens_today" = "Tokens today";
 "menu.usage.tokens_today" = "third-party tokens today";
 "menu.usage.quota_drained" = "Quota drained";
+"providers.curate.title" = "Available models";
+"providers.curate.add" = "Add";
+"providers.curate.discover" = "Discover models";
+"providers.curate.discovering" = "Querying provider…";
+"providers.curate.more_format" = "+%d more";
+"providers.curate.add_failed" = "Could not add model";
+"settings.section.doctor" = "Diagnostics";
+"settings.doctor.subtitle" = "Check proxy, Codex config, models cache and credential stores.";
+"settings.doctor.run" = "Run";
+"settings.doctor.rerun" = "Run again";
