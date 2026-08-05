@@ -211,6 +211,13 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
     }
 
     private func handle(request: HTTPRequest) async -> HTTPResponse {
+        // Browser origins are never allowed (AC-009): the proxy answers only
+        // loopback clients, never emits CORS headers, and rejects a browser
+        // Origin outright so a malicious page cannot drive the router.
+        if let origin = request.headers["origin"], !origin.isEmpty {
+            return jsonError(statusCode: 403, message: "Browser origin rejected")
+        }
+
         if request.path == "/health" && request.method == "GET" {
             return HTTPResponse.json(statusCode: 200, object: ["ok": true])
         }

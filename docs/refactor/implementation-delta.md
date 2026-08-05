@@ -81,3 +81,4 @@
 | Phase 1 | 2026-08-05 | D-009（拆 target 暂缓）、D-010（RouterEngine 面收敛） | 协议层 + façade 落地，提交 |
 | Phase 2 | 2026-08-05 | D-011（确定性 sourceHash） | FNV-1a 修复 + 重启幂等验证 |
 | Phase 3 | 2026-08-05 | D-012（schema 用 Data）、D-013（tool_result 归 user） | Canonical 层 + 四适配器落地，提交 |
+| Phase 4 | 2026-08-05 | D-014（TargetAdapter 复用现有 marked-block 机制） | TargetBinding + CodexTargetAdapter + Origin 拒绝 + 脱敏支持包，提交 |
