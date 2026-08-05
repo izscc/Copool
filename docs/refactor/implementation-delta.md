@@ -87,3 +87,20 @@
 | Phase 7 | 2026-08-05 | D-017（Beta adapter 复用通用标记块） | Sessions + Cursor/opencode adapter，提交 |
 | Phase 8 | 2026-08-05 | D-018（枚举关联值不能带 raw type；TaskEnvelope 显式 Codable） | Voice/Realtime 权限门，提交 |
 | Phase 9 | 2026-08-06 | D-019（heartbeat 白名单防 secret） | RemoteNode + release checklist，提交 |
+
+### D-020：验收差距补全（P0/P1/P2 + UI 结构）
+
+按 `docs/copool-vnext-reconstruction/CODEX_MASTER_GOAL.md` 与 `28_acceptance_matrix.md` 逐条核对后补全的差距（提交 7bc93e2、5692b1e、08675b6、72c4dea）：
+
+- AC-009：Swift 数据面（SimpleHTTPServer + CopoolRouterHost DataPlaneServer）`requiredInterfaceType = .loopback` 显式绑定。
+- AC-012：`RoutePlanner` 从纯函数接入生产调用链——`V2RouteResolver` 读 v2 registry，硬过滤→评分→选择，trace 追加 `route-decisions.jsonl`（`RouteDecisionLedger`，500 条剪枝）；v2 缺失时无损回退 v1 匹配。
+- AC-013：错误分类补 transient 5xx（排除 501/505）；`parseRetryAfter`（整数秒/HTTP-date）；指数退避 1/2/4/8s 封顶；每候选二次尝试；总尝试硬上限 3。
+- AC-014：Doctor 三态（PASS/WARN/FAIL）——proxy.health/providers.store/providers.permissions=fail，codex.config/models_cache/auth/usage.ledger=warn；UI 三色图标。
+- AC-004：`rollbackMigration(sourceHash:)`——删 v2 registry + journal 翻转 `rolledBack`，v1 保持源真相，幂等可重迁移（测试）。
+- UI 二级导航：运行时 Overview/Targets/Remote/Public/Logs（Targets 卡片展示稳定路由键/方言/凭据状态 AC-008；Logs 本地 tail + 远程入口）；Agent Profiles/Sessions/Tools/Live（Sessions 实现 AC-102 索引+搜索+预览 sheet；Tools 展示 AC-104 边界）；设置 General/Security/Diagnostics/Advanced（Security AC-003 姿态；Advanced AC-105 外部模型开关）。
+- AC-101：`TargetConfigCoordinator` 注册适配器到 AppContainer；Targets 子页 plan→确认→apply→verify→rollback 入口。
+- AC-106：usage origin 来源判定——5 处构造点改 `.observed`，`fromHeaders`（anthropic-usage/x-usage → `.header`，4/4 解析测试），`estimated()` 工厂。
+- AC-202：`TaskEnvelopeDispatcher`（pending→confirmed→executing→completed 生命周期 + task-envelopes.jsonl 审计 trail + agent 路由事件）；TaskEnvelope 改 Codable。
+- AC-204：`RemoteNodeControlService`（SSH 传输上的 node-info 握手 evaluate、heartbeat 探测折入 HeartbeatMonitor、SCP+install 升级、previous-version 回滚、.updating 门）。
+
+诚实限制：`swift test` 本机无 Xcode（缺 XCTest）无法运行，新增测试（回滚、envelope、node control、usage origin 等）在 CI/Xcode 环境执行；本机以端到端回归（scripts/vnext-verify.sh 10/10）替代验证。

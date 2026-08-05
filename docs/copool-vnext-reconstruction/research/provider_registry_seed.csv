@@ -1,0 +1,25 @@
+id,display_name,credential,protocols,catalog,priority
+openai-native,OpenAI Native,codex/chatgpt-login,responses,native,P0
+generic-openai,Custom OpenAI-compatible,api-key/env,"chat,responses",live/manual,P0
+anthropic,Anthropic,api-key/import,anthropic,live/manual,P0
+gemini,Google Gemini,api-key,"gemini,openai-compatible",live,P0
+deepseek,DeepSeek,api-key,openai-compatible,live,P0
+kimi-api,Kimi Platform,api-key,openai-compatible,live,P0
+kimi-oauth,Kimi Code OAuth,external-cli-oauth,oauth-forward,credential-aware,P1
+grok-api,xAI Grok API,api-key,openai-compatible,live,P1
+grok-oauth,xAI Grok OAuth,external-cli-oauth,oauth-forward,credential-aware,P1
+qwen,Qwen/DashScope,plan-or-api-key,openai-compatible,live,P0
+zai,Z.ai,coding-or-api-key,openai-compatible,live,P0
+minimax,MiniMax,api-key/token-plan,"openai-compatible,special",live,P0
+openrouter,OpenRouter,api-key,openai-compatible,live-curation,P0
+volcengine,Volcengine Ark,api-key,openai-compatible,manual/live,P0
+ollama-cloud,Ollama Cloud,api-key,openai-compatible,live-curation,P1
+groq,Groq,api-key,openai-compatible,live-curation,P1
+together,Together AI,api-key,openai-compatible,live-curation,P1
+fireworks,Fireworks AI,api-key,openai-compatible,live-curation,P1
+cerebras,Cerebras,api-key,openai-compatible,live-curation,P1
+mistral,Mistral AI,api-key,openai-compatible,live-curation,P1
+nvidia-nim,NVIDIA NIM,api-key,openai-compatible,live-curation,P1
+siliconflow,SiliconFlow,api-key,openai-compatible,live-curation,P1
+huggingface,Hugging Face Router,token,openai-compatible,live-curation,P1
+opencode-go,opencode Go,api-key,"chat,messages,responses",live/manual,P1
