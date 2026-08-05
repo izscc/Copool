@@ -20,3 +20,7 @@ scripts/__pycache__/
 alfred/__pycache__/
 alfred/team654301-card-tool-src/__pycache__/
 .worktrees/
+
+# Local tool metadata
+.commandcode/
+.reasonix/

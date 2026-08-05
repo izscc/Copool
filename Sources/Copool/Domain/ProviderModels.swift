@@ -169,6 +169,24 @@ struct ProviderConfig: Codable, Equatable, Identifiable, Sendable {
     var clientModels: [(clientID: String, backendID: String)] {
         models.map { (clientModelID(for: $0.id), $0.id) }
     }
+
+    /// Whether this provider maps to a local subscription login that can be
+    /// re-read for fresh credentials (Claude Code, Grok, Cursor, Antigravity).
+    ///
+    /// Matches on auth kind, refresh token, name and endpoint so providers
+    /// imported before the subscription flags existed still get the refresh
+    /// affordance.
+    var supportsSubscriptionRefresh: Bool {
+        if authKind == .subscriptionImport || refreshToken != nil { return true }
+        let name = self.name.lowercased()
+        let url = baseURL.lowercased()
+        let knownNames = ["claude", "grok", "cursor", "antigravity", "agy"]
+        return knownNames.contains(name)
+            || url.contains("generativelanguage")
+            || url.contains("x.ai")
+            || url.contains("api.anthropic.com")
+            || url.contains("api2.cursor.sh")
+    }
 }
 
 /// Persisted collection of third-party providers.

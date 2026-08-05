@@ -52,6 +52,10 @@
 "providers.import.detect" = "Detect local subscriptions";
 "providers.import.action" = "Import";
 "providers.import.done" = "Subscription imported. Restart ChatGPT.app to see its models.";
+
+"providers.refresh_auth" = "更新授權";
+"providers.refresh_auth.updated" = "授權已更新。";
+"providers.refresh_auth.not_found" = "找不到此服務商的本地登入。";
 "providers.preset.title" = "Quick-add providers";
 "providers.list.title" = "Your providers";
 "providers.add" = "Add provider";

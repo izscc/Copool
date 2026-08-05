@@ -36,6 +36,7 @@ final class ProviderPageModel: ObservableObject {
     @Published var providerForm: ProviderFormDraft = .empty
     @Published var isTestingProviderConnection = false
     @Published var providerConnectionTestResult: String?
+    @Published var refreshingProviderIDs: Set<String> = []
     @Published var notice: NoticeMessage? {
         didSet {
             noticeScheduler.schedule(notice) { [weak self] in
@@ -72,27 +73,115 @@ final class ProviderPageModel: ObservableObject {
     }
 
     func importSubscription(_ subscription: ImportedSubscription) {
-        let provider = ProviderConfig(
-            name: subscription.providerName,
-            baseURL: subscription.baseURL,
-            apiKey: subscription.accessToken,
-            refreshToken: subscription.refreshToken,
-            authKind: subscription.authKind,
-            models: subscription.modelIDs.map { ProviderModel(id: $0) },
-            defaultProtocol: subscription.protocolKind
-        )
+        let existingProvider = providers.first {
+            $0.name.lowercased() == subscription.providerName.lowercased()
+        }
+        let provider: ProviderConfig
+        if let existingProvider {
+            // Re-import: refresh the credentials only. Keep the model list and
+            // any capabilities discovery already confirmed, and append model
+            // ids the subscription now offers.
+            var mergedModels = existingProvider.models
+            for modelID in subscription.modelIDs
+            where !mergedModels.contains(where: { $0.id == modelID }) {
+                mergedModels.append(ProviderModel(id: modelID))
+            }
+            provider = ProviderConfig(
+                id: existingProvider.id,
+                name: existingProvider.name,
+                baseURL: subscription.baseURL,
+                apiKey: subscription.accessToken,
+                refreshToken: subscription.refreshToken,
+                authKind: subscription.authKind,
+                models: mergedModels,
+                modelProtocols: existingProvider.modelProtocols,
+                defaultProtocol: subscription.protocolKind,
+                addedAt: existingProvider.addedAt
+            )
+        } else {
+            provider = ProviderConfig(
+                name: subscription.providerName,
+                baseURL: subscription.baseURL,
+                apiKey: subscription.accessToken,
+                refreshToken: subscription.refreshToken,
+                authKind: subscription.authKind,
+                models: subscription.modelIDs.map { ProviderModel(id: $0) },
+                defaultProtocol: subscription.protocolKind
+            )
+        }
         do {
             _ = try providerStoreRepository.mutateProviders { store in
-                store.providers.removeAll { $0.name.lowercased() == provider.name.lowercased() }
-                store.providers.append(provider)
+                if let index = store.providers.firstIndex(where: { $0.id == provider.id }) {
+                    store.providers[index] = provider
+                } else {
+                    store.providers.append(provider)
+                }
             }
             loadProviders()
             detectedSubscriptions.removeAll { $0.providerName == subscription.providerName }
-            notice = NoticeMessage(style: .success, text: L10n.tr("providers.import.done"))
+            notice = NoticeMessage(
+                style: .success,
+                text: L10n.tr(existingProvider == nil ? "providers.import.done" : "providers.refresh_auth.updated")
+            )
             onProvidersChanged()
             Task { await discoverCapabilities(providerID: provider.id) }
         } catch {
             notice = NoticeMessage(style: .error, text: error.localizedDescription)
+        }
+    }
+
+    /// Re-reads the local login for one subscription-imported provider and
+    /// updates only its credentials (access token / refresh token). The model
+    /// list and discovered capabilities are preserved.
+    func refreshProviderAuth(_ provider: ProviderConfig) {
+        guard provider.supportsSubscriptionRefresh else { return }
+        refreshingProviderIDs.insert(provider.id)
+        Task {
+            defer { refreshingProviderIDs.remove(provider.id) }
+            let detected = await importer.detectAll()
+            guard let subscription = detected.first(where: {
+                $0.providerName.lowercased() == provider.name.lowercased()
+            }) else {
+                notice = NoticeMessage(style: .error, text: L10n.tr("providers.refresh_auth.not_found"))
+                return
+            }
+
+            var updated = provider
+            updated.baseURL = subscription.baseURL
+            updated.apiKey = subscription.accessToken
+            updated.refreshToken = subscription.refreshToken
+            updated.authKind = subscription.authKind
+            updated.defaultProtocol = subscription.protocolKind
+            for modelID in subscription.modelIDs
+            where !updated.models.contains(where: { $0.id == modelID }) {
+                updated.models.append(ProviderModel(id: modelID))
+            }
+
+            do {
+                _ = try providerStoreRepository.mutateProviders { store in
+                    guard let index = store.providers.firstIndex(where: { $0.id == provider.id }) else { return }
+                    store.providers[index] = updated
+                }
+                loadProviders()
+                notice = NoticeMessage(style: .success, text: L10n.tr("providers.refresh_auth.updated"))
+                onProvidersChanged()
+                Task { await discoverCapabilities(providerID: provider.id) }
+            } catch {
+                notice = NoticeMessage(style: .error, text: error.localizedDescription)
+            }
+        }
+    }
+
+    private var lastAutoDetectAt: Date?
+
+    /// Silently re-detects local subscriptions (throttled to once per minute)
+    /// so the import section stays current without requiring a manual tap.
+    func detectSubscriptionsIfNeeded() {
+        if let last = lastAutoDetectAt, Date().timeIntervalSince(last) < 60 { return }
+        lastAutoDetectAt = Date()
+        Task {
+            let detected = await importer.detectAll()
+            detectedSubscriptions = detected
         }
     }
 
@@ -134,12 +223,27 @@ final class ProviderPageModel: ObservableObject {
         }
 
         let protocolKind = ProviderProtocol(rawValue: draft.protocolMode) ?? .chat
+        let existingProvider = providers.first(where: { $0.id == draft.id })
         let provider = ProviderConfig(
             id: draft.id.isEmpty ? UUID().uuidString : draft.id,
             name: draft.name.trimmingCharacters(in: .whitespaces),
             baseURL: draft.baseURL.trimmingCharacters(in: .whitespaces),
             apiKey: draft.apiKey.trimmingCharacters(in: .whitespaces),
-            models: modelIDs.map { ProviderModel(id: $0) },
+            // Saving an imported provider must not drop its refresh token or
+            // auth kind: without them the token expires and every later
+            // request (capability discovery, test connection) fails with 401.
+            refreshToken: existingProvider?.refreshToken,
+            authKind: existingProvider?.authKind ?? .apiKey,
+            models: modelIDs.map { modelID in
+                // Keep capabilities discovery already confirmed for ids that
+                // survive the edit; only brand-new ids start blank and get
+                // probed again after save.
+                if let old = existingProvider?.models.first(where: { $0.id == modelID }) {
+                    return old
+                }
+                return ProviderModel(id: modelID)
+            },
+            modelProtocols: existingProvider?.modelProtocols ?? [:],
             defaultProtocol: protocolKind,
             addedAt: draft.id.isEmpty ? Int64(Date().timeIntervalSince1970) : 0
         )

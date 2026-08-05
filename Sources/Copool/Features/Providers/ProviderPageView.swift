@@ -16,14 +16,30 @@ struct ProviderPageView: View {
                         isDetecting: model.isDetectingSubscriptions
                     )
                 } else {
-                    Text(L10n.tr("providers.list.title"))
-                        .font(.headline)
-                        .padding(.horizontal, LayoutRules.pagePadding)
+                    HStack {
+                        Text(L10n.tr("providers.list.title"))
+                            .font(.headline)
+                        Spacer(minLength: 0)
+                        Button {
+                            model.detectSubscriptions()
+                        } label: {
+                            if model.isDetectingSubscriptions {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Label(L10n.tr("providers.import.detect"), systemImage: "arrow.clockwise")
+                            }
+                        }
+                        .buttonStyle(.frostedCapsule(prominent: false))
+                        .disabled(model.isDetectingSubscriptions)
+                    }
+                    .padding(.horizontal, LayoutRules.pagePadding)
                 }
 
                 if !model.detectedSubscriptions.isEmpty {
                     SubscriptionImportSection(
                         subscriptions: model.detectedSubscriptions,
+                        importedNames: Set(model.providers.map { $0.name.lowercased() }),
                         onImport: { model.importSubscription($0) }
                     )
                 }
@@ -38,7 +54,9 @@ struct ProviderPageView: View {
                 if !model.providers.isEmpty {
                     ProviderListSection(
                         providers: model.providers,
+                        refreshingIDs: model.refreshingProviderIDs,
                         onEdit: { model.beginEditingProvider($0) },
+                        onRefreshAuth: { model.refreshProviderAuth($0) },
                         onDelete: { model.removeProvider($0) }
                     )
                 }
@@ -65,6 +83,7 @@ struct ProviderPageView: View {
         }
         .task {
             model.loadProviders()
+            model.detectSubscriptionsIfNeeded()
         }
     }
 }
@@ -121,6 +140,7 @@ private struct ProviderOnboardingSection: View {
 /// Local subscription login import cards.
 private struct SubscriptionImportSection: View {
     let subscriptions: [ImportedSubscription]
+    let importedNames: Set<String>
     let onImport: (ImportedSubscription) -> Void
 
     var body: some View {
@@ -129,6 +149,7 @@ private struct SubscriptionImportSection: View {
                 .font(.headline)
 
             ForEach(subscriptions, id: \.providerName) { subscription in
+                let isImported = importedNames.contains(subscription.providerName.lowercased())
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(subscription.displayName)
@@ -142,7 +163,9 @@ private struct SubscriptionImportSection: View {
                             .lineLimit(1)
                     }
                     Spacer(minLength: 0)
-                    Button(L10n.tr("providers.import.action")) {
+                    Button(isImported
+                           ? L10n.tr("providers.refresh_auth")
+                           : L10n.tr("providers.import.action")) {
                         onImport(subscription)
                     }
                     .copoolActionButtonStyle(prominent: true, tint: .indigo, density: .compact, iOSStyle: .liquidGlass)
@@ -193,7 +216,9 @@ private struct ProviderPresetSection: View {
 /// Configured provider rows.
 private struct ProviderListSection: View {
     let providers: [ProviderConfig]
+    let refreshingIDs: Set<String>
     let onEdit: (ProviderConfig) -> Void
+    let onRefreshAuth: (ProviderConfig) -> Void
     let onDelete: (ProviderConfig) -> Void
 
     var body: some View {
@@ -219,6 +244,22 @@ private struct ProviderListSection: View {
                             .lineLimit(1)
                     }
                     Spacer(minLength: 0)
+                    if provider.supportsSubscriptionRefresh {
+                        Button {
+                            onRefreshAuth(provider)
+                        } label: {
+                            if refreshingIDs.contains(provider.id) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .frame(width: 20, height: 20)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                        }
+                        .buttonStyle(.frostedCapsule(prominent: false))
+                        .disabled(refreshingIDs.contains(provider.id))
+                        .accessibilityLabel(L10n.tr("providers.refresh_auth"))
+                    }
                     Button(L10n.tr("common.edit")) {
                         onEdit(provider)
                     }

@@ -83,13 +83,29 @@ final class SettingsPageModel: ObservableObject {
         }
 
         let protocolKind = ProviderProtocol(rawValue: draft.protocolMode) ?? .chat
+        let existingProvider = providers.first(where: { $0.id == draft.id })
         let provider = ProviderConfig(
             id: draft.id.isEmpty ? UUID().uuidString : draft.id,
             name: draft.name.trimmingCharacters(in: .whitespaces),
             baseURL: draft.baseURL.trimmingCharacters(in: .whitespaces),
             apiKey: draft.apiKey.trimmingCharacters(in: .whitespaces),
-            models: modelIDs.map { ProviderModel(id: $0) },
-            modelProtocols: Dictionary(uniqueKeysWithValues: modelIDs.map { ($0, protocolKind) }),
+            // Saving an imported provider must not drop its refresh token or
+            // auth kind: without them the token expires and every later
+            // request (capability discovery, test connection) fails with 401.
+            refreshToken: existingProvider?.refreshToken,
+            authKind: existingProvider?.authKind ?? .apiKey,
+            models: modelIDs.map { modelID in
+                // Keep capabilities discovery already confirmed for ids that
+                // survive the edit; only brand-new ids start blank and get
+                // probed again after save.
+                if let old = existingProvider?.models.first(where: { $0.id == modelID }) {
+                    return old
+                }
+                return ProviderModel(id: modelID)
+            },
+            modelProtocols: existingProvider?.modelProtocols
+                ?? Dictionary(uniqueKeysWithValues: modelIDs.map { ($0, protocolKind) }),
+            defaultProtocol: protocolKind,
             addedAt: draft.id.isEmpty ? Int64(Date().timeIntervalSince1970) : 0
         )
 
@@ -105,8 +121,36 @@ final class SettingsPageModel: ObservableObject {
             providerForm = .empty
             notice = NoticeMessage(style: .success, text: L10n.tr("settings.providers.saved"))
             onProvidersChanged()
+            // Ask the provider what these models can actually do, then rewrite
+            // the Codex catalog with the real numbers (same as the Providers page).
+            Task { await discoverCapabilities(providerID: provider.id) }
         } catch {
             notice = NoticeMessage(style: .error, text: error.localizedDescription)
+        }
+    }
+
+    /// Refreshes one provider's model metadata in the background.
+    ///
+    /// Best-effort: a provider that will not answer keeps whatever is stored,
+    /// and the catalog keeps working on the conservative defaults.
+    func discoverCapabilities(providerID: String) async {
+        guard let providerStoreRepository else { return }
+        guard let provider = (try? providerStoreRepository.loadProviders())?
+            .providers.first(where: { $0.id == providerID }) else { return }
+
+        let refreshed = await ModelCapabilityDiscovery().refresh(provider: provider)
+        guard refreshed != provider.models else { return }
+
+        do {
+            _ = try providerStoreRepository.mutateProviders { store in
+                guard let index = store.providers.firstIndex(where: { $0.id == providerID }) else { return }
+                store.providers[index].models = refreshed
+            }
+            reloadProviders()
+            onProvidersChanged()
+        } catch {
+            // Discovery is an enhancement; failing to persist it must not
+            // surface as an error over a save that already succeeded.
         }
     }
 

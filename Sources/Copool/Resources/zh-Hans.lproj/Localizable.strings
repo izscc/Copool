@@ -52,6 +52,10 @@
 "providers.import.detect" = "检测本地订阅";
 "providers.import.action" = "导入";
 "providers.import.done" = "订阅已导入。请重启 ChatGPT.app 以查看模型。";
+
+"providers.refresh_auth" = "更新授权";
+"providers.refresh_auth.updated" = "授权已更新。";
+"providers.refresh_auth.not_found" = "未找到此服务商的本地登录。";
 "providers.preset.title" = "快速添加服务商";
 "providers.list.title" = "你的服务商";
 "providers.add" = "添加服务商";

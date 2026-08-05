@@ -83,7 +83,9 @@ struct ModelCapabilityDiscovery: Sendable {
     static func parse(_ object: [String: Any]) -> ModelMetadataEntry {
         var entry = ModelMetadataEntry()
 
-        for key in ["context_window", "context_length", "max_context_length", "max_input_tokens"] {
+        // Google's generativelanguage API names the input budget
+        // `inputTokenLimit`; OpenAI-compatible vendors use the others.
+        for key in ["context_window", "context_length", "max_context_length", "max_input_tokens", "inputTokenLimit", "input_token_limit"] {
             if let value = positiveInt(object[key]) {
                 entry.contextWindow = value
                 break

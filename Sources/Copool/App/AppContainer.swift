@@ -308,6 +308,8 @@ final class AppContainer {
     /// Watches `~/.codex/models_cache.json` and re-injects the third-party
     /// catalog whenever Codex overwrites it (e.g. on ChatGPT.app launch).
     private var modelsCacheWatchSource: DispatchSourceFileSystemObject?
+    /// Debounces resyncs triggered by the cache watcher.
+    private var resyncDebounceTask: Task<Void, Never>?
 
     func startModelsCacheWatch() {
         let path = FileManager.default.homeDirectoryForCurrentUser
@@ -315,18 +317,24 @@ final class AppContainer {
         let descriptor = open(path.path, O_EVTONLY)
         guard descriptor >= 0 else { return }
 
+        // The handler must run on the main queue: on macOS 26+/Swift 6.2 the
+        // runtime asserts when an unisolated dispatch callback creates
+        // @MainActor work (or touches the MainActor-isolated self), even
+        // though the compiler accepts it. MainActor.assumeIsolated then hops
+        // onto the actor without going through a Task.
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: descriptor,
             eventMask: [.write, .extend, .delete, .rename],
-            queue: .global(qos: .utility)
+            queue: .main
         )
         source.setEventHandler { [weak self] in
-            // Debounce: Codex may write several times during a refresh.
-            let box = WeakBox(self)
-            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.5) {
-                guard let instance = box.value else { return }
-                Task { @MainActor in
-                    instance.syncThirdPartyModelsToCodex()
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // Debounce: Codex may write several times during a refresh.
+                self.resyncDebounceTask?.cancel()
+                self.resyncDebounceTask = Task { [weak self] in
+                    try? await Task.sleep(for: .milliseconds(500))
+                    self?.syncThirdPartyModelsToCodex()
                 }
             }
         }

@@ -52,6 +52,10 @@
 "providers.import.detect" = "Detect local subscriptions";
 "providers.import.action" = "Import";
 "providers.import.done" = "Subscription imported. Restart ChatGPT.app to see its models.";
+
+"providers.refresh_auth" = "Update authorization";
+"providers.refresh_auth.updated" = "Authorization updated.";
+"providers.refresh_auth.not_found" = "No local login found for this provider.";
 "providers.preset.title" = "Quick-add providers";
 "providers.list.title" = "Your providers";
 "providers.add" = "Add provider";
