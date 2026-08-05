@@ -82,3 +82,8 @@
 | Phase 2 | 2026-08-05 | D-011（确定性 sourceHash） | FNV-1a 修复 + 重启幂等验证 |
 | Phase 3 | 2026-08-05 | D-012（schema 用 Data）、D-013（tool_result 归 user） | Canonical 层 + 四适配器落地，提交 |
 | Phase 4 | 2026-08-05 | D-014（TargetAdapter 复用现有 marked-block 机制） | TargetBinding + CodexTargetAdapter + Origin 拒绝 + 脱敏支持包，提交 |
+| Phase 5 | 2026-08-05 | D-015（UI 子导航括号重构经编译修复） | Catalog/Routes/Usage 子导航，提交 |
+| Phase 6 | 2026-08-05 | D-016（host 端口自动选择，避免占用冲突） | CopoolRouterHost + UDS control，提交 |
+| Phase 7 | 2026-08-05 | D-017（Beta adapter 复用通用标记块） | Sessions + Cursor/opencode adapter，提交 |
+| Phase 8 | 2026-08-05 | D-018（枚举关联值不能带 raw type；TaskEnvelope 显式 Codable） | Voice/Realtime 权限门，提交 |
+| Phase 9 | 2026-08-06 | D-019（heartbeat 白名单防 secret） | RemoteNode + release checklist，提交 |
