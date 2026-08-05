@@ -41,6 +41,8 @@ struct RootScene: View {
             return deferredProxyModel.model?.notice
         case .providers:
             return providerNotice
+        case .agents:
+            return container.agentModel.notice
         case .settings:
             return chromeStore.settingsNotice
         }
@@ -166,6 +168,8 @@ struct RootScene: View {
             proxyTabContent
         case .providers:
             ProviderPageView(model: container.providerModel)
+        case .agents:
+            AgentPageView(model: container.agentModel)
         case .settings:
             SettingsPageView(model: settingsModel)
         }
@@ -366,6 +370,7 @@ private extension AppTab {
         case .accounts: return "person.2"
         case .proxy: return "network"
         case .providers: return "square.stack.3d.up"
+        case .agents: return "point.3.connected.trianglepath.dotted"
         case .settings: return "gearshape"
         }
     }
@@ -375,6 +380,7 @@ private extension AppTab {
         case .accounts: return "tab.accounts"
         case .proxy: return "tab.proxy"
         case .providers: return "tab.providers"
+        case .agents: return "tab.agents"
         case .settings: return "tab.settings"
         }
     }
@@ -384,6 +390,7 @@ private extension AppTab {
         case .accounts: return "tab.accounts"
         case .proxy: return "tab.proxy"
         case .providers: return "tab.providers"
+        case .agents: return "tab.agents"
         case .settings: return "tab.settings"
         }
     }

@@ -23,6 +23,7 @@ final class AppContainer {
     let settingsModel: SettingsPageModel
     let trayModel: TrayMenuModel
     let providerModel: ProviderPageModel
+    let agentModel: AgentPageModel
 
     private let settingsCoordinator: SettingsCoordinator
     private let accountsWidgetSnapshotWriter: AccountsWidgetSnapshotWriter
@@ -63,6 +64,7 @@ final class AppContainer {
             let authRepository = AuthFileRepository(paths: paths)
             let providerRepository = ProviderFileRepository(paths: paths)
             let usageRepository = ThirdPartyUsageFileRepository(paths: paths)
+            let agentRepository = AgentProfileFileRepository(paths: paths)
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
             let workspaceMetadataService = DefaultWorkspaceMetadataService(configPath: paths.codexConfigPath)
@@ -94,6 +96,7 @@ final class AppContainer {
                     authRepository: authRepository,
                     providerRepository: providerRepository,
                     usageRepository: usageRepository,
+                    agentRepository: agentRepository,
                     onAccountsStoreChanged: {
                         accountsStoreChangeHandlerBox.handler?()
                     },
@@ -200,6 +203,10 @@ final class AppContainer {
                 }
             )
 
+            let agentModel = AgentPageModel(
+                agentRepository: agentRepository,
+                providerStoreRepository: providerRepository
+            )
             let providerModel = ProviderPageModel(
                 providerStoreRepository: providerRepository,
                 usageRepository: usageRepository,
@@ -224,7 +231,8 @@ final class AppContainer {
                 accountsModel: accountsModel,
                 settingsModel: settingsModel,
                 trayModel: trayModel,
-                providerModel: providerModel
+                providerModel: providerModel,
+                agentModel: agentModel
             )
             applySettingsToContainer = { settings in
                 container.applySettings(settings)
@@ -247,7 +255,8 @@ final class AppContainer {
         accountsModel: AccountsPageModel,
         settingsModel: SettingsPageModel,
         trayModel: TrayMenuModel,
-        providerModel: ProviderPageModel
+        providerModel: ProviderPageModel,
+        agentModel: AgentPageModel
     ) {
         self.settingsCoordinator = settingsCoordinator
         self.accountsWidgetSnapshotWriter = accountsWidgetSnapshotWriter
@@ -261,6 +270,7 @@ final class AppContainer {
         self.settingsModel = settingsModel
         self.trayModel = trayModel
         self.providerModel = providerModel
+        self.agentModel = agentModel
         accountsWidgetDisplayModeStore.save(rawValue: widgetUsageProgressDisplayMode.rawValue)
         accountsWidgetSnapshotCancellable = trayModel.$accounts
             .removeDuplicates()

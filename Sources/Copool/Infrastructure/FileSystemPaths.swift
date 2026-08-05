@@ -6,6 +6,8 @@ struct FileSystemPaths {
     var settingsStorePath: URL
     var providerStorePath: URL
     var thirdPartyUsagePath: URL
+    var agentStorePath: URL
+    var agentRouteEventsPath: URL
     var codexAuthPath: URL
     var codexConfigPath: URL
     var codexModelsCachePath: URL
@@ -33,6 +35,8 @@ struct FileSystemPaths {
             settingsStorePath: appSupportDirectory.appendingPathComponent("settings.json", isDirectory: false),
             providerStorePath: appSupportDirectory.appendingPathComponent("providers.json", isDirectory: false),
             thirdPartyUsagePath: appSupportDirectory.appendingPathComponent("third-party-usage.json", isDirectory: false),
+            agentStorePath: appSupportDirectory.appendingPathComponent("agents.json", isDirectory: false),
+            agentRouteEventsPath: appSupportDirectory.appendingPathComponent("agent-routes.json", isDirectory: false),
             codexAuthPath: codexDirectory.appendingPathComponent("auth.json", isDirectory: false),
             codexConfigPath: codexDirectory.appendingPathComponent("config.toml", isDirectory: false),
             codexModelsCachePath: codexDirectory.appendingPathComponent("models_cache.json", isDirectory: false),

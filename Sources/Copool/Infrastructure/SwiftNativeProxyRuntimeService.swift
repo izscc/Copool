@@ -15,6 +15,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
     let authRepository: AuthRepository
     let providerRepository: ProviderStoreRepository?
     let usageRepository: ThirdPartyUsageRepository?
+    let agentRepository: AgentProfileRepository?
     let onAccountsStoreChanged: (@Sendable () -> Void)?
     let switchAccount: (@Sendable (String) async throws -> Void)?
     let dateProvider: DateProviding
@@ -32,6 +33,9 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
     /// signature does not survive Codex's Responses item round trip.
     var geminiThoughtSignatures: [String: String] = [:]
     var cooldownUntilByAccountID: [String: Int64] = [:]
+    /// Subagent turn id -> chosen route, so a child's follow-up turns stay on
+    /// the model it started with.
+    var agentRouteBindings: [String: AgentRouteBinding] = [:]
 
     private let models = SwiftNativeProxyRuntimeService.clientVisibleModels
 
@@ -42,6 +46,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         authRepository: AuthRepository,
         providerRepository: ProviderStoreRepository? = nil,
         usageRepository: ThirdPartyUsageRepository? = nil,
+        agentRepository: AgentProfileRepository? = nil,
         onAccountsStoreChanged: (@Sendable () -> Void)? = nil,
         switchAccount: (@Sendable (String) async throws -> Void)? = nil,
         dateProvider: DateProviding = SystemDateProvider()
@@ -52,6 +57,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         self.authRepository = authRepository
         self.providerRepository = providerRepository
         self.usageRepository = usageRepository
+        self.agentRepository = agentRepository
         self.onAccountsStoreChanged = onAccountsStoreChanged
         self.switchAccount = switchAccount
         self.dateProvider = dateProvider
@@ -240,11 +246,21 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
     }
 
     private func handleResponsesRequest(body: Data, downstreamHeaders: [String: String]) async -> HTTPResponse {
-        let object: [String: Any]
+        var object: [String: Any]
         do {
             object = try parseJSONObject(from: body)
         } catch {
             return jsonError(statusCode: 400, message: error.localizedDescription)
+        }
+
+        // A Codex subagent turn may be redirected onto a model the user picked
+        // for that kind of work. The parent turn is never touched.
+        var body = body
+        if let route = resolveAgentRoute(headers: downstreamHeaders, object: object) {
+            object = Self.applyAgentRoute(route, to: object)
+            if let rerouted = try? JSONSerialization.data(withJSONObject: object) {
+                body = rerouted
+            }
         }
 
         let requestedModel = (object["model"] as? String) ?? "gpt-5"

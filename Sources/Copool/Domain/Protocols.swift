@@ -40,6 +40,23 @@ protocol ThirdPartyUsageRepository: Sendable {
     func saveUsage(_ store: ThirdPartyUsageStore) throws
 }
 
+protocol AgentProfileRepository: Sendable {
+    func loadAgents() throws -> AgentProfileStore
+    func saveAgents(_ store: AgentProfileStore) throws
+    func mutateAgents(_ transform: (inout AgentProfileStore) throws -> Void) throws -> AgentProfileStore
+    func loadRouteEvents() throws -> AgentRouteEventStore
+    func appendRouteEvent(_ event: AgentRouteEvent) throws
+}
+
+extension AgentProfileRepository {
+    func mutateAgents(_ transform: (inout AgentProfileStore) throws -> Void) throws -> AgentProfileStore {
+        var store = try loadAgents()
+        try transform(&store)
+        try saveAgents(store)
+        return store
+    }
+}
+
 protocol AuthRepository: Sendable {
     func readCurrentAuth() throws -> JSONValue
     func readCurrentAuthOptional() throws -> JSONValue?
