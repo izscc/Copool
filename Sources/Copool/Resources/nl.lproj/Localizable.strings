@@ -510,3 +510,16 @@
 "settings.doctor.subtitle" = "Controleert proxy, Codex-config, modelcache en referentie-opslag.";
 "settings.doctor.run" = "Uitvoeren";
 "settings.doctor.rerun" = "Opnieuw uitvoeren";
+"models.tab.providers" = "Providers";
+"models.tab.catalog" = "Catalogus";
+"models.tab.routes" = "Routes";
+"models.tab.usage" = "Gebruik";
+"models.catalog.empty" = "Catalogus leeg.";
+"models.catalog.hidden_format" = "%@ verborgen";
+"models.routes.subtitle" = "Routing: beperkingen, score, failover — alles traceerbaar.";
+"models.routes.constraints" = "Hard constraints";
+"models.routes.scoring" = "Scoring";
+"models.routes.failover" = "Failover";
+"models.routes.trace" = "Beslissingstrace";
+"models.usage.empty" = "Geen gebruik.";
+"models.usage.ratelimits" = "Rate limits";

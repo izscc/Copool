@@ -5,11 +5,58 @@ import SwiftUI
 struct ProviderPageView: View {
     @ObservedObject var model: ProviderPageModel
 
+    private enum SubTab: String, CaseIterable {
+        case providers
+        case catalog
+        case routes
+        case usage
+    }
+
+    @State private var subTab: SubTab = .providers
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutRules.sectionSpacing) {
-                if model.providers.isEmpty {
-                    ProviderOnboardingSection(
+                // Secondary navigation inside the Models tab (AC-015): the
+                // top-level 5-tab structure is unchanged.
+                Picker("", selection: $subTab) {
+                    ForEach(SubTab.allCases, id: \.self) { tab in
+                        Text(L10n.tr("models.tab.\(tab.rawValue)")).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, LayoutRules.pagePadding)
+                .onChange(of: subTab) { _, newValue in
+                    if newValue == .catalog {
+                        model.loadCatalog()
+                    }
+                }
+
+                switch subTab {
+                case .providers:
+                    providersContent
+                case .catalog:
+                    CatalogSection(
+                        rows: model.catalogRows,
+                        hiddenCount: model.catalogHiddenCount
+                    )
+                case .routes:
+                    RoutesPolicySection()
+                case .usage:
+                    UsageSection(
+                        rateLimits: model.rateLimits,
+                        accountUsage: model.accountUsage,
+                        aggregates: model.usageAggregates
+                    )
+                }
+            }
+        }
+    }
+
+    private var providersContent: some View {
+        VStack(alignment: .leading, spacing: LayoutRules.sectionSpacing) {
+            if model.providers.isEmpty {
+                ProviderOnboardingSection(
                         onDetectSubscriptions: {
                             model.detectSubscriptions()
                         },
@@ -99,13 +146,12 @@ struct ProviderPageView: View {
                 }
             }
             .padding(.vertical, LayoutRules.pagePadding)
-        }
-        .task {
-            model.loadProviders()
-            model.detectSubscriptionsIfNeeded()
-        }
+            .task {
+                model.loadProviders()
+                model.detectSubscriptionsIfNeeded()
+            }
     }
-}
+    }
 
 /// Onboarding hero shown when no providers are configured yet.
 private struct ProviderOnboardingSection: View {
@@ -683,5 +729,136 @@ private struct ProviderCurationSection: View {
     /// is not re-shown after finding nothing).
     private var discoverableModels: [String: [String]] {
         [:]
+    }
+}
+
+/// Credential-aware catalog (AC-011): pickable models with provenance.
+private struct CatalogSection: View {
+    let rows: [CatalogBuilder.CatalogRow]
+    let hiddenCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.tr("models.tab.catalog"))
+                .font(.headline)
+            if rows.isEmpty {
+                Text(hiddenCount > 0
+                     ? L10n.tr("models.catalog.hidden_format", String(hiddenCount))
+                     : L10n.tr("models.catalog.empty"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(rows) { row in
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(row.entry.backendModelID)
+                                .font(.caption.weight(.medium))
+                            Text(row.instance.displayName)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if let window = row.entry.capabilities.contextWindow {
+                            Text("\(window / 1000)k")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(row.metadataSource.rawValue)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(10)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: LayoutRules.cardRadius))
+                }
+                if hiddenCount > 0 {
+                    Text(L10n.tr("models.catalog.hidden_format", String(hiddenCount)))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(.horizontal, LayoutRules.pagePadding)
+    }
+}
+
+/// Route policy summary (AC-012): hard constraints + scoring + failover.
+private struct RoutesPolicySection: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.tr("models.tab.routes"))
+                .font(.headline)
+            Text(L10n.tr("models.routes.subtitle"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 6) {
+                routeRow("models.routes.constraints", "checkmark.shield.fill")
+                routeRow("models.routes.scoring", "chart.bar.fill")
+                routeRow("models.routes.failover", "arrow.triangle.2.circlepath")
+                routeRow("models.routes.trace", "point.3.connected.trianglepath.dotted")
+            }
+            .padding(12)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: LayoutRules.cardRadius))
+        }
+        .padding(.horizontal, LayoutRules.pagePadding)
+    }
+
+    private func routeRow(_ key: String, _ icon: String) -> some View {
+        Label(L10n.tr(key), systemImage: icon)
+            .font(.caption)
+    }
+}
+
+/// Usage aggregate across providers (rate limits, balances, token trend).
+private struct UsageSection: View {
+    let rateLimits: [String: ProviderRateLimitSnapshot]
+    let accountUsage: [String: ProviderAccountUsage]
+    let aggregates: [DailyUsageAggregate]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.tr("models.tab.usage"))
+                .font(.headline)
+            if aggregates.isEmpty && rateLimits.isEmpty {
+                Text(L10n.tr("models.usage.empty"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(aggregates.prefix(7), id: \.id) { row in
+                    HStack(spacing: 8) {
+                        Text(row.day)
+                            .font(.caption2)
+                        Text(row.providerID.prefix(8))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                        Text("\(row.requests) req · \(row.totalTokens) tok")
+                            .font(.caption2)
+                    }
+                }
+                if !rateLimits.isEmpty {
+                    Text(L10n.tr("models.usage.ratelimits"))
+                        .font(.caption2.weight(.semibold))
+                        .padding(.top, 4)
+                    ForEach(Array(rateLimits.keys.sorted()), id: \.self) { providerID in
+                        if let snapshot = rateLimits[providerID] {
+                            HStack(spacing: 8) {
+                                Text(providerID.prefix(8))
+                                    .font(.caption2)
+                                Spacer(minLength: 0)
+                                if let remaining = snapshot.requests?.remaining {
+                                    Text("requests \(remaining)")
+                                        .font(.caption2)
+                                }
+                                if let remaining = snapshot.tokens?.remaining {
+                                    Text("tokens \(remaining)")
+                                        .font(.caption2)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, LayoutRules.pagePadding)
     }
 }

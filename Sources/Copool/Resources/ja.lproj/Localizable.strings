@@ -528,3 +528,16 @@
 "settings.doctor.subtitle" = "プロキシ、Codex 設定、モデルキャッシュ、資格情報ストアを確認します。";
 "settings.doctor.run" = "実行";
 "settings.doctor.rerun" = "再実行";
+"models.tab.providers" = "プロバイダ";
+"models.tab.catalog" = "カタログ";
+"models.tab.routes" = "ルート";
+"models.tab.usage" = "使用量";
+"models.catalog.empty" = "カタログが空です。";
+"models.catalog.hidden_format" = "%@ 件非表示";
+"models.routes.subtitle" = "ルーティング: ハード制約→スコア→フェイルオーバー、全決定は追跡可能。";
+"models.routes.constraints" = "ハード制約";
+"models.routes.scoring" = "スコアリング";
+"models.routes.failover" = "フェイルオーバー";
+"models.routes.trace" = "決定トレース";
+"models.usage.empty" = "使用量なし";
+"models.usage.ratelimits" = "レート制限";

@@ -510,3 +510,16 @@
 "settings.doctor.subtitle" = "Prüft Proxy, Codex-Konfiguration, Modell-Cache und Anmeldedaten-Speicher.";
 "settings.doctor.run" = "Ausführen";
 "settings.doctor.rerun" = "Erneut ausführen";
+"models.tab.providers" = "Anbieter";
+"models.tab.catalog" = "Katalog";
+"models.tab.routes" = "Routen";
+"models.tab.usage" = "Nutzung";
+"models.catalog.empty" = "Katalog leer.";
+"models.catalog.hidden_format" = "%@ ausgeblendet";
+"models.routes.subtitle" = "Routing: Constraints, Score, Failover — jede Entscheidung nachvollziehbar.";
+"models.routes.constraints" = "Harte Constraints";
+"models.routes.scoring" = "Scoring";
+"models.routes.failover" = "Failover";
+"models.routes.trace" = "Entscheidungs-Trace";
+"models.usage.empty" = "Keine Nutzung.";
+"models.usage.ratelimits" = "Rate Limits";

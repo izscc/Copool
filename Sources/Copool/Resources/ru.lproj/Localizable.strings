@@ -510,3 +510,16 @@
 "settings.doctor.subtitle" = "Проверяет прокси, конфигурацию Codex, кэш моделей и хранилища учётных данных.";
 "settings.doctor.run" = "Запустить";
 "settings.doctor.rerun" = "Запустить снова";
+"models.tab.providers" = "Провайдеры";
+"models.tab.catalog" = "Каталог";
+"models.tab.routes" = "Маршруты";
+"models.tab.usage" = "Использование";
+"models.catalog.empty" = "Каталог пуст.";
+"models.catalog.hidden_format" = "%@ скрыто";
+"models.routes.subtitle" = "Маршрутизация: ограничения, оценка, отказоустойчивость.";
+"models.routes.constraints" = "Жёсткие ограничения";
+"models.routes.scoring" = "Оценка";
+"models.routes.failover" = "Отказоустойчивость";
+"models.routes.trace" = "Трассировка решений";
+"models.usage.empty" = "Использование не записано.";
+"models.usage.ratelimits" = "Лимиты запросов";

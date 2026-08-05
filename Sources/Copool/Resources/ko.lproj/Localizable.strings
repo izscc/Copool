@@ -528,3 +528,16 @@
 "settings.doctor.subtitle" = "프록시, Codex 설정, 모델 캐시, 자격 증명 저장소를 확인합니다.";
 "settings.doctor.run" = "실행";
 "settings.doctor.rerun" = "다시 실행";
+"models.tab.providers" = "프로바이더";
+"models.tab.catalog" = "카탈로그";
+"models.tab.routes" = "라우트";
+"models.tab.usage" = "사용량";
+"models.catalog.empty" = "카탈로그가 비어 있습니다.";
+"models.catalog.hidden_format" = "%@개 숨김";
+"models.routes.subtitle" = "라우팅: 하드 제약→점수→페일오버, 모든 결정 추적 가능.";
+"models.routes.constraints" = "하드 제약";
+"models.routes.scoring" = "점수 산정";
+"models.routes.failover" = "페일오버";
+"models.routes.trace" = "결정 추적";
+"models.usage.empty" = "사용량 없음";
+"models.usage.ratelimits" = "속도 제한";

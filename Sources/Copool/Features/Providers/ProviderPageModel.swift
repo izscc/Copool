@@ -31,6 +31,7 @@ final class ProviderPageModel: ObservableObject {
     private let rateLimitRepository: ProviderRateLimitFileRepository?
     private let usageLedger: UsageEventLedger?
     private let accountUsageService: ProviderAccountUsageService?
+    private let registryRepository: ProviderRegistryV2Repository?
     private let importer = LocalSubscriptionImporter()
 
     @Published var providers: [ProviderConfig] = []
@@ -63,6 +64,10 @@ final class ProviderPageModel: ObservableObject {
     @Published var usageAggregates: [DailyUsageAggregate] = []
     @Published var isRefreshingAccountUsage = false
 
+    /// Credential-aware catalog rows built from the v2 registry (AC-011).
+    @Published var catalogRows: [CatalogBuilder.CatalogRow] = []
+    @Published var catalogHiddenCount = 0
+
     /// Models the provider advertises but the user has not configured yet,
     /// keyed by provider id (curation candidates).
     @Published var discoverableModels: [String: [String]] = [:]
@@ -75,6 +80,7 @@ final class ProviderPageModel: ObservableObject {
         rateLimitRepository: ProviderRateLimitFileRepository? = nil,
         usageLedger: UsageEventLedger? = nil,
         accountUsageService: ProviderAccountUsageService? = nil,
+        registryRepository: ProviderRegistryV2Repository? = nil,
         onProvidersChanged: @escaping () -> Void = {}
     ) {
         self.providerStoreRepository = providerStoreRepository
@@ -83,7 +89,34 @@ final class ProviderPageModel: ObservableObject {
         self.rateLimitRepository = rateLimitRepository
         self.usageLedger = usageLedger
         self.accountUsageService = accountUsageService
+        self.registryRepository = registryRepository
         self.onProvidersChanged = onProvidersChanged
+    }
+
+    /// Rebuilds the credential-aware catalog from the v2 registry. A v1-only
+    /// installation (registry absent) shows an empty catalog with a hint.
+    func loadCatalog() {
+        guard let registryRepository else {
+            catalogRows = []
+            catalogHiddenCount = 0
+            return
+        }
+        let registry = registryRepository.loadRegistry()
+        let secrets = KeychainSecretStore()
+        let result = CatalogBuilder().buildDefaultCatalog(registry: registry) { credentialID in
+            guard let credential = registry.credential(id: credentialID),
+                  let reference = credential.secureReference else {
+                return false
+            }
+            switch reference.storage {
+            case .keychainAccount:
+                return secrets.read(account: reference.name) != nil
+            case .environmentVariable:
+                return ProcessInfo.processInfo.environment[reference.name] != nil
+            }
+        }
+        catalogRows = result.rows
+        catalogHiddenCount = result.hiddenCount
     }
 
     static func modelKey(providerID: String, modelID: String) -> String {

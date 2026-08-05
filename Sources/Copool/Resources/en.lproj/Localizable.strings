@@ -538,3 +538,16 @@
 "settings.doctor.subtitle" = "Check proxy, Codex config, models cache and credential stores.";
 "settings.doctor.run" = "Run";
 "settings.doctor.rerun" = "Run again";
+"models.tab.providers" = "Providers";
+"models.tab.catalog" = "Catalog";
+"models.tab.routes" = "Routes";
+"models.tab.usage" = "Usage";
+"models.catalog.empty" = "No catalog entries yet — migrate providers first.";
+"models.catalog.hidden_format" = "%@ model(s) hidden (missing credentials or disabled)";
+"models.routes.subtitle" = "Routing: hard constraints first, then scoring, then failover — every decision is traceable.";
+"models.routes.constraints" = "Hard constraints: credentials, dialects, context, reasoning, capabilities";
+"models.routes.scoring" = "Scoring: context fit, reasoning fit, metadata freshness";
+"models.routes.failover" = "Failover: same-provider then any eligible, max 3 attempts";
+"models.routes.trace" = "Decision trace: filters, scores, selection, retry chain";
+"models.usage.empty" = "No usage recorded yet.";
+"models.usage.ratelimits" = "Rate limits (passively harvested)";

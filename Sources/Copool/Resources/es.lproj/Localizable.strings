@@ -510,3 +510,16 @@
 "settings.doctor.subtitle" = "Comprueba el proxy, la configuración de Codex, la caché de modelos y los almacenes de credenciales.";
 "settings.doctor.run" = "Ejecutar";
 "settings.doctor.rerun" = "Ejecutar de nuevo";
+"models.tab.providers" = "Proveedores";
+"models.tab.catalog" = "Catálogo";
+"models.tab.routes" = "Rutas";
+"models.tab.usage" = "Uso";
+"models.catalog.empty" = "Catálogo vacío.";
+"models.catalog.hidden_format" = "%@ ocultos";
+"models.routes.subtitle" = "Enrutado: restricciones, puntuación y conmutación, todo trazable.";
+"models.routes.constraints" = "Restricciones estrictas";
+"models.routes.scoring" = "Puntuación";
+"models.routes.failover" = "Conmutación";
+"models.routes.trace" = "Traza de decisión";
+"models.usage.empty" = "Sin uso registrado.";
+"models.usage.ratelimits" = "Límites de tasa";

@@ -222,6 +222,7 @@ final class AppContainer {
                 rateLimitRepository: rateLimitRepository,
                 usageLedger: usageLedger,
                 accountUsageService: ProviderAccountUsageService(),
+                registryRepository: registryRepository,
                 onProvidersChanged: {
                     // Inject the updated catalog into ~/.codex/models_cache.json so
                     // the model menu shows third-party models after the next

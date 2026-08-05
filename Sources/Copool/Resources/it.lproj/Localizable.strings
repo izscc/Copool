@@ -510,3 +510,16 @@
 "settings.doctor.subtitle" = "Controlla proxy, configurazione Codex, cache dei modelli e archivi di credenziali.";
 "settings.doctor.run" = "Esegui";
 "settings.doctor.rerun" = "Esegui di nuovo";
+"models.tab.providers" = "Provider";
+"models.tab.catalog" = "Catalogo";
+"models.tab.routes" = "Percorsi";
+"models.tab.usage" = "Utilizzo";
+"models.catalog.empty" = "Catalogo vuoto.";
+"models.catalog.hidden_format" = "%@ nascosti";
+"models.routes.subtitle" = "Routing: vincoli, punteggio, failover — tutto tracciabile.";
+"models.routes.constraints" = "Vincoli rigidi";
+"models.routes.scoring" = "Punteggio";
+"models.routes.failover" = "Failover";
+"models.routes.trace" = "Traccia decisione";
+"models.usage.empty" = "Nessun utilizzo.";
+"models.usage.ratelimits" = "Limiti di frequenza";

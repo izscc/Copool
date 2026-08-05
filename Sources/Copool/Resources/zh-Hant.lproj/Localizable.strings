@@ -510,3 +510,16 @@
 "settings.doctor.subtitle" = "檢查代理、Codex 設定、模型快取與憑證儲存。";
 "settings.doctor.run" = "執行";
 "settings.doctor.rerun" = "重新執行";
+"models.tab.providers" = "模型服務";
+"models.tab.catalog" = "目錄";
+"models.tab.routes" = "路由";
+"models.tab.usage" = "用量";
+"models.catalog.empty" = "目錄為空——請先遷移模型服務。";
+"models.catalog.hidden_format" = "%@ 個模型已隱藏（憑證缺失或已停用）";
+"models.routes.subtitle" = "路由：先硬約束過濾，再評分，最後失敗轉移——每次決策都可追蹤。";
+"models.routes.constraints" = "硬約束：憑證、協定、上下文、推理、能力";
+"models.routes.scoring" = "評分：上下文匹配、推理匹配、元資料新鮮度";
+"models.routes.failover" = "失敗轉移：同供應商→任意合格，最多 3 次";
+"models.routes.trace" = "決策追蹤：過濾、評分、選擇、重試鏈";
+"models.usage.empty" = "暫無用量記錄。";
+"models.usage.ratelimits" = "率限制（被動採集）";

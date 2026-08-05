@@ -538,3 +538,16 @@
 "settings.doctor.subtitle" = "检查代理、Codex 配置、模型缓存与凭据存储。";
 "settings.doctor.run" = "运行";
 "settings.doctor.rerun" = "重新运行";
+"models.tab.providers" = "模型服务";
+"models.tab.catalog" = "目录";
+"models.tab.routes" = "路由";
+"models.tab.usage" = "用量";
+"models.catalog.empty" = "目录为空——请先迁移模型服务。";
+"models.catalog.hidden_format" = "%@ 个模型已隐藏（凭据缺失或已禁用）";
+"models.routes.subtitle" = "路由：先硬约束过滤，再评分，最后失败转移——每次决策都可追踪。";
+"models.routes.constraints" = "硬约束：凭据、协议、上下文、推理、能力";
+"models.routes.scoring" = "评分：上下文匹配、推理匹配、元数据新鲜度";
+"models.routes.failover" = "失败转移：同供应商→任意合格，最多 3 次";
+"models.routes.trace" = "决策追踪：过滤、评分、选择、重试链";
+"models.usage.empty" = "暂无用量记录。";
+"models.usage.ratelimits" = "率限制（被动采集）";

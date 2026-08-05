@@ -510,3 +510,16 @@
 "settings.doctor.subtitle" = "Vérifie le proxy, la config Codex, le cache de modèles et les magasins d'identifiants.";
 "settings.doctor.run" = "Exécuter";
 "settings.doctor.rerun" = "Réexécuter";
+"models.tab.providers" = "Fournisseurs";
+"models.tab.catalog" = "Catalogue";
+"models.tab.routes" = "Itinéraires";
+"models.tab.usage" = "Utilisation";
+"models.catalog.empty" = "Catalogue vide.";
+"models.catalog.hidden_format" = "%@ masqués";
+"models.routes.subtitle" = "Routage : contraintes, score, bascule, tout est traçable.";
+"models.routes.constraints" = "Contraintes strictes";
+"models.routes.scoring" = "Score";
+"models.routes.failover" = "Bascule";
+"models.routes.trace" = "Trace de décision";
+"models.usage.empty" = "Aucune utilisation.";
+"models.usage.ratelimits" = "Limites de débit";
