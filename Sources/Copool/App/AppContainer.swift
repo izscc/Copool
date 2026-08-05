@@ -101,6 +101,16 @@ final class AppContainer {
                 ledger: routeDecisionLedger
             )
             let agentRepository = AgentProfileFileRepository(paths: paths)
+            // P2: real-time task delegation (AC-202) and remote node control
+            // (AC-204) — instantiated here so the runtime owns live instances;
+            // the voice plugin layer and remote UI consume them.
+            let taskEnvelopeDispatcher = TaskEnvelopeDispatcher(
+                trailURL: paths.taskEnvelopesPath,
+                agentRouteRepository: agentRepository
+            )
+            let remoteNodeControlService = RemoteNodeControlService(
+                shellRunner: RemoteShellCommandRunner(fileManager: .default)
+            )
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
             let workspaceMetadataService = DefaultWorkspaceMetadataService(configPath: paths.codexConfigPath)

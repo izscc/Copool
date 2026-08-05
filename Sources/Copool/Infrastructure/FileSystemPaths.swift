@@ -11,6 +11,7 @@ struct FileSystemPaths {
     var providerRateLimitsPath: URL
     var usageEventsPath: URL
     var routeDecisionsPath: URL
+    var taskEnvelopesPath: URL
     var agentStorePath: URL
     var agentRouteEventsPath: URL
     var codexAuthPath: URL
@@ -45,6 +46,7 @@ struct FileSystemPaths {
             providerRateLimitsPath: appSupportDirectory.appendingPathComponent("provider-rate-limits.json", isDirectory: false),
             usageEventsPath: appSupportDirectory.appendingPathComponent("usage-events.jsonl", isDirectory: false),
             routeDecisionsPath: appSupportDirectory.appendingPathComponent("route-decisions.jsonl", isDirectory: false),
+            taskEnvelopesPath: appSupportDirectory.appendingPathComponent("task-envelopes.jsonl", isDirectory: false),
             agentStorePath: appSupportDirectory.appendingPathComponent("agents.json", isDirectory: false),
             agentRouteEventsPath: appSupportDirectory.appendingPathComponent("agent-routes.json", isDirectory: false),
             codexAuthPath: codexDirectory.appendingPathComponent("auth.json", isDirectory: false),

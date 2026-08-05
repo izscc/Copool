@@ -85,7 +85,7 @@ struct RealtimeSession: Codable, Equatable, Sendable, Identifiable {
 /// A unit of delegated work from a realtime session. MUST be confirmed by the
 /// user before any execution side effect happens (AC-203: TaskEnvelope 必须
 /// 用户确认后执行).
-struct TaskEnvelope: Equatable, Sendable, Identifiable {
+struct TaskEnvelope: Codable, Equatable, Sendable, Identifiable {
     // Codable with a custom Status encoding (case name + optional detail).
     enum CodingKeys: String, CodingKey {
         case id, sessionID, kind, intent, payloadRef, userConfirmed, status, statusDetail
