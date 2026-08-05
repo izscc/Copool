@@ -59,6 +59,22 @@ final class ProviderFileRepository: ProviderStoreRepository, @unchecked Sendable
         try writeAtomically(data: data, to: paths.providerStorePath)
     }
 
+    /// One-shot migration for stores written before the keychain move.
+    ///
+    /// Loads the file and, when it still carries plaintext secrets, saves it
+    /// back through the normal path — which moves each secret into the
+    /// keychain and blanks the file. Idempotent: once the file holds no
+    /// plaintext this is a no-op, so a keychain that refuses the write simply
+    /// leaves the file untouched and the app keeps working off the file.
+    func migrateLegacySecretsIfNeeded() {
+        guard let store = try? loadProviders() else { return }
+        let hasPlaintext = store.providers.contains {
+            !$0.apiKey.isEmpty || !($0.refreshToken ?? "").isEmpty
+        }
+        guard hasPlaintext else { return }
+        try? saveProviders(store)
+    }
+
     // MARK: - Secrets
 
     /// Puts each secret back on the in-memory config.

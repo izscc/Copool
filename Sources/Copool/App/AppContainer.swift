@@ -63,6 +63,10 @@ final class AppContainer {
             let settingsRepository = SettingsFileRepository(paths: paths)
             let authRepository = AuthFileRepository(paths: paths)
             let providerRepository = ProviderFileRepository(paths: paths)
+            // Move any secrets still stored in plaintext into the keychain.
+            // One-shot and failable: a keychain that refuses the write leaves
+            // the file untouched and the app keeps working off it.
+            providerRepository.migrateLegacySecretsIfNeeded()
             let usageRepository = ThirdPartyUsageFileRepository(paths: paths)
             let agentRepository = AgentProfileFileRepository(paths: paths)
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
