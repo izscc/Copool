@@ -603,3 +603,13 @@
 "settings.advanced.expert_note" = "Expert mode (raw endpoints, protocol bindings, metadata sources) will appear here in a later release.";
 "settings.advanced.login_optional_applied" = "External-model mode updated.";
 "settings.advanced.login_optional_failed_format" = "Could not update config: %@";
+
+"proxy.targets.config_title" = "Codex Target Config";
+"proxy.targets.config_subtitle" = "Plan/diff before writing; apply only with your confirmation (AC-007/AC-101).";
+"proxy.targets.config_managed" = "managed";
+"proxy.targets.config_plan" = "Plan";
+"proxy.targets.config_apply" = "Apply";
+"proxy.targets.config_rollback" = "Rollback";
+"proxy.targets.config_confirm_title" = "Apply target config?";
+"proxy.targets.config_confirm_apply" = "Apply";
+"proxy.targets.config_confirm_message" = "This rewrites config.toml's managed blocks (user lines are preserved) and writes a backup for rollback.";

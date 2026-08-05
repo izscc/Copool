@@ -13,6 +13,7 @@ struct ProxyPageView: View {
                     PublicAccessSection(model: model, onCopy: PlatformClipboard.copy)
                 case .targets:
                     ProxyTargetsSection(model: model)
+                    ProxyTargetConfigSection(model: model)
                 case .remote:
                     RemoteServersSectionView(model: model)
                 case .publicAccess:
@@ -105,6 +106,82 @@ private struct ProxyTargetsSection: View {
         }
         .padding(14)
         .frostedRoundedSurface(cornerRadius: 12, prominent: false)
+    }
+}
+
+/// Codex target config management (AC-101/AC-007): plan → confirm → apply →
+/// verify, plus rollback. Never writes without explicit user confirmation.
+private struct ProxyTargetConfigSection: View {
+    @ObservedObject var model: ProxyPageModel
+    @State private var confirmApply = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(L10n.tr("proxy.targets.config_title"))
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if model.targetConfigCoordinator?.codexManaged == true {
+                    AccountTagView(
+                        text: L10n.tr("proxy.targets.config_managed"),
+                        backgroundColor: Color.green.opacity(0.16),
+                        foregroundColor: .green
+                    )
+                }
+            }
+            Text(L10n.tr("proxy.targets.config_subtitle"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let summary = model.targetConfigCoordinator?.codexPlanSummary {
+                Text(summary)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+
+            HStack(spacing: 8) {
+                Button(L10n.tr("proxy.targets.config_plan")) {
+                    model.targetConfigCoordinator?.planCodexApply()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button(L10n.tr("proxy.targets.config_apply")) {
+                    confirmApply = true
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(model.targetConfigCoordinator?.codexPlanSummary == nil)
+
+                Button(L10n.tr("proxy.targets.config_rollback")) {
+                    model.targetConfigCoordinator?.rollbackCodex()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(model.targetConfigCoordinator?.lastAppliedTargetID == nil)
+            }
+
+            if let notice = model.targetConfigCoordinator?.notice {
+                Text(notice)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
+        .confirmationDialog(
+            L10n.tr("proxy.targets.config_confirm_title"),
+            isPresented: $confirmApply,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.tr("proxy.targets.config_confirm_apply"), role: .destructive) {
+                model.targetConfigCoordinator?.applyCodexPlan()
+            }
+            Button(L10n.tr("common.cancel"), role: .cancel) {}
+        } message: {
+            Text(L10n.tr("proxy.targets.config_confirm_message"))
+        }
     }
 }
 

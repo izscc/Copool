@@ -169,6 +169,68 @@ struct CanonicalUsage: Codable, Equatable, Sendable {
     }
 
     var origin: Origin
+
+    /// Parses usage from provider response headers (AC-106: `.header`
+    /// origin). Supported shapes:
+    ///   anthropic-usage: input_tokens=10 output_tokens=20 cache_creation_input_tokens=0 cache_read_input_tokens=0
+    ///   x-usage: {"input_tokens":10,"output_tokens":20}
+    static func fromHeaders(_ headers: [String: String]) -> CanonicalUsage? {
+        if let anthropic = headers["anthropic-usage"] ?? headers["Anthropic-Usage"] {
+            var input: Int?
+            var output: Int?
+            var cached: Int?
+            for component in anthropic.split(separator: " ") {
+                let parts = component.split(separator: "=")
+                guard parts.count == 2, let value = Int(parts[1]) else { continue }
+                switch parts[0] {
+                case "input_tokens": input = value
+                case "output_tokens": output = value
+                case "cache_read_input_tokens", "cache_creation_input_tokens": cached = (cached ?? 0) + value
+                default: break
+                }
+            }
+            if input != nil || output != nil {
+                return CanonicalUsage(
+                    inputTokens: input,
+                    outputTokens: output,
+                    totalTokens: (input ?? 0) + (output ?? 0),
+                    cachedTokens: cached,
+                    reasoningTokens: nil,
+                    origin: .header
+                )
+            }
+        }
+        if let xusage = headers["x-usage"] ?? headers["X-Usage"],
+           let data = xusage.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let input = json["input_tokens"] as? Int ?? json["prompt_tokens"] as? Int
+            let output = json["output_tokens"] as? Int ?? json["completion_tokens"] as? Int
+            if input != nil || output != nil {
+                return CanonicalUsage(
+                    inputTokens: input,
+                    outputTokens: output,
+                    totalTokens: (input ?? 0) + (output ?? 0),
+                    cachedTokens: json["cached_tokens"] as? Int,
+                    reasoningTokens: json["reasoning_tokens"] as? Int,
+                    origin: .header
+                )
+            }
+        }
+        return nil
+    }
+
+    /// Estimated usage (AC-106: `.estimated` origin) — used only when the
+    /// provider reports nothing and the caller still needs a figure.
+    static func estimated(inputTokens: Int, outputTokens: Int) -> CanonicalUsage {
+        CanonicalUsage(
+            inputTokens: inputTokens,
+            outputTokens: outputTokens,
+            totalTokens: inputTokens + outputTokens,
+            cachedTokens: nil,
+            reasoningTokens: nil,
+            origin: .estimated
+        )
+    }
 }
 
 /// One canonical stream event. The router core never sees dialect shapes.

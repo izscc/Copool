@@ -184,7 +184,7 @@ struct ChatAdapter: ProviderAdapter {
             totalTokens: object["total_tokens"] as? Int,
             cachedTokens: (object["prompt_tokens_details"] as? [String: Any])?["cached_tokens"] as? Int,
             reasoningTokens: (object["completion_tokens_details"] as? [String: Any])?["reasoning_tokens"] as? Int,
-            origin: .vendor
+            origin: .observed
         )
     }
 
@@ -395,7 +395,7 @@ struct ResponsesAdapter: ProviderAdapter {
             totalTokens: usage["total_tokens"] as? Int,
             cachedTokens: (usage["input_tokens_details"] as? [String: Any])?["cached_tokens"] as? Int,
             reasoningTokens: (usage["output_tokens_details"] as? [String: Any])?["reasoning_tokens"] as? Int,
-            origin: .vendor
+            origin: .observed
         )
     }
 }
@@ -506,7 +506,7 @@ struct AnthropicAdapter: ProviderAdapter {
                                 totalTokens: nil,
                                 cachedTokens: nil,
                                 reasoningTokens: nil,
-                                origin: .vendor
+                                origin: .observed
                             )
                         )
                     )
@@ -553,7 +553,7 @@ struct AnthropicAdapter: ProviderAdapter {
                         totalTokens: nil,
                         cachedTokens: nil,
                         reasoningTokens: nil,
-                        origin: .vendor
+                        origin: .observed
                     )
                 )
             )
@@ -695,7 +695,7 @@ struct GoogleAdapter: ProviderAdapter {
             if let usage = parsed["usageMetadata"] as? [String: Any] {
                 let inTokens = (usage["promptTokenCount"] as? Int) ?? (usage["prompt_tokens"] as? Int)
                 let outTokens = (usage["candidatesTokenCount"] as? Int) ?? (usage["completion_tokens"] as? Int)
-                out.append(.usage(CanonicalUsage(inputTokens: inTokens, outputTokens: outTokens, totalTokens: nil, cachedTokens: nil, reasoningTokens: nil, origin: .vendor)))
+                out.append(.usage(CanonicalUsage(inputTokens: inTokens, outputTokens: outTokens, totalTokens: nil, cachedTokens: nil, reasoningTokens: nil, origin: .observed)))
             }
         }
         if chunk.isFinal {

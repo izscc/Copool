@@ -28,6 +28,8 @@ final class ProxyPageModel: ObservableObject {
     /// Derives target binding snapshots (AC-008/AC-012); injected by the app
     /// container so this model stays storage-agnostic.
     var targetsProvider: (@MainActor @Sendable () -> [ProxyTargetSnapshot])?
+    /// Target config plan/apply/rollback (AC-101/AC-007).
+    var targetConfigCoordinator: TargetConfigCoordinator?
 
     private let noticeScheduler = NoticeAutoDismissScheduler()
 

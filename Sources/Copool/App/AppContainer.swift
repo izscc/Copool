@@ -35,6 +35,7 @@ final class AppContainer {
     private var accountsWidgetSnapshotCancellable: AnyCancellable?
     private var accountsPageSnapshotCancellable: AnyCancellable?
     private var widgetUsageProgressDisplayMode: UsageProgressDisplayMode
+    private let paths: FileSystemPaths
 
     lazy var proxyModel: ProxyPageModel = {
         let model = ProxyPageModel(        coordinator: proxyCoordinator,
@@ -58,6 +59,7 @@ final class AppContainer {
         model.targetsProvider = { [weak self] in
             self?.makeTargetSnapshots() ?? []
         }
+        model.targetConfigCoordinator = TargetConfigCoordinator(paths: paths)
         return model
     }()
 
@@ -275,7 +277,8 @@ final class AppContainer {
                 settingsModel: settingsModel,
                 trayModel: trayModel,
                 providerModel: providerModel,
-                agentModel: agentModel
+                agentModel: agentModel,
+                paths: paths
             )
             applySettingsToContainer = { settings in
                 container.applySettings(settings)
@@ -299,7 +302,8 @@ final class AppContainer {
         settingsModel: SettingsPageModel,
         trayModel: TrayMenuModel,
         providerModel: ProviderPageModel,
-        agentModel: AgentPageModel
+        agentModel: AgentPageModel,
+        paths: FileSystemPaths
     ) {
         self.settingsCoordinator = settingsCoordinator
         self.accountsWidgetSnapshotWriter = accountsWidgetSnapshotWriter
@@ -314,6 +318,7 @@ final class AppContainer {
         self.trayModel = trayModel
         self.providerModel = providerModel
         self.agentModel = agentModel
+        self.paths = paths
         accountsWidgetDisplayModeStore.save(rawValue: widgetUsageProgressDisplayMode.rawValue)
         accountsWidgetSnapshotCancellable = trayModel.$accounts
             .removeDuplicates()
