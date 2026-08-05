@@ -523,3 +523,8 @@
 "proxy.remote.help.stop" = "Stop the running remote systemd service.";
 "proxy.remote.help.logs" = "Load recent journal logs from the remote service.";
 "proxy.remote.help.uninstall_remote" = "Stop and remove the remote service plus deployed binary and accounts file, while keeping the server record locally.";
+
+"providers.usage.title" = "Usage & quota";
+"providers.usage.tokens_today" = "Tokens today";
+"menu.usage.tokens_today" = "third-party tokens today";
+"menu.usage.quota_drained" = "Quota drained";

@@ -57,6 +57,9 @@ struct ProviderPageView: View {
                         refreshingIDs: model.refreshingProviderIDs,
                         testResults: model.modelTestResults,
                         testingKeys: model.testingModelKeys,
+                        rateLimits: model.rateLimits,
+                        accountUsage: model.accountUsage,
+                        usageAggregates: model.usageAggregates,
                         onEdit: { model.beginEditingProvider($0) },
                         onRefreshAuth: { model.refreshProviderAuth($0) },
                         onDelete: { model.removeProvider($0) },
@@ -227,6 +230,9 @@ private struct ProviderListSection: View {
     let refreshingIDs: Set<String>
     let testResults: [String: ModelTestResult]
     let testingKeys: Set<String>
+    let rateLimits: [String: ProviderRateLimitSnapshot]
+    let accountUsage: [String: ProviderAccountUsage]
+    let usageAggregates: [DailyUsageAggregate]
     let onEdit: (ProviderConfig) -> Void
     let onRefreshAuth: (ProviderConfig) -> Void
     let onDelete: (ProviderConfig) -> Void
@@ -306,6 +312,12 @@ private struct ProviderListSection: View {
                             )
                         }
                     }
+
+                    ProviderUsageBlock(
+                        rateLimit: rateLimits[provider.id],
+                        accountUsage: accountUsage[provider.id],
+                        aggregates: usageAggregates.filter { $0.providerID == provider.id }
+                    )
                 }
                 .padding(12)
                 .frostedRoundedSurface(cornerRadius: 12, prominent: false)
@@ -462,5 +474,131 @@ private struct ProviderFormCard: View {
                 onDraftChange(updated)
             }
         )
+    }
+}
+
+/// Rate-limit / account-usage / token-trend block inside one provider card.
+///
+/// Rate-limit facts are harvested passively from response headers, account
+/// usage comes from the vendor APIs, and the token trend comes from the local
+/// usage ledger — the three surfaces codex-router's tray shows for a provider.
+private struct ProviderUsageBlock: View {
+    let rateLimit: ProviderRateLimitSnapshot?
+    let accountUsage: ProviderAccountUsage?
+    let aggregates: [DailyUsageAggregate]
+
+    private var hasAnything: Bool {
+        rateLimit != nil || accountUsage?.metrics.isEmpty == false || !aggregates.isEmpty
+    }
+
+    var body: some View {
+        if hasAnything {
+            Divider().opacity(0.4)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.tr("providers.usage.title"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                if let accountUsage, !accountUsage.metrics.isEmpty {
+                    ForEach(accountUsage.metrics) { metric in
+                        HStack(spacing: 8) {
+                            if let usedPercent = metric.usedPercent {
+                                QuotaBar(usedPercent: usedPercent)
+                                    .frame(width: 90)
+                                Text(metric.label)
+                                    .font(.caption2)
+                                Spacer(minLength: 0)
+                                if let detail = metric.detail {
+                                    Text(detail)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else if let value = metric.value {
+                                Text(metric.label)
+                                    .font(.caption2)
+                                Spacer(minLength: 0)
+                                Text(String(format: "%.2f %@", value, metric.currency ?? ""))
+                                    .font(.caption2.weight(.medium))
+                            }
+                        }
+                    }
+                }
+
+                if let rateLimit {
+                    RateLimitLine(label: "Requests", window: rateLimit.requests)
+                    RateLimitLine(label: "Tokens", window: rateLimit.tokens)
+                }
+
+                if !aggregates.isEmpty {
+                    let today = aggregates.first
+                    HStack(spacing: 8) {
+                        Text(L10n.tr("providers.usage.tokens_today"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                        Text("\(today?.totalTokens ?? 0)")
+                            .font(.caption2.weight(.medium))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct RateLimitLine: View {
+    let label: String
+    let window: RateLimitWindow?
+
+    var body: some View {
+        if let window, window.limit != nil || window.remaining != nil {
+            HStack(spacing: 8) {
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                if let remaining = window.remaining, let limit = window.limit, limit > 0 {
+                    Text("\(remaining)/\(limit)")
+                        .font(.caption2.weight(.medium))
+                    if remaining == 0, let resetAt = window.resetAt {
+                        Text("reset \(Self.relativeTime(resetAt))")
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                    }
+                } else if let remaining = window.remaining {
+                    Text("\(remaining) left")
+                        .font(.caption2)
+                } else if let resetAt = window.resetAt {
+                    Text("reset \(Self.relativeTime(resetAt))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private static func relativeTime(_ epochSeconds: Int64) -> String {
+        let interval = epochSeconds - Int64(Date().timeIntervalSince1970)
+        if interval <= 0 { return "now" }
+        if interval < 60 { return "\(Int(interval))s" }
+        if interval < 3600 { return "\(Int(interval / 60))m" }
+        return "\(Int(interval / 3600))h"
+    }
+}
+
+/// Thin horizontal quota bar (used portion filled).
+private struct QuotaBar: View {
+    let usedPercent: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.secondary.opacity(0.18))
+                Capsule()
+                    .fill(usedPercent > 85 ? Color.red : (usedPercent > 60 ? Color.orange : Color.teal))
+                    .frame(width: geometry.size.width * CGFloat(min(1, max(0, usedPercent / 100))))
+            }
+        }
+        .frame(height: 6)
     }
 }

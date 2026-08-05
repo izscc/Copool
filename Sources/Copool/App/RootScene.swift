@@ -15,11 +15,13 @@ struct RootScene: View {
     private let accountsModel: AccountsPageModel
     private let settingsModel: SettingsPageModel
     private let container: AppContainer
+    @ObservedObject private var providerModel: ProviderPageModel
 
     init(container: AppContainer, trayModel: TrayMenuModel) {
         self.container = container
         self.accountsModel = container.accountsModel
         self.settingsModel = container.settingsModel
+        _providerModel = ObservedObject(wrappedValue: container.providerModel)
         _chromeStore = StateObject(
             wrappedValue: RootSceneChromeStore(
                 accountsModel: container.accountsModel,
@@ -147,6 +149,11 @@ struct RootScene: View {
                 .padding(.horizontal, LayoutRules.pagePadding)
                 .padding(.top, 10)
                 .padding(.bottom, 8)
+
+            MenuBarUsageSummary(
+                aggregates: providerModel.usageAggregates,
+                rateLimits: providerModel.rateLimits
+            )
 
             activePage
         }
@@ -397,5 +404,57 @@ private extension AppTab {
 
     var toolbarTitle: String {
         L10n.tr(titleTranslationKey)
+    }
+}
+
+/// Compact third-party usage strip pinned under the toolbar in the menu-bar
+/// window: today's token total and any provider with a drained quota window.
+private struct MenuBarUsageSummary: View {
+    let aggregates: [DailyUsageAggregate]
+    let rateLimits: [String: ProviderRateLimitSnapshot]
+
+    private var todayTokens: Int {
+        guard let today = aggregates.first else { return 0 }
+        return today.totalTokens
+    }
+
+    private var drainedProviders: [(String, String)] {
+        rateLimits.compactMap { id, snapshot -> (String, String)? in
+            let drained = snapshot.requests?.remaining == 0 || snapshot.tokens?.remaining == 0
+            guard drained else { return nil }
+            return (id, snapshot.providerID)
+        }
+    }
+
+    var body: some View {
+        if todayTokens > 0 || !drainedProviders.isEmpty {
+            HStack(spacing: 10) {
+                if todayTokens > 0 {
+                    Label {
+                        Text("\(todayTokens)")
+                            .font(.caption2.weight(.semibold))
+                        Text(L10n.tr("menu.usage.tokens_today"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } icon: {
+                        Image(systemName: "chart.bar.fill")
+                            .font(.caption2)
+                    }
+                }
+                if !drainedProviders.isEmpty {
+                    Label {
+                        Text(L10n.tr("menu.usage.quota_drained"))
+                            .font(.caption2)
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(.red)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, LayoutRules.pagePadding)
+            .padding(.bottom, 6)
+        }
     }
 }

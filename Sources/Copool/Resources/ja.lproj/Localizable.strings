@@ -513,3 +513,8 @@
 "accounts.notice.workspace_authorized_format" = "ワークスペースを認証しました: %@";
 "error.accounts.sign_in_expired" = "ログインの有効期限が切れました。再度ログインしてください。";
 "error.accounts.workspace_deactivated" = "このワークスペースは現在無効です。";
+
+"providers.usage.title" = "使用量とクォータ";
+"providers.usage.tokens_today" = "今日のトークン";
+"menu.usage.tokens_today" = "サードパーティ今日のトークン";
+"menu.usage.quota_drained" = "クォータ枯渇";

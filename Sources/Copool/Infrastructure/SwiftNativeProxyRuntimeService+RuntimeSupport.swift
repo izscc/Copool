@@ -224,7 +224,8 @@ extension SwiftNativeProxyRuntimeService {
             endpointPath: endpointPath
         )
         let (responseBytes, response) = try await URLSession.shared.bytes(for: request)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+        let httpResponse = response as? HTTPURLResponse
+        let statusCode = httpResponse?.statusCode ?? 500
         var responseBody = Data()
         responseBody.reserveCapacity(64 * 1024)
 
@@ -240,7 +241,11 @@ extension SwiftNativeProxyRuntimeService {
             }
         }
 
-        return UpstreamResponse(statusCode: statusCode, body: responseBody)
+        return UpstreamResponse(
+            statusCode: statusCode,
+            body: responseBody,
+            headers: Self.normalizedHeaders(from: httpResponse?.allHeaderFields ?? [:])
+        )
     }
 
     func openStreamingUpstreamRequest(
@@ -254,8 +259,26 @@ extension SwiftNativeProxyRuntimeService {
             downstreamHeaders: downstreamHeaders
         )
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
-        return UpstreamStreamingResponse(statusCode: statusCode, bytes: bytes, candidate: candidate)
+        let httpResponse = response as? HTTPURLResponse
+        let statusCode = httpResponse?.statusCode ?? 500
+        return UpstreamStreamingResponse(
+            statusCode: statusCode,
+            bytes: bytes,
+            candidate: candidate,
+            headers: Self.normalizedHeaders(from: httpResponse?.allHeaderFields ?? [:])
+        )
+    }
+
+    /// Lowercases header names and drops the few volatile keys that must not
+    /// be replayed or persisted.
+    static func normalizedHeaders(from raw: [AnyHashable: Any]) -> [String: String] {
+        var result: [String: String] = [:]
+        for (key, value) in raw {
+            guard let name = (key as? String)?.lowercased(),
+                  let text = value as? String else { continue }
+            result[name] = text
+        }
+        return result
     }
 
     static func shouldSyncCurrentAuthOnSuccessfulProxyResponse(localProxyHostAPIOnly: Bool) -> Bool {
@@ -332,12 +355,20 @@ extension SwiftNativeProxyRuntimeService {
 struct UpstreamResponse {
     var statusCode: Int
     var body: Data
+    var headers: [String: String]
+
+    init(statusCode: Int, body: Data, headers: [String: String] = [:]) {
+        self.statusCode = statusCode
+        self.body = body
+        self.headers = headers
+    }
 }
 
 struct UpstreamStreamingResponse {
     var statusCode: Int
     var bytes: URLSession.AsyncBytes
     var candidate: ProxyCandidate
+    var headers: [String: String]
 }
 
 struct ProxyCandidate {

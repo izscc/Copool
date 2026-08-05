@@ -63,6 +63,8 @@ final class AppContainer {
             let authRepository = AuthFileRepository(paths: paths)
             let providerRepository = ProviderFileRepository(paths: paths)
             let usageRepository = ThirdPartyUsageFileRepository(paths: paths)
+            let rateLimitRepository = ProviderRateLimitFileRepository(path: paths.providerRateLimitsPath)
+            let usageLedger = UsageEventLedger(path: paths.usageEventsPath)
             let agentRepository = AgentProfileFileRepository(paths: paths)
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
@@ -96,6 +98,8 @@ final class AppContainer {
                     providerRepository: providerRepository,
                     usageRepository: usageRepository,
                     agentRepository: agentRepository,
+                    rateLimitRepository: rateLimitRepository,
+                    usageLedger: usageLedger,
                     onAccountsStoreChanged: {
                         accountsStoreChangeHandlerBox.handler?()
                     },
@@ -210,6 +214,9 @@ final class AppContainer {
                 providerStoreRepository: providerRepository,
                 usageRepository: usageRepository,
                 paths: paths,
+                rateLimitRepository: rateLimitRepository,
+                usageLedger: usageLedger,
+                accountUsageService: ProviderAccountUsageService(),
                 onProvidersChanged: {
                     // Inject the updated catalog into ~/.codex/models_cache.json so
                     // the model menu shows third-party models after the next

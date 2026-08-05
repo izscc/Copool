@@ -68,7 +68,8 @@ extension SwiftNativeProxyRuntimeService {
             apiKeyOverride: apiKeyOverride
         )
         let (responseBytes, response) = try await URLSession.shared.bytes(for: request)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
+        let httpResponse = response as? HTTPURLResponse
+        let statusCode = httpResponse?.statusCode ?? 500
         var responseBody = Data()
         responseBody.reserveCapacity(64 * 1024)
 
@@ -84,7 +85,11 @@ extension SwiftNativeProxyRuntimeService {
             }
         }
 
-        return UpstreamResponse(statusCode: statusCode, body: responseBody)
+        return UpstreamResponse(
+            statusCode: statusCode,
+            body: responseBody,
+            headers: SwiftNativeProxyRuntimeService.normalizedHeaders(from: httpResponse?.allHeaderFields ?? [:])
+        )
     }
 
     /// Opens a streaming request to a third-party provider.
@@ -101,18 +106,24 @@ extension SwiftNativeProxyRuntimeService {
             apiKeyOverride: apiKeyOverride
         )
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 500
-        return UpstreamStreamingResponse(statusCode: statusCode, bytes: bytes, candidate: ProxyCandidate(
-            id: route.provider.id,
-            label: route.provider.name,
-            accountID: route.provider.id,
-            accountKey: route.provider.id,
-            accessToken: route.provider.apiKey,
-            authJSON: .object([:]),
-            addedAt: route.provider.addedAt,
-            isPreferredCurrent: false,
-            oneWeekUsed: nil
-        ))
+        let httpResponse = response as? HTTPURLResponse
+        let statusCode = httpResponse?.statusCode ?? 500
+        return UpstreamStreamingResponse(
+            statusCode: statusCode,
+            bytes: bytes,
+            candidate: ProxyCandidate(
+                id: route.provider.id,
+                label: route.provider.name,
+                accountID: route.provider.id,
+                accountKey: route.provider.id,
+                accessToken: route.provider.apiKey,
+                authJSON: .object([:]),
+                addedAt: route.provider.addedAt,
+                isPreferredCurrent: false,
+                oneWeekUsed: nil
+            ),
+            headers: SwiftNativeProxyRuntimeService.normalizedHeaders(from: httpResponse?.allHeaderFields ?? [:])
+        )
     }
 
     /// Builds the upstream request for a third-party provider.

@@ -25,6 +25,8 @@ extension FileSystemPaths {
             settingsStorePath: settingsStorePath,
             providerStorePath: applicationSupportDirectory.appendingPathComponent("providers.json", isDirectory: false),
             thirdPartyUsagePath: applicationSupportDirectory.appendingPathComponent("third-party-usage.json", isDirectory: false),
+            providerRateLimitsPath: applicationSupportDirectory.appendingPathComponent("provider-rate-limits.json", isDirectory: false),
+            usageEventsPath: applicationSupportDirectory.appendingPathComponent("usage-events.jsonl", isDirectory: false),
             agentStorePath: applicationSupportDirectory.appendingPathComponent("agents.json", isDirectory: false),
             agentRouteEventsPath: applicationSupportDirectory.appendingPathComponent("agent-routes.json", isDirectory: false),
             codexAuthPath: codexAuthPath,

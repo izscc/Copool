@@ -28,6 +28,9 @@ final class ProviderPageModel: ObservableObject {
     let usageRepository: ThirdPartyUsageRepository?
     let onProvidersChanged: () -> Void
 
+    private let rateLimitRepository: ProviderRateLimitFileRepository?
+    private let usageLedger: UsageEventLedger?
+    private let accountUsageService: ProviderAccountUsageService?
     private let importer = LocalSubscriptionImporter()
 
     @Published var providers: [ProviderConfig] = []
@@ -52,15 +55,29 @@ final class ProviderPageModel: ObservableObject {
     @Published var modelTestResults: [String: ModelTestResult] = [:]
     @Published var testingModelKeys: Set<String> = []
 
+    /// Passively harvested rate-limit snapshots, keyed by provider id.
+    @Published var rateLimits: [String: ProviderRateLimitSnapshot] = [:]
+    /// Vendor account usage (balance/quota), keyed by provider id.
+    @Published var accountUsage: [String: ProviderAccountUsage] = [:]
+    /// Daily token aggregates from the usage ledger.
+    @Published var usageAggregates: [DailyUsageAggregate] = []
+    @Published var isRefreshingAccountUsage = false
+
     init(
         providerStoreRepository: ProviderStoreRepository,
         usageRepository: ThirdPartyUsageRepository? = nil,
         paths: FileSystemPaths? = nil,
+        rateLimitRepository: ProviderRateLimitFileRepository? = nil,
+        usageLedger: UsageEventLedger? = nil,
+        accountUsageService: ProviderAccountUsageService? = nil,
         onProvidersChanged: @escaping () -> Void = {}
     ) {
         self.providerStoreRepository = providerStoreRepository
         self.usageRepository = usageRepository
         self.paths = paths
+        self.rateLimitRepository = rateLimitRepository
+        self.usageLedger = usageLedger
+        self.accountUsageService = accountUsageService
         self.onProvidersChanged = onProvidersChanged
     }
 
@@ -93,6 +110,27 @@ final class ProviderPageModel: ObservableObject {
 
     func loadProviders() {
         providers = (try? providerStoreRepository.loadProviders())?.providers ?? []
+        refreshUsageData()
+    }
+
+    /// Refreshes the rate-limit snapshots, the ledger aggregates, and — in the
+    /// background — the vendor account usage (balance/quota).
+    func refreshUsageData() {
+        rateLimits = rateLimitRepository?.loadSnapshots() ?? [:]
+        usageAggregates = usageLedger?.dailyAggregates(days: 7) ?? []
+
+        guard let accountUsageService else { return }
+        let providersToQuery = providers
+        isRefreshingAccountUsage = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            var results: [String: ProviderAccountUsage] = [:]
+            for provider in providersToQuery {
+                results[provider.id] = await accountUsageService.fetchUsage(for: provider)
+            }
+            self.accountUsage = results
+            self.isRefreshingAccountUsage = false
+        }
     }
 
     func detectSubscriptions() {

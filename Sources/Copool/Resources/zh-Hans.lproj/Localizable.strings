@@ -523,3 +523,8 @@
 "proxy.remote.help.stop" = "停止正在运行的远程 systemd 服务。";
 "proxy.remote.help.logs" = "加载远程服务最近的 journal 日志。";
 "proxy.remote.help.uninstall_remote" = "停止并删除远程服务、已部署二进制和 accounts 文件，同时保留本地服务器记录。";
+
+"providers.usage.title" = "用量与配额";
+"providers.usage.tokens_today" = "今日 tokens";
+"menu.usage.tokens_today" = "第三方今日 tokens";
+"menu.usage.quota_drained" = "配额已耗尽";

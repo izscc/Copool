@@ -16,6 +16,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
     let providerRepository: ProviderStoreRepository?
     let usageRepository: ThirdPartyUsageRepository?
     let agentRepository: AgentProfileRepository?
+    let rateLimitRepository: ProviderRateLimitFileRepository?
+    let usageLedger: UsageEventLedger?
     let onAccountsStoreChanged: (@Sendable () -> Void)?
     let switchAccount: (@Sendable (String) async throws -> Void)?
     let dateProvider: DateProviding
@@ -47,6 +49,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         providerRepository: ProviderStoreRepository? = nil,
         usageRepository: ThirdPartyUsageRepository? = nil,
         agentRepository: AgentProfileRepository? = nil,
+        rateLimitRepository: ProviderRateLimitFileRepository? = nil,
+        usageLedger: UsageEventLedger? = nil,
         onAccountsStoreChanged: (@Sendable () -> Void)? = nil,
         switchAccount: (@Sendable (String) async throws -> Void)? = nil,
         dateProvider: DateProviding = SystemDateProvider()
@@ -58,6 +62,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         self.providerRepository = providerRepository
         self.usageRepository = usageRepository
         self.agentRepository = agentRepository
+        self.rateLimitRepository = rateLimitRepository
+        self.usageLedger = usageLedger
         self.onAccountsStoreChanged = onAccountsStoreChanged
         self.switchAccount = switchAccount
         self.dateProvider = dateProvider
@@ -518,6 +524,13 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
 
             if response.statusCode >= 200 && response.statusCode < 300 {
                 recordThirdPartyUsage(route: route, responseBody: response.body, statusCode: response.statusCode)
+                captureRateLimits(from: response.headers, route: route)
+                recordUsageEvent(
+                    route: route,
+                    status: response.statusCode,
+                    durationMs: 0,
+                    tokens: Self.tokenUsage(fromResponseBody: response.body)
+                )
             } else {
                 let bodyText = String(data: response.body, encoding: .utf8) ?? ""
                 let message = "\(route.provider.name): \(response.statusCode) \(truncateForError(bodyText, maxLength: 120))"
@@ -624,6 +637,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
 
             // Usage collected by protocol-specific streaming decoders.
             let protocolKind = route.protocolKind
+            captureRateLimits(from: upstream.headers, route: route)
 
             // Echo back the model the client asked for, not the internal
             // provider-qualified id.
@@ -815,6 +829,63 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             at: dateProvider.unixSecondsNow()
         )
         try? usageRepository.saveUsage(mutated)
+        usageLedger?.record(
+            UsageEvent(
+                model: route.backendModel,
+                providerID: route.provider.id,
+                providerName: route.provider.name,
+                status: 200,
+                durationMs: 0,
+                inputTokens: prompt,
+                outputTokens: completion,
+                totalTokens: prompt + completion
+            )
+        )
+    }
+
+    /// Passively harvests `x-ratelimit-*` / `anthropic-ratelimit-*` headers
+    /// into the rate-limit store (codex-router's "no extra request" design).
+    private func captureRateLimits(from headers: [String: String], route: ThirdPartyRoute) {
+        guard let rateLimitRepository else { return }
+        if let snapshot = RateLimitHeadersParser.parse(headers: headers, providerID: route.provider.id) {
+            rateLimitRepository.record(snapshot)
+        }
+    }
+
+    /// Appends one model-call fact to the usage ledger (never prompts or
+    /// responses; see `UsageEvent`).
+    private func recordUsageEvent(
+        route: ThirdPartyRoute,
+        status: Int,
+        durationMs: Int,
+        tokens: (input: Int?, output: Int?, total: Int?)?
+    ) {
+        guard let usageLedger else { return }
+        usageLedger.record(
+            UsageEvent(
+                model: route.backendModel,
+                providerID: route.provider.id,
+                providerName: route.provider.name,
+                status: status,
+                durationMs: durationMs,
+                inputTokens: tokens?.input,
+                outputTokens: tokens?.output,
+                totalTokens: tokens?.total
+            )
+        )
+    }
+
+    /// Extracts `usage` token counts from a completed (non-streaming) chat
+    /// completion or Responses object, when the provider included them.
+    static func tokenUsage(fromResponseBody body: Data) -> (input: Int?, output: Int?, total: Int?)? {
+        guard let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+              let usage = object["usage"] as? [String: Any] else {
+            return nil
+        }
+        let input = usage["prompt_tokens"] as? Int ?? usage["input_tokens"] as? Int
+        let output = usage["completion_tokens"] as? Int ?? usage["output_tokens"] as? Int
+        let total = usage["total_tokens"] as? Int
+        return (input, output, total)
     }
 
     private func sendOverCandidates(
