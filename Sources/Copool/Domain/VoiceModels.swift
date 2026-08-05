@@ -26,13 +26,13 @@ struct VoicePluginConfig: Codable, Equatable, Sendable {
 }
 
 /// Lifecycle of one voice session.
-enum VoiceSessionState: String, Codable, Equatable, Sendable {
+enum VoiceSessionState: Equatable, Sendable {
     case idle
     case listening
     case processing
     case speaking
     case cancelled
-    case error(String)
+    case failed(String)
 }
 
 /// One user utterance captured by a VAD/STT plugin.
