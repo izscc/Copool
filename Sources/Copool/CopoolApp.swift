@@ -21,6 +21,9 @@ struct CopoolApp: App {
             // keychain calls themselves give up after a few seconds, and the
             // file keeps working as the fallback meanwhile.
             container.migrateProviderSecretsIfNeeded()
+            // Shadow-migrate v1 providers → v2 registry (journaled, no v1
+            // writes, non-blocking).
+            container.migrateProviderRegistryIfNeeded()
             // Write the third-party catalog into ~/.codex/models_cache.json at
             // launch so ChatGPT.app's model menu shows imported models even if
             // Codex overwrote the cache with its server-side list.

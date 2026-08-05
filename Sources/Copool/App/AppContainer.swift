@@ -65,6 +65,10 @@ final class AppContainer {
             let usageRepository = ThirdPartyUsageFileRepository(paths: paths)
             let rateLimitRepository = ProviderRateLimitFileRepository(path: paths.providerRateLimitsPath)
             let usageLedger = UsageEventLedger(path: paths.usageEventsPath)
+            let registryRepository = ProviderRegistryV2Repository(
+                registryPath: paths.registryV2Path,
+                journalPath: paths.migrationJournalPath
+            )
             let agentRepository = AgentProfileFileRepository(paths: paths)
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
@@ -320,6 +324,22 @@ final class AppContainer {
         let repository = providerRepository
         Task.detached(priority: .utility) {
             repository.migrateLegacySecretsIfNeeded()
+        }
+    }
+
+    /// Shadow-migrates the v1 provider store into the v2 registry (journaled,
+    /// idempotent, never touches the v1 file). Background so launch stays
+    /// fast; failures are journaled as absent entries and retried next launch.
+    func migrateProviderRegistryIfNeeded() {
+        guard let paths = try? FileSystemPaths.live() else { return }
+        Task.detached(priority: .utility) {
+            let repository = ProviderRegistryV2Repository(
+                registryPath: paths.registryV2Path,
+                journalPath: paths.migrationJournalPath
+            )
+            let service = RegistryMigrationService(repository: repository)
+            guard let v1 = try? ProviderFileRepository(paths: paths).loadProviders() else { return }
+            _ = service.migrateIfNeeded(v1: v1)
         }
     }
 

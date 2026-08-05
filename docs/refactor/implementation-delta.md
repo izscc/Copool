@@ -61,9 +61,14 @@
 
 - PRD 设想 RouterEngine 含 start/stop；与现有 `ProxyRuntimeService.status/start/stop`（返回 `ApiProxyStatus`）签名冲突。收敛为状态+能力契约面（`engineStatus()` + `engineCapabilities`），生命周期仍走 ProxyRuntimeService 直至 RouterHost。
 
+### D-011：迁移 journal 的 sourceHash 必须确定性
+
+- 初版用 `String.hashValue` 计算 v1 指纹——Swift 的 hashValue 是 per-process 随机，重启后 journal 匹配失败导致重复迁移。改为 FNV-1a 64 位确定性哈希（`628db436...`），重启幂等验证通过。
+
 ## 阶段差异日志
 
 | 阶段 | 日期 | 差异 | 处置 |
 |---|---|---|---|
 | Phase 0 | 2026-08-05 | 见 D-001..D-008 | 记录完成 |
 | Phase 1 | 2026-08-05 | D-009（拆 target 暂缓）、D-010（RouterEngine 面收敛） | 协议层 + façade 落地，提交 |
+| Phase 2 | 2026-08-05 | D-011（确定性 sourceHash） | FNV-1a 修复 + 重启幂等验证 |

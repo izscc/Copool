@@ -5,6 +5,8 @@ struct FileSystemPaths {
     var accountStorePath: URL
     var settingsStorePath: URL
     var providerStorePath: URL
+    var registryV2Path: URL
+    var migrationJournalPath: URL
     var thirdPartyUsagePath: URL
     var providerRateLimitsPath: URL
     var usageEventsPath: URL
@@ -36,6 +38,8 @@ struct FileSystemPaths {
             accountStorePath: appSupportDirectory.appendingPathComponent("accounts.json", isDirectory: false),
             settingsStorePath: appSupportDirectory.appendingPathComponent("settings.json", isDirectory: false),
             providerStorePath: appSupportDirectory.appendingPathComponent("providers.json", isDirectory: false),
+            registryV2Path: appSupportDirectory.appendingPathComponent("provider-registry-v2.json", isDirectory: false),
+            migrationJournalPath: appSupportDirectory.appendingPathComponent("migration-journal.json", isDirectory: false),
             thirdPartyUsagePath: appSupportDirectory.appendingPathComponent("third-party-usage.json", isDirectory: false),
             providerRateLimitsPath: appSupportDirectory.appendingPathComponent("provider-rate-limits.json", isDirectory: false),
             usageEventsPath: appSupportDirectory.appendingPathComponent("usage-events.jsonl", isDirectory: false),
