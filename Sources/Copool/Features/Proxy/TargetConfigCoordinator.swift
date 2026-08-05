@@ -28,8 +28,8 @@ final class TargetConfigCoordinator: ObservableObject {
 
     /// Whether the Codex config currently carries the managed block.
     var codexManaged: Bool {
-        codexAdapter.detect()?.content.contains("copool managed") == true
-            || codexAdapter.detect()?.content.contains(">>> copool managed") == true
+        let content = codexAdapter.detect()?.content ?? ""
+        return content.contains(">>> copool managed")
     }
 
     /// Read-only plan: computes what apply would write (port 8787 — the

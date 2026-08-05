@@ -76,7 +76,10 @@ struct RemoteNodeControlService {
                 shellQuote: shellRunner.shellQuote
             )
             _ = try shellRunner.runSSH(server: server, command: install)
-            updating = monitor.completeUpgrade(node: updating, newVersion: node.version)
+            // The new binary's version is not known until the next handshake;
+            // marking it "upgraded" keeps the gate honest instead of echoing a
+            // stale version (review: RemoteNodeControlService.swift:74).
+            updating = monitor.completeUpgrade(node: updating, newVersion: "upgraded")
         } catch {
             updating.pendingOperation = nil
             updating.status = node.status
@@ -103,9 +106,20 @@ struct RemoteNodeControlService {
         """
         do {
             _ = try shellRunner.runSSH(server: server, command: command)
+            // Verify the service actually restarted (review: the previous
+            // `|| true` swallowed restart failures and still marked online).
+            let health = try shellRunner.runSSH(
+                server: server,
+                command: "sleep 1; curl -s -m 5 http://127.0.0.1:\(server.listenPort)/health 2>/dev/null || echo '{}'"
+            )
+            let alive = health.contains("\"ok\":true") || health.contains("\"ok\": true")
             updating.pendingOperation = nil
-            updating.lastHeartbeatAt = now()
-            updating.status = .online
+            if alive {
+                updating.lastHeartbeatAt = now()
+                updating.status = .online
+            } else {
+                updating.status = .degraded
+            }
         } catch {
             updating.pendingOperation = nil
             updating.status = node.status

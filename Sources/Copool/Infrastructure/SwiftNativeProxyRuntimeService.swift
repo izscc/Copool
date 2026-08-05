@@ -954,12 +954,18 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         // AC-013: hard cap on total upstream attempts across candidates.
         let maxTotalAttempts = 3
         var totalAttempts = 0
+        // Deterministic (non-classified) client errors must not be replayed
+        // against other candidates — that is the legacy behavior (break all).
+        var stopAllCandidates = false
 
         for candidate in candidates {
-            // AC-013: one immediate retry per candidate, honoring Retry-After
-            // when present, else exponential backoff (1s/2s), then cooldown.
+            if stopAllCandidates { break }
+            // AC-013 per candidate: attempt 1 → on classified failure, cool
+            // down and retry the same candidate once (honoring Retry-After or
+            // exponential backoff) → then move on. Network errors also retry
+            // once with backoff. Non-classified 4xx stops every candidate.
             var attempt = 0
-            while attempt < 2 && totalAttempts < maxTotalAttempts {
+            while attempt < 2 && totalAttempts < maxTotalAttempts && !stopAllCandidates {
                 attempt += 1
                 totalAttempts += 1
                 do {
@@ -980,29 +986,32 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
 
                     if let retryFailure = classifyRetryFailure(statusCode: response.statusCode, bodyText: bodyText) {
                         retryFailures.append(retryFailure)
+                        // Dynamic cooldown: Retry-After when the provider says
+                        // so, else the category default.
                         let retryAfter = Self.parseRetryAfter(headers: response.headers)
+                        markCooldown(for: candidate.accountID, category: retryFailure.category, retryAfterSeconds: retryAfter)
                         if attempt == 1 {
-                            // First failure: cool the account down, try next
-                            // candidate immediately.
-                            markCooldown(for: candidate.accountID, category: retryFailure.category)
-                            break
-                        } else {
-                            // In-candidate retry: wait Retry-After (bounded to
-                            // 30s) or exponential backoff before retrying.
-                            let wait = min(retryAfter ?? Self.backoffSeconds(attempt: attempt), 30)
+                            // One in-candidate retry: wait Retry-After (bounded
+                            // to 30s) or the backoff step, then retry.
+                            let wait = min(retryAfter ?? Self.backoffSeconds(attempt: attempt + 1), 30)
                             if wait > 0 {
                                 try await Task.sleep(nanoseconds: UInt64(wait) * 1_000_000_000)
                             }
                             continue
                         }
+                        break
                     } else {
+                        // Deterministic client/provider error: do not replay
+                        // against other candidates (legacy behavior).
                         lastError = detail
+                        stopAllCandidates = true
                         break
                     }
                 } catch {
                     let detail = "\(candidate.label): \(error.localizedDescription)"
                     failureDetails.append(detail)
-                    // Network errors are transient: allow the second attempt.
+                    // Network errors are transient: one backoff retry on the
+                    // same candidate before moving on.
                     if attempt == 1 {
                         let wait = Self.backoffSeconds(attempt: attempt + 1)
                         if wait > 0 {
@@ -1333,8 +1342,9 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         }
     }
 
-    func markCooldown(for accountID: String, category: RetryFailureCategory) {
-        cooldownUntilByAccountID[accountID] = currentUnixSeconds() + cooldownDuration(for: category)
+    func markCooldown(for accountID: String, category: RetryFailureCategory, retryAfterSeconds: Int64? = nil) {
+        let duration = retryAfterSeconds.map { min(max($0, 1), 3600) } ?? cooldownDuration(for: category)
+        cooldownUntilByAccountID[accountID] = currentUnixSeconds() + duration
         if stickyAccountID == accountID {
             stickyAccountID = nil
         }

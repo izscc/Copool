@@ -49,7 +49,7 @@ final class SettingsPageModel: ObservableObject {
     func probeLoginOptionalState() {
         guard let paths else { return }
         let text = try? String(contentsOf: paths.codexConfigPath, encoding: .utf8)
-        loginOptionalEnabled = text?.contains("model_provider") == true && text?.contains("opencodex") == true
+        loginOptionalEnabled = text?.contains(">>> copool managed") == true
     }
 
     /// AC-105: toggles the managed `model_provider=opencodex` block. The

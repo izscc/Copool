@@ -48,7 +48,9 @@ final class TaskEnvelopeDispatcher: @unchecked Sendable {
     func fail(_ envelopeID: String, detail: String) {
         io.lock()
         defer { io.unlock() }
-        guard var envelope = envelopes[envelopeID] else { return }
+        // Only executing envelopes may fail (review: a pending envelope must
+        // not skip the confirmation gate).
+        guard var envelope = envelopes[envelopeID], envelope.status == .executing else { return }
         envelope.status = .failed(detail)
         envelopes[envelopeID] = envelope
         appendTrail(envelope)

@@ -288,7 +288,8 @@ final class RegistryMigrationService: Sendable {
     /// Migrates one v1 store into the v2 registry. Idempotent and safe to
     /// re-run (journal + sourceHash gate). Never throws: failures surface as
     /// `.failed` so the caller can decide.
-    func migrateIfNeeded(v1 store: ProviderStore) -> MigrationOutcome {        guard !store.providers.isEmpty else { return .nothingToMigrate }
+    func migrateIfNeeded(v1 store: ProviderStore) -> MigrationOutcome {
+        guard !store.providers.isEmpty else { return .nothingToMigrate }
 
         let sourceHash = Self.sourceHash(of: store)
         if let last = repository.loadJournal().lastEntry(sourceHash: sourceHash),
