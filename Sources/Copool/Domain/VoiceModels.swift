@@ -97,7 +97,7 @@ struct TaskEnvelope: Codable, Equatable, Sendable, Identifiable {
     var userConfirmed: Bool
     var status: Status
 
-    enum Status: String, Codable, Equatable, Sendable {
+    enum Status: Equatable, Sendable {
         case pending
         case confirmed
         case rejected
