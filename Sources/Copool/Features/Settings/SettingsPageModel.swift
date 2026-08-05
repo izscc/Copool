@@ -32,6 +32,45 @@ final class SettingsPageModel: ObservableObject {
 
     var hasLoaded = false
 
+    /// Whether providers.json is 0600 (Security sub-tab).
+    var providerStorePermissionsOK: Bool {
+        guard let paths else { return true }
+        return (try? FileManager.default.attributesOfItem(atPath: paths.providerStorePath.path))
+            .flatMap { $0[.posixPermissions] as? NSNumber }
+            .map { $0.intValue & 0o777 == 0o600 } == true
+    }
+
+    /// Secondary tab (General/Security/Diagnostics/Advanced).
+    @Published var subTab: SettingsSubTab = .general
+    /// AC-105: external-model (login-optional) mode — Codex routes through
+    /// the local proxy without depending on a ChatGPT login.
+    @Published var loginOptionalEnabled = false
+
+    func probeLoginOptionalState() {
+        guard let paths else { return }
+        let text = try? String(contentsOf: paths.codexConfigPath, encoding: .utf8)
+        loginOptionalEnabled = text?.contains("model_provider") == true && text?.contains("opencodex") == true
+    }
+
+    /// AC-105: toggles the managed `model_provider=opencodex` block. The
+    /// underlying apply/remove is the same path the proxy lifecycle uses, so
+    /// the switch always reflects (and restores) exactly the managed config.
+    func setLoginOptional(_ enabled: Bool) {
+        guard let paths else { return }
+        let service = CodexModelsCacheService(paths: paths)
+        do {
+            if enabled {
+                try service.applyProxyRouting(port: 8787)
+            } else {
+                try service.removeProxyRouting()
+            }
+            loginOptionalEnabled = enabled
+            notice = NoticeMessage(style: .success, text: L10n.tr("settings.advanced.login_optional_applied"))
+        } catch {
+            notice = NoticeMessage(style: .error, text: L10n.tr("settings.advanced.login_optional_failed_format", error.localizedDescription))
+        }
+    }
+
     init(
         settingsCoordinator: SettingsCoordinator,
         editorAppService: EditorAppServiceProtocol,

@@ -6,16 +6,171 @@ struct ProxyPageView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: LayoutRules.sectionSpacing) {
-                ApiProxySectionView(model: model)
-                RemoteServersSectionView(model: model)
-                PublicAccessSection(model: model, onCopy: PlatformClipboard.copy)
+                subTabPicker
+                switch model.subTab {
+                case .overview:
+                    ApiProxySectionView(model: model)
+                    PublicAccessSection(model: model, onCopy: PlatformClipboard.copy)
+                case .targets:
+                    ProxyTargetsSection(model: model)
+                case .remote:
+                    RemoteServersSectionView(model: model)
+                case .publicAccess:
+                    PublicAccessSection(model: model, onCopy: PlatformClipboard.copy)
+                case .logs:
+                    ProxyLogsSection(model: model)
+                }
             }
             .padding(LayoutRules.pagePadding)
         }
         .scrollIndicators(.hidden)
         .task {
             await model.loadIfNeeded()
+            model.refreshTargetSnapshots()
+        }
+        .onChange(of: model.subTab) { _, newValue in
+            if newValue == .targets {
+                model.refreshTargetSnapshots()
+            }
         }
     }
 
+    private var subTabPicker: some View {
+        Picker("", selection: $model.subTab) {
+            ForEach(ProxySubTab.allCases) { tab in
+                Text(tab.label).tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+}
+
+/// Targets sub-tab (AC-008): one card per target binding — stable route key,
+/// endpoint, dialect, credential state. Read-only; editing stays in the
+/// Providers tab.
+private struct ProxyTargetsSection: View {
+    @ObservedObject var model: ProxyPageModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.tr("proxy.targets.title"))
+                .font(.subheadline.weight(.semibold))
+            Text(L10n.tr("proxy.targets.subtitle"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if model.targetSnapshots.isEmpty {
+                Text(L10n.tr("proxy.targets.empty"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                ForEach(model.targetSnapshots) { target in
+                    HStack(spacing: 10) {
+                        Image(systemName: target.enabled ? "circle.inset.filled" : "circle.dashed")
+                            .foregroundStyle(target.enabled ? .green : .secondary)
+                            .font(.caption)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(target.name)
+                                .font(.caption.weight(.medium))
+                            Text(target.id)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                        Spacer(minLength: 0)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(target.endpoint)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                            HStack(spacing: 6) {
+                                Text(target.dialect)
+                                Text("·")
+                                Text(L10n.tr("proxy.targets.models_format", String(target.modelCount)))
+                                if !target.credentialed {
+                                    Text(L10n.tr("proxy.targets.no_credential"))
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(10)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: LayoutRules.cardRadius))
+                }
+            }
+        }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
+    }
+}
+
+/// Logs sub-tab: local proxy process log tail plus a shortcut to remote logs.
+private struct ProxyLogsSection: View {
+    @ObservedObject var model: ProxyPageModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.tr("proxy.logs.title"))
+                .font(.subheadline.weight(.semibold))
+            Text(L10n.tr("proxy.logs.subtitle"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            LocalLogTailView(model: model)
+
+            if !model.remoteServers.isEmpty {
+                Divider()
+                Text(L10n.tr("proxy.logs.remote_title"))
+                    .font(.caption.weight(.medium))
+                ForEach(model.remoteServers) { server in
+                    HStack {
+                        Text(server.label)
+                            .font(.caption)
+                        Spacer()
+                        Button(L10n.tr("proxy.logs.open_remote")) {
+                            Task { await model.readRemoteLogs(server: server) }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
+    }
+}
+
+/// Tail of the in-process proxy log (last 60 lines, read from the app's
+/// stderr capture if available, else a note).
+private struct LocalLogTailView: View {
+    @ObservedObject var model: ProxyPageModel
+
+    var body: some View {
+        let lines = ProxyProcessLogTail.recentLines(limit: 60)
+        if lines.isEmpty {
+            Text(L10n.tr("proxy.logs.empty"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.vertical, 6)
+        } else {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .font(.system(.caption2, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 220)
+            .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
 }

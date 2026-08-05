@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Agents tab: bind task shapes to models, then watch what the router picked.
+/// Secondary navigation: Profiles / Sessions / Tools / Live.
 struct AgentPageView: View {
     @ObservedObject var model: AgentPageModel
     @State private var editing: AgentProfile?
@@ -9,16 +10,38 @@ struct AgentPageView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: LayoutRules.sectionSpacing) {
                 header
-                routingModeSection
-                profilesSection
-                if !model.events.isEmpty {
-                    activitySection
+                subTabPicker
+                switch model.subTab {
+                case .profiles:
+                    routingModeSection
+                    profilesSection
+                case .sessions:
+                    sessionsSection
+                case .tools:
+                    toolsSection
+                case .live:
+                    if !model.events.isEmpty {
+                        activitySection
+                    } else {
+                        Text(L10n.tr("agents.live.empty"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, LayoutRules.pagePadding)
+                    }
                 }
             }
             .padding(.vertical, LayoutRules.pagePadding)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .task { model.load() }
+        .task {
+            model.load()
+            model.loadSessions()
+        }
+        .onChange(of: model.subTab) { _, newValue in
+            if newValue == .sessions {
+                model.loadSessions()
+            }
+        }
         .sheet(item: $editing) { profile in
             AgentProfileEditor(
                 profile: profile,
@@ -31,6 +54,9 @@ struct AgentPageView: View {
                 onCancel: { editing = nil }
             )
         }
+        .sheet(item: $model.selectedSession) { session in
+            SessionPreviewSheet(session: session)
+        }
     }
 
     private var header: some View {
@@ -42,6 +68,106 @@ struct AgentPageView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, LayoutRules.pagePadding)
+    }
+
+    private var subTabPicker: some View {
+        Picker("", selection: $model.subTab) {
+            ForEach(AgentSubTab.allCases) { tab in
+                Text(tab.label).tag(tab)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .padding(.horizontal, LayoutRules.pagePadding)
+    }
+
+    // MARK: - Sessions (AC-102: index + search + preview)
+
+    private var sessionsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField(L10n.tr("agents.sessions.search_placeholder"), text: $model.sessionSearchText)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+
+            if model.filteredSessions.isEmpty {
+                Text(L10n.tr("agents.sessions.empty"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(model.filteredSessions.prefix(50)) { session in
+                        Button {
+                            model.selectedSession = session
+                        } label: {
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.displayName ?? session.targetSessionID)
+                                        .font(.caption.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Text(session.targetSessionID)
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                                Spacer(minLength: 0)
+                                Text(relativeTime(session.updatedAt))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(8)
+                        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
+        .padding(.horizontal, LayoutRules.pagePadding)
+    }
+
+    private func relativeTime(_ unixSeconds: Int64) -> String {
+        let date = Date(timeIntervalSince1970: TimeInterval(unixSeconds))
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    // MARK: - Tools (read-only execution boundary status)
+
+    private var toolsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.tr("agents.tools.title"))
+                .font(.subheadline.weight(.semibold))
+            Text(L10n.tr("agents.tools.subtitle"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 10) {
+                Image(systemName: "lock.shield")
+                    .foregroundStyle(.green)
+                Text(L10n.tr("agents.tools.boundary"))
+                    .font(.caption)
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+
+            HStack(spacing: 10) {
+                Image(systemName: "xmark.circle")
+                    .foregroundStyle(.orange)
+                Text(L10n.tr("agents.tools.computer_use_off"))
+                    .font(.caption)
+            }
+            .padding(10)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
         .padding(.horizontal, LayoutRules.pagePadding)
     }
 
@@ -88,23 +214,21 @@ struct AgentPageView: View {
             HStack {
                 Text(L10n.tr("agents.profiles.title"))
                     .font(.subheadline.weight(.semibold))
-                Spacer(minLength: 0)
+                Spacer()
                 Button {
-                    editing = AgentProfile(name: L10n.tr("agents.profile.new_name"))
+                    editing = AgentProfile(id: UUID().uuidString, name: L10n.tr("agents.profiles.new_name"))
                 } label: {
-                    Label(L10n.tr("agents.profiles.add"), systemImage: "plus")
-                        .font(.caption)
+                    Image(systemName: "plus")
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
 
             if model.profiles.isEmpty {
                 Text(L10n.tr("agents.profiles.empty"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 8)
             } else {
                 ForEach(model.profiles) { profile in
                     AgentProfileRow(
@@ -118,41 +242,104 @@ struct AgentPageView: View {
                 }
             }
         }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
         .padding(.horizontal, LayoutRules.pagePadding)
     }
 
     private var activitySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(L10n.tr("agents.activity.title"))
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.tr("agents.live.title"))
                 .font(.subheadline.weight(.semibold))
-            ForEach(model.events.prefix(20)) { event in
-                HStack(spacing: 8) {
-                    Image(systemName: event.resolved ? "arrow.triangle.branch" : "minus.circle")
-                        .font(.caption2)
-                        .foregroundStyle(event.resolved ? Color.accentColor : Color.secondary)
+            Text(L10n.tr("agents.live.subtitle"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            ForEach(model.events.prefix(30)) { event in
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(event.model ?? L10n.tr("agents.activity.not_routed"))
+                        Text(event.sessionName ?? event.taskID ?? "—")
                             .font(.caption.weight(.medium))
-                            .lineLimit(1)
-                        Text(event.reason)
+                        Text(event.profileID ?? event.profileName ?? "—")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                        if let modelID = event.model {
+                            Text(modelID)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer(minLength: 0)
-                    if let name = event.profileName {
-                        Text(name)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text(timestampText(event.at))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .frostedRoundedSurface(cornerRadius: 10, prominent: false)
+                .padding(.vertical, 4)
             }
         }
+        .padding(14)
+        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
         .padding(.horizontal, LayoutRules.pagePadding)
+    }
+
+    private func timestampText(_ unixSeconds: Int64) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter.string(from: Date(timeIntervalSince1970: TimeInterval(unixSeconds)))
+    }
+}
+
+/// Session preview sheet (AC-102): metadata for the selected session.
+private struct SessionPreviewSheet: View {
+    let session: SessionRecord
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(L10n.tr("agents.sessions.preview_title"))
+                    .font(.headline)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                label(L10n.tr("agents.sessions.preview_name"), session.displayName ?? "—")
+                label(L10n.tr("agents.sessions.preview_session_id"), session.targetSessionID)
+                label(L10n.tr("agents.sessions.preview_target"), session.targetID)
+                label(L10n.tr("agents.sessions.preview_model"), session.modelEntryID ?? "—")
+                label(L10n.tr("agents.sessions.preview_status"), session.status.rawValue)
+                label(L10n.tr("agents.sessions.preview_turns"), String(session.turnCount))
+                if let summary = session.lastTaskSummary {
+                    label(L10n.tr("agents.sessions.preview_summary"), summary)
+                }
+            }
+            .font(.caption)
+
+            Spacer()
+        }
+        .padding(20)
+        .frame(width: 380, height: 260)
+    }
+
+    private func label(_ title: String, _ value: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(title)
+                .foregroundStyle(.secondary)
+                .frame(width: 90, alignment: .leading)
+            Text(value)
+                .textSelection(.enabled)
+        }
     }
 }
 

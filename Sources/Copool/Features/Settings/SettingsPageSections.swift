@@ -18,11 +18,29 @@ private struct MacSettingsPageContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Picker("", selection: $model.subTab) {
+                ForEach(SettingsSubTab.allCases) { tab in
+                    Text(tab.label).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .padding(.horizontal, LayoutRules.pagePadding)
+            .padding(.top, LayoutRules.pagePadding)
+
             Form {
-                SettingsGeneralSection(model: model)
-                SettingsLanguageSection(model: model)
-                SettingsSwitchBehaviorSection(model: model)
-                SettingsDoctorSection(model: model)
+                switch model.subTab {
+                case .general:
+                    SettingsGeneralSection(model: model)
+                    SettingsLanguageSection(model: model)
+                    SettingsSwitchBehaviorSection(model: model)
+                case .security:
+                    SettingsSecuritySection(model: model)
+                case .diagnostics:
+                    SettingsDoctorSection(model: model)
+                case .advanced:
+                    SettingsAdvancedSection(model: model)
+                }
             }
             .formStyle(.grouped)
             .scrollIndicators(.hidden)
@@ -31,6 +49,56 @@ private struct MacSettingsPageContent: View {
         }
         .task {
             await model.loadIfNeeded()
+            model.probeLoginOptionalState()
+        }
+    }
+}
+
+/// Security sub-tab: secret storage posture (AC-003) and file permissions.
+private struct SettingsSecuritySection: View {
+    @ObservedObject var model: SettingsPageModel
+
+    var body: some View {
+        Section(L10n.tr("settings.section.security")) {
+            HStack(spacing: 8) {
+                Image(systemName: "key.fill")
+                    .foregroundStyle(.green)
+                Text(L10n.tr("settings.security.keychain"))
+                    .font(.caption)
+            }
+            HStack(spacing: 8) {
+                Image(systemName: model.providerStorePermissionsOK ? "checkmark.shield" : "xmark.shield")
+                    .foregroundStyle(model.providerStorePermissionsOK ? .green : .red)
+                Text(L10n.tr("settings.security.provider_permissions"))
+                    .font(.caption)
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .foregroundStyle(.green)
+                Text(L10n.tr("settings.security.no_secrets_in_domain"))
+                    .font(.caption)
+            }
+        }
+    }
+}
+
+/// Advanced sub-tab: AC-105 external-model mode and expert notes.
+private struct SettingsAdvancedSection: View {
+    @ObservedObject var model: SettingsPageModel
+
+    var body: some View {
+        Section(L10n.tr("settings.section.advanced")) {
+            Toggle(L10n.tr("settings.advanced.login_optional"), isOn: Binding(
+                get: { model.loginOptionalEnabled },
+                set: { model.setLoginOptional($0) }
+            ))
+            .font(.caption)
+            Text(L10n.tr("settings.advanced.login_optional_hint"))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(L10n.tr("settings.advanced.expert_note"))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }

@@ -36,24 +36,48 @@ final class AppContainer {
     private var accountsPageSnapshotCancellable: AnyCancellable?
     private var widgetUsageProgressDisplayMode: UsageProgressDisplayMode
 
-    lazy var proxyModel: ProxyPageModel = ProxyPageModel(        coordinator: proxyCoordinator,
-        settingsCoordinator: settingsCoordinator,
-        localProxyCommandService: localProxyCommandService,
-        chooseIdentityFilePath: {
-            #if canImport(AppKit)
-            let panel = NSOpenPanel()
-            panel.canChooseFiles = true
-            panel.canChooseDirectories = false
-            panel.allowsMultipleSelection = false
-            panel.canCreateDirectories = false
-            panel.title = L10n.tr("proxy.remote.auth.choose_key_file")
-            guard panel.runModal() == .OK else { return nil }
-            return panel.url?.path
-            #else
-            return nil
-            #endif
+    lazy var proxyModel: ProxyPageModel = {
+        let model = ProxyPageModel(        coordinator: proxyCoordinator,
+            settingsCoordinator: settingsCoordinator,
+            localProxyCommandService: localProxyCommandService,
+            chooseIdentityFilePath: {
+                #if canImport(AppKit)
+                let panel = NSOpenPanel()
+                panel.canChooseFiles = true
+                panel.canChooseDirectories = false
+                panel.allowsMultipleSelection = false
+                panel.canCreateDirectories = false
+                panel.title = L10n.tr("proxy.remote.auth.choose_key_file")
+                guard panel.runModal() == .OK else { return nil }
+                return panel.url?.path
+                #else
+                return nil
+                #endif
+            }
+        )
+        model.targetsProvider = { [weak self] in
+            self?.makeTargetSnapshots() ?? []
         }
-    )
+        return model
+    }()
+
+    /// Derives per-target snapshots (AC-008/AC-012) from the provider store:
+    /// stable UUID route key, endpoint, dialect, model count, credential
+    /// presence. No secret values ever leave the store.
+    private func makeTargetSnapshots() -> [ProxyTargetSnapshot] {
+        guard let store = try? providerRepository.loadProviders() else { return [] }
+        return store.providers.map { provider in
+            ProxyTargetSnapshot(
+                id: provider.id,
+                name: provider.name,
+                endpoint: provider.baseURL,
+                dialect: provider.defaultProtocol.rawValue,
+                modelCount: provider.models.count,
+                credentialed: !provider.apiKey.isEmpty || provider.refreshToken != nil,
+                enabled: true
+            )
+        }
+    }
 
     static func liveOrCrash() -> AppContainer {
         do {

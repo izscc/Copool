@@ -11,16 +11,46 @@ final class AgentPageModel: ObservableObject {
     /// Third-party models a profile may be bound to.
     @Published private(set) var availableModels: [AgentCatalogModel] = []
     @Published var notice: NoticeMessage?
+    /// Secondary tab (Profiles/Sessions/Tools/Live).
+    @Published var subTab: AgentSubTab = .profiles
+    /// Session center (AC-102): index + search + preview.
+    @Published private(set) var sessions: [SessionRecord] = []
+    @Published var sessionSearchText = ""
+    @Published var selectedSession: SessionRecord?
 
     private let agentRepository: AgentProfileRepository
     private let providerStoreRepository: ProviderStoreRepository
+    private let sessionIndexRepository: SessionIndexRepository
 
     init(
         agentRepository: AgentProfileRepository,
-        providerStoreRepository: ProviderStoreRepository
+        providerStoreRepository: ProviderStoreRepository,
+        sessionIndexRepository: SessionIndexRepository = SessionIndexRepository(
+            indexPath: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".codex/session_index.jsonl"),
+            storePath: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".codex-tools-proxyd/session-index.json")
+        )
     ) {
         self.agentRepository = agentRepository
         self.providerStoreRepository = providerStoreRepository
+        self.sessionIndexRepository = sessionIndexRepository
+    }
+
+    /// Sessions filtered by the search text (AC-102): matches display name
+    /// and session/thread id, case-insensitive.
+    var filteredSessions: [SessionRecord] {
+        let query = sessionSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return sessions }
+        return sessions.filter { session in
+            session.displayName?.localizedCaseInsensitiveContains(query) == true
+                || session.targetSessionID.localizedCaseInsensitiveContains(query)
+                || session.targetID.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    func loadSessions() {
+        sessions = sessionIndexRepository.sync()
     }
 
     func load() {

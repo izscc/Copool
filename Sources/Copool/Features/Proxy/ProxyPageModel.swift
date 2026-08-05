@@ -25,6 +25,9 @@ final class ProxyPageModel: ObservableObject {
     let dateProvider: DateProviding
     let runtimePlatform: RuntimePlatform
     let chooseIdentityFilePath: @MainActor () -> String?
+    /// Derives target binding snapshots (AC-008/AC-012); injected by the app
+    /// container so this model stays storage-agnostic.
+    var targetsProvider: (@MainActor @Sendable () -> [ProxyTargetSnapshot])?
 
     private let noticeScheduler = NoticeAutoDismissScheduler()
 
@@ -63,6 +66,14 @@ final class ProxyPageModel: ObservableObject {
     @Published var cloudflaredUseHTTP2 = false
     @Published var autoStartProxy = false
     @Published var publicAccessEnabled = false
+    /// Active secondary tab in the runtime page.
+    @Published var subTab: ProxySubTab = .overview
+    /// Derived target bindings for the Targets sub-tab.
+    @Published var targetSnapshots: [ProxyTargetSnapshot] = []
+
+    func refreshTargetSnapshots() {
+        targetSnapshots = targetsProvider?() ?? []
+    }
     @Published var showsRemoteControlCallout = true
     @Published var apiProxySectionExpanded = false
     @Published var cloudflaredSectionExpanded = false
