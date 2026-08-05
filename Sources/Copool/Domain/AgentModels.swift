@@ -198,6 +198,9 @@ struct AgentRouteEvent: Codable, Equatable, Sendable, Identifiable {
     var id: String
     var at: Int64
     var taskID: String?
+    /// Codex session display name resolved from session_index.jsonl, when the
+    /// thread belongs to a named session.
+    var sessionName: String?
     var profileID: String?
     var profileName: String?
     var model: String?
@@ -209,6 +212,7 @@ struct AgentRouteEvent: Codable, Equatable, Sendable, Identifiable {
         id: String = UUID().uuidString,
         at: Int64,
         taskID: String? = nil,
+        sessionName: String? = nil,
         profileID: String? = nil,
         profileName: String? = nil,
         model: String? = nil,
@@ -225,6 +229,7 @@ struct AgentRouteEvent: Codable, Equatable, Sendable, Identifiable {
         self.reasoningEffort = reasoningEffort
         self.resolved = resolved
         self.reason = reason
+        self.sessionName = sessionName
     }
 }
 

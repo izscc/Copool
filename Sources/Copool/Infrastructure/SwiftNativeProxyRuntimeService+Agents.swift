@@ -155,6 +155,13 @@ extension SwiftNativeProxyRuntimeService {
 
     // MARK: - Routing
 
+    /// Resolves a thread id (task ids are thread ids in Codex) to its session
+    /// display name from `session_index.jsonl`, best-effort.
+    private func sessionName(for threadID: String?) -> String? {
+        guard let threadID else { return nil }
+        return CodexSessionResolver().sessionName(threadID: threadID)
+    }
+
     /// Chooses a model for a subagent turn, reusing an earlier decision when
     /// the same child comes back for another turn.
     func resolveAgentRoute(headers: [String: String], object: [String: Any]) -> AgentRoute? {
@@ -165,6 +172,7 @@ extension SwiftNativeProxyRuntimeService {
         agentRouteBindings = agentRouteBindings.filter { $0.value.expiresAt > now }
 
         let request = Self.agentRouteRequest(headers: headers, object: object)
+        let sessionName = sessionName(for: request.taskID)
         if let taskID = request.taskID,
            let binding = agentRouteBindings[taskID],
            request.forcedModel == nil {
@@ -181,7 +189,6 @@ extension SwiftNativeProxyRuntimeService {
             settings: store.settings,
             catalog: agentCatalogModels()
         )
-
         switch router.resolve(request) {
         case .passthrough(let reason):
             // `off` is the default state; logging it would fill the activity
@@ -190,6 +197,7 @@ extension SwiftNativeProxyRuntimeService {
                 try? agentRepository.appendRouteEvent(AgentRouteEvent(
                     at: now,
                     taskID: request.taskID,
+                    sessionName: sessionName,
                     resolved: false,
                     reason: reason
                 ))
@@ -199,6 +207,7 @@ extension SwiftNativeProxyRuntimeService {
             try? agentRepository.appendRouteEvent(AgentRouteEvent(
                 at: now,
                 taskID: request.taskID,
+                sessionName: sessionName,
                 profileID: route.profileID,
                 profileName: route.profileName,
                 model: route.model,
