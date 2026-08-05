@@ -69,6 +69,11 @@ final class AppContainer {
                 registryPath: paths.registryV2Path,
                 journalPath: paths.migrationJournalPath
             )
+            let routeDecisionLedger = RouteDecisionLedger(fileURL: paths.routeDecisionsPath)
+            let v2RouteResolver = V2RouteResolver(
+                registryRepository: registryRepository,
+                ledger: routeDecisionLedger
+            )
             let agentRepository = AgentProfileFileRepository(paths: paths)
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
@@ -104,6 +109,7 @@ final class AppContainer {
                     agentRepository: agentRepository,
                     rateLimitRepository: rateLimitRepository,
                     usageLedger: usageLedger,
+                    v2RouteResolver: v2RouteResolver,
                     onAccountsStoreChanged: {
                         accountsStoreChangeHandlerBox.handler?()
                     },

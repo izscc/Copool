@@ -148,6 +148,28 @@ final class ProviderRegistryV2Repository: @unchecked Sendable {
         try writeAtomically(data: data, to: registryPath)
     }
 
+    /// Removes the v2 registry entirely (AC-004 rollback): the v1 store stays
+    /// the source of truth and the next migration recreates the registry.
+    func deleteRegistry() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        if fileManager.fileExists(atPath: registryPath.path) {
+            try fileManager.removeItem(at: registryPath)
+        }
+    }
+
+    /// Persists the whole journal (rollback needs to flip `rolledBack` on an
+    /// existing entry; append-only is insufficient for that).
+    func saveJournal(_ journal: MigrationJournal) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        try fileManager.createDirectory(at: journalPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(journal)
+        try writeAtomically(data: data, to: journalPath)
+    }
+
     func loadJournal() -> MigrationJournal {
         lock.lock()
         defer { lock.unlock() }
@@ -236,11 +258,37 @@ final class RegistryMigrationService: Sendable {
         case failed(String)
     }
 
+    // MARK: - Rollback (AC-004)
+
+    /// Rolls a verified migration back: removes the v2 registry and marks the
+    /// journal entry `rolledBack`, so the next `migrateIfNeeded` recreates the
+    /// registry from the v1 store. The v1 store is never touched — it remains
+    /// the source of truth, which is what makes the rollback safe and
+    /// repeatable. Idempotent: rolling back twice is a no-op.
+    ///
+    /// Returns false when the source hash is unknown (nothing to roll back)
+    /// or the journal/registry could not be updated.
+    @discardableResult
+    func rollbackMigration(sourceHash: String) -> Bool {
+        var journal = repository.loadJournal()
+        guard let index = journal.entries.lastIndex(where: { $0.sourceHash == sourceHash }) else {
+            return false
+        }
+        guard journal.entries[index].rolledBack != true else { return true }
+        do {
+            try repository.deleteRegistry()
+            journal.entries[index].rolledBack = true
+            try repository.saveJournal(journal)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     /// Migrates one v1 store into the v2 registry. Idempotent and safe to
     /// re-run (journal + sourceHash gate). Never throws: failures surface as
     /// `.failed` so the caller can decide.
-    func migrateIfNeeded(v1 store: ProviderStore) -> MigrationOutcome {
-        guard !store.providers.isEmpty else { return .nothingToMigrate }
+    func migrateIfNeeded(v1 store: ProviderStore) -> MigrationOutcome {        guard !store.providers.isEmpty else { return .nothingToMigrate }
 
         let sourceHash = Self.sourceHash(of: store)
         if let last = repository.loadJournal().lastEntry(sourceHash: sourceHash),

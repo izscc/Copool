@@ -144,9 +144,20 @@ private struct SettingsDoctorSection: View {
             } else {
                 ForEach(model.doctorChecks) { check in
                     HStack(spacing: 8) {
-                        Image(systemName: check.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(check.passed ? .green : .red)
-                            .font(.caption)
+                        switch check.severity {
+                        case .pass:
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .font(.caption)
+                        case .warn:
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                        case .fail:
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.red)
+                                .font(.caption)
+                        }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(check.name)
                                 .font(.caption)

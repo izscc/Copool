@@ -20,7 +20,35 @@ extension SwiftNativeProxyRuntimeService {
         if status == 403 || containsPermissionSignal(signals.normalized) {
             return RetryFailureInfo(category: .permission, detail: L10n.tr("error.proxy_runtime.retry.permission_denied_format", signals.brief))
         }
+        // AC-013: transient 5xx (except 501/505 — "not implemented"/"version
+        // not supported" are permanent) are retriable on another candidate.
+        if status >= 500 && status <= 599 && status != 501 && status != 505 {
+            return RetryFailureInfo(category: .serverError, detail: L10n.tr("error.proxy_runtime.retry.server_error_format", signals.brief))
+        }
         return nil
+    }
+
+    /// Parses a Retry-After header: integer seconds, or an HTTP-date.
+    /// Returns nil when absent or unparseable (caller falls back to backoff).
+    static func parseRetryAfter(headers: [String: String], now: Date = Date()) -> Int64? {
+        guard let value = headers["retry-after"] ?? headers["Retry-After"] else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let seconds = Int64(trimmed) { return seconds }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        if let date = formatter.date(from: trimmed) {
+            return max(Int64(date.timeIntervalSince(now)), 0)
+        }
+        return nil
+    }
+
+    /// Exponential backoff in seconds for in-candidate retries: 1, 2, 4, 8…
+    /// capped at 8s (AC-013).
+    static func backoffSeconds(attempt: Int) -> Int64 {
+        guard attempt > 1 else { return 0 }
+        let exponent = min(attempt - 1, 3) // 1,2,4,8 cap
+        return Int64(pow(2.0, Double(exponent)))
     }
 
     func extractErrorSignals(rawText: String) -> ErrorSignals {
@@ -119,6 +147,7 @@ extension SwiftNativeProxyRuntimeService {
         var model = 0
         var auth = 0
         var permission = 0
+        var serverError = 0
 
         for failure in failures {
             switch failure.category {
@@ -132,6 +161,8 @@ extension SwiftNativeProxyRuntimeService {
                 auth += 1
             case .permission:
                 permission += 1
+            case .serverError:
+                serverError += 1
             }
         }
 
@@ -141,6 +172,7 @@ extension SwiftNativeProxyRuntimeService {
         if model > 0 { parts.append(L10n.tr("error.proxy_runtime.summary.model_format", String(model))) }
         if auth > 0 { parts.append(L10n.tr("error.proxy_runtime.summary.auth_format", String(auth))) }
         if permission > 0 { parts.append(L10n.tr("error.proxy_runtime.summary.permission_format", String(permission))) }
+        if serverError > 0 { parts.append(L10n.tr("error.proxy_runtime.summary.server_error_format", String(serverError))) }
 
         return parts.joined(separator: "，")
     }
@@ -152,6 +184,7 @@ enum RetryFailureCategory {
     case modelRestricted
     case authentication
     case permission
+    case serverError
 }
 
 struct RetryFailureInfo {

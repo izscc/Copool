@@ -114,6 +114,27 @@ final class VNextRegistryMigrationTests: XCTestCase {
         XCTAssertEqual(repository.loadJournal().entries.count, 1)
     }
 
+    func testRollbackRemovesRegistryAndIsReversible() {
+        let repository = makeRepository()
+        let service = RegistryMigrationService(repository: repository)
+        let store = makeV1Store()
+        _ = service.migrateIfNeeded(v1: store)
+        XCTAssertFalse(repository.loadRegistry().instances.isEmpty)
+
+        let sourceHash = RegistryMigrationService.sourceHash(of: store)
+        // Unknown hash → nothing to roll back.
+        XCTAssertFalse(service.rollbackMigration(sourceHash: "no-such-hash"))
+        // Real rollback: v2 file gone, journal entry flipped.
+        XCTAssertTrue(service.rollbackMigration(sourceHash: sourceHash))
+        XCTAssertTrue(repository.loadRegistry().instances.isEmpty)
+        XCTAssertEqual(repository.loadJournal().entries.last?.rolledBack, true)
+        // Idempotent: second rollback is a no-op success.
+        XCTAssertTrue(service.rollbackMigration(sourceHash: sourceHash))
+        // Migration re-runs after rollback and recreates the registry.
+        XCTAssertEqual(service.migrateIfNeeded(v1: store), .migrated)
+        XCTAssertFalse(repository.loadRegistry().instances.isEmpty)
+    }
+
     func testMigrationPreservesInstancesAndCatalog() {
         let repository = makeRepository()
         let service = RegistryMigrationService(repository: repository)

@@ -40,6 +40,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
     var agentRouteBindings: [String: AgentRouteBinding] = [:]
 
     private let models = SwiftNativeProxyRuntimeService.clientVisibleModels
+    let v2RouteResolver: V2RouteResolver?
 
     init(
         paths: FileSystemPaths,
@@ -51,6 +52,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         agentRepository: AgentProfileRepository? = nil,
         rateLimitRepository: ProviderRateLimitFileRepository? = nil,
         usageLedger: UsageEventLedger? = nil,
+        v2RouteResolver: V2RouteResolver? = nil,
         onAccountsStoreChanged: (@Sendable () -> Void)? = nil,
         switchAccount: (@Sendable (String) async throws -> Void)? = nil,
         dateProvider: DateProviding = SystemDateProvider()
@@ -64,6 +66,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         self.agentRepository = agentRepository
         self.rateLimitRepository = rateLimitRepository
         self.usageLedger = usageLedger
+        self.v2RouteResolver = v2RouteResolver
         self.onAccountsStoreChanged = onAccountsStoreChanged
         self.switchAccount = switchAccount
         self.dateProvider = dateProvider
@@ -948,34 +951,66 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
 
         var failureDetails: [String] = []
         var retryFailures: [RetryFailureInfo] = []
+        // AC-013: hard cap on total upstream attempts across candidates.
+        let maxTotalAttempts = 3
+        var totalAttempts = 0
+
         for candidate in candidates {
-            do {
-                let response = try await sendUpstream(
-                    payload: payload,
-                    candidate: candidate,
-                    downstreamHeaders: downstreamHeaders,
-                    endpointPath: endpointPath
-                )
-                if response.statusCode >= 200 && response.statusCode < 300 {
-                    try await recordSuccessfulCandidate(candidate)
-                    return response
-                }
+            // AC-013: one immediate retry per candidate, honoring Retry-After
+            // when present, else exponential backoff (1s/2s), then cooldown.
+            var attempt = 0
+            while attempt < 2 && totalAttempts < maxTotalAttempts {
+                attempt += 1
+                totalAttempts += 1
+                do {
+                    let response = try await sendUpstream(
+                        payload: payload,
+                        candidate: candidate,
+                        downstreamHeaders: downstreamHeaders,
+                        endpointPath: endpointPath
+                    )
+                    if response.statusCode >= 200 && response.statusCode < 300 {
+                        try await recordSuccessfulCandidate(candidate)
+                        return response
+                    }
 
-                let bodyText = String(data: response.body, encoding: .utf8) ?? ""
-                let detail = "\(candidate.label): \(response.statusCode) \(truncateForError(bodyText, maxLength: 120))"
-                failureDetails.append(detail)
+                    let bodyText = String(data: response.body, encoding: .utf8) ?? ""
+                    let detail = "\(candidate.label): \(response.statusCode) \(truncateForError(bodyText, maxLength: 120))"
+                    failureDetails.append(detail)
 
-                if let retryFailure = classifyRetryFailure(statusCode: response.statusCode, bodyText: bodyText) {
-                    markCooldown(for: candidate.accountID, category: retryFailure.category)
-                    retryFailures.append(retryFailure)
-                    continue
-                } else {
-                    lastError = detail
-                    break
+                    if let retryFailure = classifyRetryFailure(statusCode: response.statusCode, bodyText: bodyText) {
+                        retryFailures.append(retryFailure)
+                        let retryAfter = Self.parseRetryAfter(headers: response.headers)
+                        if attempt == 1 {
+                            // First failure: cool the account down, try next
+                            // candidate immediately.
+                            markCooldown(for: candidate.accountID, category: retryFailure.category)
+                            break
+                        } else {
+                            // In-candidate retry: wait Retry-After (bounded to
+                            // 30s) or exponential backoff before retrying.
+                            let wait = min(retryAfter ?? Self.backoffSeconds(attempt: attempt), 30)
+                            if wait > 0 {
+                                try await Task.sleep(nanoseconds: UInt64(wait) * 1_000_000_000)
+                            }
+                            continue
+                        }
+                    } else {
+                        lastError = detail
+                        break
+                    }
+                } catch {
+                    let detail = "\(candidate.label): \(error.localizedDescription)"
+                    failureDetails.append(detail)
+                    // Network errors are transient: allow the second attempt.
+                    if attempt == 1 {
+                        let wait = Self.backoffSeconds(attempt: attempt + 1)
+                        if wait > 0 {
+                            try await Task.sleep(nanoseconds: UInt64(wait) * 1_000_000_000)
+                        }
+                        continue
+                    }
                 }
-            } catch {
-                let detail = "\(candidate.label): \(error.localizedDescription)"
-                failureDetails.append(detail)
             }
         }
 
@@ -1293,6 +1328,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
             return 60
         case .quotaExceeded, .modelRestricted, .authentication, .permission:
             return 300
+        case .serverError:
+            return 30
         }
     }
 

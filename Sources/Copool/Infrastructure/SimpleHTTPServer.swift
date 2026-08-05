@@ -83,6 +83,8 @@ final class SimpleHTTPServer: @unchecked Sendable {
         }
         let parameters = NWParameters.tcp
         parameters.allowLocalEndpointReuse = true
+        // Loopback only (AC-009): never accept non-local connections.
+        parameters.requiredInterfaceType = .loopback
         self.listener = try NWListener(using: parameters, on: nwPort)
         self.queue = DispatchQueue(label: "codex.tools.swift.proxy.listener", qos: .userInitiated)
         self.handler = handler

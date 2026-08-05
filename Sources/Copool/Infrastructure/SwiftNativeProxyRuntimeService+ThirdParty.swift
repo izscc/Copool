@@ -18,13 +18,35 @@ extension SwiftNativeProxyRuntimeService {
 
     /// Looks up a provider route for the requested client model id.
     ///
+    /// AC-012: when the v2 registry is present, the `RoutePlanner` decides
+    /// (hard-filter → score → trace recorded in `route-decisions.jsonl`) and
+    /// the selected instance (a stable v1-inherited UUID, AC-005) is mapped
+    /// back to its v1 provider config. Falls back to the legacy exact-match
+    /// scan when the v2 registry is empty or the model is registry-only.
+    ///
     /// Accepts both the namespaced id (`antigravity/gemini-3.6-flash`) and the
     /// plain backend id (`gemini-3.6-flash`) — ChatGPT.app may send either
     /// depending on how the catalog entry was written.
-    func resolveThirdPartyRoute(for clientModel: String) throws -> ThirdPartyRoute? {
+    func resolveThirdPartyRoute(for clientModel: String, requestID: String = UUID().uuidString) throws -> ThirdPartyRoute? {
         guard let providerRepository else { return nil }
         let store = try providerRepository.loadProviders()
         let requested = clientModel.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let resolution = v2RouteResolver?.resolve(requestID: requestID, requestedModel: requested) {
+            // Selected instance id is the v1 provider UUID (AC-005): map it
+            // back to the concrete config used for the upstream request.
+            if let provider = store.providers.first(where: { $0.id == resolution.instance.id }) {
+                let backendModel = resolution.entry.backendModelID
+                return ThirdPartyRoute(
+                    provider: provider,
+                    backendModel: backendModel,
+                    clientModelID: requested,
+                    protocolKind: provider.resolvedProtocol(forModel: backendModel)
+                )
+            }
+            // Registry-only provider (no v1 config yet): fall through to the
+            // legacy scan so nothing breaks for v1-only setups.
+        }
 
         for provider in store.providers {
             for (clientID, backendID) in provider.clientModels {

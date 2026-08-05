@@ -26,6 +26,7 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
                     thirdPartyUsagePath: fileManager.temporaryDirectory.appendingPathComponent("usage.json"),
                     providerRateLimitsPath: fileManager.temporaryDirectory.appendingPathComponent("rate-limits.json"),
                     usageEventsPath: fileManager.temporaryDirectory.appendingPathComponent("usage-events.jsonl"),
+                    routeDecisionsPath: fileManager.temporaryDirectory.appendingPathComponent("route-decisions.jsonl"),
                     agentStorePath: fileManager.temporaryDirectory.appendingPathComponent("agents.json"),
                     agentRouteEventsPath: fileManager.temporaryDirectory.appendingPathComponent("agent-routes.json"),
                     codexAuthPath: fileManager.temporaryDirectory.appendingPathComponent("auth.json"),

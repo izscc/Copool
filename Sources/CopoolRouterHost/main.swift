@@ -108,15 +108,15 @@ actor DataPlaneServer {
     }
 
     func start() async throws {
-        let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: UInt16(port))!)
+        let parameters = NWParameters.tcp
         // Loopback only (AC-009): bind to 127.0.0.1 explicitly.
+        parameters.requiredInterfaceType = .loopback
+        parameters.allowLocalEndpointReuse = true
+        let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: UInt16(port))!)
         listener.newConnectionHandler = { connection in
             connection.start(queue: .global())
             self.handle(connection: connection)
         }
-        // Ensure loopback: restart with loopback if the listener picked a
-        // non-loopback interface (belt and braces — the port is bound via
-        // .tcp on 127.0.0.1 by using parameters with required interface).
         self.listener = listener
         listener.start(queue: .global())
     }
