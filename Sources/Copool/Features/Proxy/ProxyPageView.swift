@@ -9,7 +9,10 @@ struct ProxyPageView: View {
                 subTabPicker
                 switch model.subTab {
                 case .overview:
+                    // Keep the original three blocks intact so the second tab
+                    // never looks "incomplete" after the sub-tab split.
                     ApiProxySectionView(model: model)
+                    RemoteServersSectionView(model: model)
                     PublicAccessSection(model: model, onCopy: PlatformClipboard.copy)
                 case .targets:
                     ProxyTargetsSection(model: model)
