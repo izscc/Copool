@@ -74,10 +74,10 @@
 - Anthropic Messages 方言要求 tool_result 放在 user 角色的 content block 里；Canonical 层保持独立 tool 角色，由 AnthropicAdapter 编码时映射（与原实现一致）。
 
 ## 阶段差异日志
-| 阶段 | 日期 | 差异 | 处置 |
 
 | 阶段 | 日期 | 差异 | 处置 |
 |---|---|---|---|
 | Phase 0 | 2026-08-05 | 见 D-001..D-008 | 记录完成 |
 | Phase 1 | 2026-08-05 | D-009（拆 target 暂缓）、D-010（RouterEngine 面收敛） | 协议层 + façade 落地，提交 |
 | Phase 2 | 2026-08-05 | D-011（确定性 sourceHash） | FNV-1a 修复 + 重启幂等验证 |
+| Phase 3 | 2026-08-05 | D-012（schema 用 Data）、D-013（tool_result 归 user） | Canonical 层 + 四适配器落地，提交 |
