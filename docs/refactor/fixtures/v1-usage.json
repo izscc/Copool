@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "providerID": "8f3e6a2c-0000-4000-8000-000000000001",
+      "providerName": "antigravity",
+      "modelID": "gemini-3.6-flash-high",
+      "requests": 3,
+      "promptTokens": 450,
+      "completionTokens": 120,
+      "lastUsedAt": 1785942000
+    }
+  ]
+}

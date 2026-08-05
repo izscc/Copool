@@ -1,0 +1,16 @@
+{
+  "models": [
+    {
+      "id": "gpt-5.4",
+      "object": "model",
+      "owned_by": "openai",
+      "created": 0
+    },
+    {
+      "id": "gemini-3.6-flash-high",
+      "object": "model",
+      "owned_by": "third-party",
+      "created": 0
+    }
+  ]
+}

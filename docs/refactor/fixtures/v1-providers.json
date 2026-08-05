@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "providers": [
+    {
+      "id": "8f3e6a2c-0000-4000-8000-000000000001",
+      "name": "antigravity",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta",
+      "apiKey": "",
+      "refreshToken": "",
+      "authKind": "subscriptionImport",
+      "models": [
+        {
+          "id": "gemini-3.6-flash-high",
+          "contextWindow": 1048576,
+          "contextWindowSource": "registry"
+        }
+      ],
+      "modelProtocols": {
+        "gemini-3.6-flash-high": "google"
+      },
+      "defaultProtocol": "google",
+      "addedAt": 1785939000
+    }
+  ]
+}

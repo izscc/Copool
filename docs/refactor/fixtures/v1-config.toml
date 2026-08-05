@@ -1,0 +1,8 @@
+# Copool vNext baseline fixture — redacted Codex config
+model_provider = "opencodex"
+
+[model_providers.opencodex]
+name = "opencodex"
+base_url = "http://127.0.0.1:8787/v1"
+wire_api = "responses"
+supports_websockets = false

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "currentAccountID": "acc-0001",
+  "accounts": [
+    {
+      "id": "acc-0001",
+      "label": "Primary",
+      "accessToken": "REDACTED_ACCESS_TOKEN",
+      "refreshToken": "REDACTED_REFRESH_TOKEN",
+      "addedAt": 1785939000,
+      "usage": {
+        "fiveHour": {
+          "usedPercent": 42.5,
+          "resetAt": 1786240244
+        },
+        "oneWeek": {
+          "usedPercent": 67.0,
+          "resetAt": 1786332977
+        }
+      }
+    }
+  ]
+}
