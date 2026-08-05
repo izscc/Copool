@@ -264,6 +264,17 @@ extension SwiftNativeProxyRuntimeService {
             case "reasoning":
                 // Encrypted provider-specific state; not portable.
                 continue
+            case "compaction":
+                // Router-owned kcr1: payload — turn it back into a plain
+                // continuation message for the external provider.
+                if let replayed = SwiftNativeProxyRuntimeService.replayCompactionItem(item) {
+                    messages.append(replayed)
+                } else {
+                    messages.append([
+                        "role": "user",
+                        "content": "[Earlier conversation history was compacted in an unreadable format.]",
+                    ])
+                }
             default:
                 let role = (item["role"] as? String) ?? "user"
                 let content = Self.chatContent(from: item["content"])

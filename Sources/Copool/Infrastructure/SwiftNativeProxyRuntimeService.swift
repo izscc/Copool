@@ -241,7 +241,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             guard let body = decompressRequestBody(request) else {
                 return jsonError(statusCode: 415, message: "Unsupported content encoding or malformed compressed body.")
             }
-            return await handleResponsesRequest(body: body, downstreamHeaders: request.headers)
+            return await handleResponsesRequest(body: body, downstreamHeaders: request.headers, path: request.path)
         }
 
         if request.path == "/v1/chat/completions" && request.method == "POST" {
@@ -327,12 +327,29 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         }
     }
 
-    private func handleResponsesRequest(body: Data, downstreamHeaders: [String: String]) async -> HTTPResponse {
+    private func handleResponsesRequest(body: Data, downstreamHeaders: [String: String], path: String = "/v1/responses") async -> HTTPResponse {
         var object: [String: Any]
         do {
             object = try parseJSONObject(from: body)
         } catch {
             return jsonError(statusCode: 400, message: error.localizedDescription)
+        }
+
+        // Routed compaction: Codex asks the proxy to checkpoint a long session
+        // into a continuation summary instead of sending the full history.
+        let compaction = Self.isCompactionRequest(path: path, object: object)
+        if compaction.v1 || compaction.v2 {
+            let requestedModel = (object["model"] as? String) ?? ""
+            if let route = try? resolveThirdPartyRoute(for: requestedModel) {
+                return await handleCompactionRequest(
+                    route: route,
+                    object: object,
+                    v1: compaction.v1,
+                    v2: compaction.v2
+                )
+            }
+            // Native models compact through ChatGPT's own backend; nothing to
+            // do here — fall through to the normal path.
         }
 
         // A Codex subagent turn may be redirected onto a model the user picked
