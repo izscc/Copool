@@ -32,7 +32,7 @@ struct AgentPageView: View {
             }
             .padding(.vertical, LayoutRules.pagePadding)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .task {
             model.load()
             model.loadSessions()
@@ -79,6 +79,7 @@ struct AgentPageView: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .controlSize(.small)
         .padding(.horizontal, LayoutRules.pagePadding)
     }
 

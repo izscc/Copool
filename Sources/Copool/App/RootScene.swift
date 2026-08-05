@@ -100,7 +100,9 @@ struct RootScene: View {
             minWidth: LayoutRules.minimumPanelWidth,
             idealWidth: LayoutRules.defaultPanelWidth,
             maxWidth: LayoutRules.maximumPanelWidth,
-            minHeight: LayoutRules.minimumPanelHeight
+            minHeight: LayoutRules.minimumPanelHeight,
+            idealHeight: LayoutRules.defaultPanelHeight,
+            maxHeight: LayoutRules.maximumPanelHeight
         )
         #else
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

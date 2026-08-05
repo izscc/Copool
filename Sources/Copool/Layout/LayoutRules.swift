@@ -14,6 +14,7 @@ enum LayoutRules {
     static let tabSwitcherMaxWidth = CGFloat(260)
     static let minimumPanelHeight = CGFloat(520)
     static let defaultPanelHeight = CGFloat(620)
+    static let maximumPanelHeight = CGFloat(760)
     static let accountsRowSpacing = CGFloat(10)
     static let accountsExpandedColumns = 2
     static let accountsCollapsedColumns = 3

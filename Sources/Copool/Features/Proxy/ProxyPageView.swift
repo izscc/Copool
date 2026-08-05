@@ -25,6 +25,7 @@ struct ProxyPageView: View {
             .padding(LayoutRules.pagePadding)
         }
         .scrollIndicators(.hidden)
+        .frame(maxHeight: .infinity)
         .task {
             await model.loadIfNeeded()
             model.refreshTargetSnapshots()
@@ -44,6 +45,7 @@ struct ProxyPageView: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .controlSize(.small)
     }
 }
 

@@ -25,6 +25,7 @@ private struct MacSettingsPageContent: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .controlSize(.small)
             .padding(.horizontal, LayoutRules.pagePadding)
             .padding(.top, LayoutRules.pagePadding)
 
@@ -44,6 +45,7 @@ private struct MacSettingsPageContent: View {
             }
             .formStyle(.grouped)
             .scrollIndicators(.hidden)
+            .frame(maxHeight: .infinity)
 
             SettingsQuitFooter(onQuit: model.quitApp)
         }
