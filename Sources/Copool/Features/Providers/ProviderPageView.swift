@@ -55,9 +55,17 @@ struct ProviderPageView: View {
                     ProviderListSection(
                         providers: model.providers,
                         refreshingIDs: model.refreshingProviderIDs,
+                        testResults: model.modelTestResults,
+                        testingKeys: model.testingModelKeys,
                         onEdit: { model.beginEditingProvider($0) },
                         onRefreshAuth: { model.refreshProviderAuth($0) },
-                        onDelete: { model.removeProvider($0) }
+                        onDelete: { model.removeProvider($0) },
+                        onTestModel: { providerID, modelID in
+                            Task { await model.testModel(providerID: providerID, modelID: modelID) }
+                        },
+                        onTestAll: { providerID in
+                            Task { await model.testAllModels(providerID: providerID) }
+                        }
                     )
                 }
 
@@ -217,59 +225,87 @@ private struct ProviderPresetSection: View {
 private struct ProviderListSection: View {
     let providers: [ProviderConfig]
     let refreshingIDs: Set<String>
+    let testResults: [String: ModelTestResult]
+    let testingKeys: Set<String>
     let onEdit: (ProviderConfig) -> Void
     let onRefreshAuth: (ProviderConfig) -> Void
     let onDelete: (ProviderConfig) -> Void
+    let onTestModel: (String, String) -> Void
+    let onTestAll: (String) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
             ForEach(providers) { provider in
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(spacing: 6) {
-                            Text(provider.name)
-                                .font(.subheadline.weight(.semibold))
-                            AccountTagView(
-                                text: provider.defaultProtocol.displayName,
-                                backgroundColor: Color.teal.opacity(0.16),
-                                foregroundColor: .teal
-                            )
-                        }
-                        Text(provider.baseURL)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text(provider.models.map(\.id).joined(separator: ", "))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                    if provider.supportsSubscriptionRefresh {
-                        Button {
-                            onRefreshAuth(provider)
-                        } label: {
-                            if refreshingIDs.contains(provider.id) {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .frame(width: 20, height: 20)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(provider.name)
+                                    .font(.subheadline.weight(.semibold))
+                                AccountTagView(
+                                    text: provider.defaultProtocol.displayName,
+                                    backgroundColor: Color.teal.opacity(0.16),
+                                    foregroundColor: .teal
+                                )
                             }
+                            Text(provider.baseURL)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        if provider.supportsSubscriptionRefresh {
+                            Button {
+                                onRefreshAuth(provider)
+                            } label: {
+                                if refreshingIDs.contains(provider.id) {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .frame(width: 20, height: 20)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                            }
+                            .buttonStyle(.frostedCapsule(prominent: false))
+                            .disabled(refreshingIDs.contains(provider.id))
+                            .accessibilityLabel(L10n.tr("providers.refresh_auth"))
+                        }
+                        Button(L10n.tr("common.edit")) {
+                            onEdit(provider)
                         }
                         .buttonStyle(.frostedCapsule(prominent: false))
-                        .disabled(refreshingIDs.contains(provider.id))
-                        .accessibilityLabel(L10n.tr("providers.refresh_auth"))
+                        Button(role: .destructive) {
+                            onDelete(provider)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.frostedCapsule(prominent: true, tint: .red))
                     }
-                    Button(L10n.tr("common.edit")) {
-                        onEdit(provider)
+
+                    if !provider.models.isEmpty {
+                        Divider().opacity(0.4)
+                        HStack {
+                            Text(L10n.tr("providers.models.title"))
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
+                            Button(L10n.tr("providers.models.test_all")) {
+                                onTestAll(provider.id)
+                            }
+                            .buttonStyle(.plain)
+                            .font(.caption2)
+                            .foregroundStyle(.tint)
+                        }
+                        ForEach(provider.models, id: \.id) { model in
+                            ProviderModelRow(
+                                model: model,
+                                result: testResults[ProviderPageModel.modelKey(providerID: provider.id, modelID: model.id)],
+                                isTesting: testingKeys.contains(
+                                    ProviderPageModel.modelKey(providerID: provider.id, modelID: model.id)
+                                ),
+                                onTest: { onTestModel(provider.id, model.id) }
+                            )
+                        }
                     }
-                    .buttonStyle(.frostedCapsule(prominent: false))
-                    Button(role: .destructive) {
-                        onDelete(provider)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(.frostedCapsule(prominent: true, tint: .red))
                 }
                 .padding(12)
                 .frostedRoundedSurface(cornerRadius: 12, prominent: false)
@@ -282,6 +318,78 @@ private struct ProviderListSection: View {
             .padding(.top, 4)
         }
         .padding(.horizontal, LayoutRules.pagePadding)
+    }
+}
+
+/// One model with its capability summary and last probe result.
+private struct ProviderModelRow: View {
+    let model: ProviderModel
+    let result: ModelTestResult?
+    let isTesting: Bool
+    let onTest: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            statusIcon
+                .frame(width: 14)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.id)
+                    .font(.caption)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if let detail = result?.detail {
+                    Text(detail)
+                        .font(.caption2)
+                        .foregroundStyle(result?.isOK == true ? Color.secondary : Color.orange)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if let capability = capabilitySummary {
+                    Text(capability)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            Button(L10n.tr("providers.models.test")) {
+                onTest()
+            }
+            .buttonStyle(.plain)
+            .font(.caption2)
+            .foregroundStyle(.tint)
+            .disabled(isTesting)
+        }
+        .padding(.vertical, 3)
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        if isTesting {
+            ProgressView().controlSize(.mini)
+        } else if let result {
+            Image(systemName: result.isOK ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(result.isOK ? Color.green : Color.orange)
+        } else {
+            Image(systemName: "circle.dotted")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// Shows discovered capabilities so the user can tell a real 1M window
+    /// from the conservative default.
+    private var capabilitySummary: String? {
+        guard let contextWindow = model.contextWindow else { return nil }
+        let thousands = contextWindow / 1000
+        let window = thousands >= 1000
+            ? String(format: "%.1fM", Double(contextWindow) / 1_000_000)
+            : "\(thousands)K"
+        let efforts = model.supportedReasoningEfforts
+        guard let efforts, !efforts.isEmpty else { return window }
+        return "\(window) · \(efforts.joined(separator: "/"))"
     }
 }
 

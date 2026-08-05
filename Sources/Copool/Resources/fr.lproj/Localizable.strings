@@ -145,6 +145,10 @@
 "accounts.stats.third_party.tokens_format" = "%@ tokens";
 "accounts.stats.third_party.tokens_under_format" = "< %@";
 "tab.agents" = "Agents";
+"providers.models.title" = "Models";
+"providers.models.test" = "Test";
+"providers.models.test_all" = "Test all";
+"providers.model_test.proxy_down" = "Local proxy is not running";
 "agents.title" = "Agent routing";
 "agents.subtitle" = "Bind a kind of work to a model, and Codex subagents run on it instead of inheriting the parent model.";
 "agents.mode.label" = "Routing";

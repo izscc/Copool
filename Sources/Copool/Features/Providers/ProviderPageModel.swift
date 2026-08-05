@@ -46,15 +46,49 @@ final class ProviderPageModel: ObservableObject {
     }
 
     private let noticeScheduler = NoticeAutoDismissScheduler()
+    private let paths: FileSystemPaths?
+
+    /// Per-model probe results, keyed by "providerID|modelID".
+    @Published var modelTestResults: [String: ModelTestResult] = [:]
+    @Published var testingModelKeys: Set<String> = []
 
     init(
         providerStoreRepository: ProviderStoreRepository,
         usageRepository: ThirdPartyUsageRepository? = nil,
+        paths: FileSystemPaths? = nil,
         onProvidersChanged: @escaping () -> Void = {}
     ) {
         self.providerStoreRepository = providerStoreRepository
         self.usageRepository = usageRepository
+        self.paths = paths
         self.onProvidersChanged = onProvidersChanged
+    }
+
+    static func modelKey(providerID: String, modelID: String) -> String {
+        "\(providerID)|\(modelID)"
+    }
+
+    /// Sends one real turn through the proxy to see whether the model answers.
+    func testModel(providerID: String, modelID: String) async {
+        guard let paths else { return }
+        let key = Self.modelKey(providerID: providerID, modelID: modelID)
+        guard !testingModelKeys.contains(key) else { return }
+        testingModelKeys.insert(key)
+        defer { testingModelKeys.remove(key) }
+
+        let result = await ModelConnectivityTester(paths: paths).test(modelID: modelID)
+        modelTestResults[key] = result
+    }
+
+    /// Probes every model of one provider.
+    ///
+    /// Sequential on purpose: firing a dozen live turns at one provider at
+    /// once is a good way to get rate limited and misread it as failure.
+    func testAllModels(providerID: String) async {
+        guard let provider = providers.first(where: { $0.id == providerID }) else { return }
+        for model in provider.models {
+            await testModel(providerID: providerID, modelID: model.id)
+        }
     }
 
     func loadProviders() {

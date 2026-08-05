@@ -158,6 +158,10 @@
 "accounts.stats.third_party.expand" = "展开明细";
 "accounts.stats.third_party.collapse" = "收起明细";
 "tab.agents" = "子代理";
+"providers.models.title" = "模型";
+"providers.models.test" = "测试";
+"providers.models.test_all" = "全部测试";
+"providers.model_test.proxy_down" = "本地代理未运行";
 "agents.title" = "子代理路由";
 "agents.subtitle" = "把某类工作绑定到某个模型，Codex 派发子代理时就用它，而不是继承父模型。";
 "agents.mode.label" = "路由方式";

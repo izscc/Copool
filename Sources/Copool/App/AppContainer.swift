@@ -210,6 +210,7 @@ final class AppContainer {
             let providerModel = ProviderPageModel(
                 providerStoreRepository: providerRepository,
                 usageRepository: usageRepository,
+                paths: paths,
                 onProvidersChanged: {
                     // Inject the updated catalog into ~/.codex/models_cache.json so
                     // the model menu shows third-party models after the next
