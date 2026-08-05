@@ -90,6 +90,7 @@ final class ProviderPageModel: ObservableObject {
             detectedSubscriptions.removeAll { $0.providerName == subscription.providerName }
             notice = NoticeMessage(style: .success, text: L10n.tr("providers.import.done"))
             onProvidersChanged()
+            Task { await discoverCapabilities(providerID: provider.id) }
         } catch {
             notice = NoticeMessage(style: .error, text: error.localizedDescription)
         }
@@ -155,8 +156,35 @@ final class ProviderPageModel: ObservableObject {
             providerForm = .empty
             notice = NoticeMessage(style: .success, text: L10n.tr("settings.providers.saved"))
             onProvidersChanged()
+            // Ask the provider what these models can actually do, then rewrite
+            // the Codex catalog with the real numbers.
+            Task { await discoverCapabilities(providerID: provider.id) }
         } catch {
             notice = NoticeMessage(style: .error, text: error.localizedDescription)
+        }
+    }
+
+    /// Refreshes one provider's model metadata in the background.
+    ///
+    /// Best-effort: a provider that will not answer keeps whatever is stored,
+    /// and the catalog keeps working on the conservative defaults.
+    func discoverCapabilities(providerID: String) async {
+        guard let provider = (try? providerStoreRepository.loadProviders())?
+            .providers.first(where: { $0.id == providerID }) else { return }
+
+        let refreshed = await ModelCapabilityDiscovery().refresh(provider: provider)
+        guard refreshed != provider.models else { return }
+
+        do {
+            _ = try providerStoreRepository.mutateProviders { store in
+                guard let index = store.providers.firstIndex(where: { $0.id == providerID }) else { return }
+                store.providers[index].models = refreshed
+            }
+            loadProviders()
+            onProvidersChanged()
+        } catch {
+            // Discovery is an enhancement; failing to persist it must not
+            // surface as an error over a save that already succeeded.
         }
     }
 

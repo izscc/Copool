@@ -41,9 +41,9 @@ final class AgentPageModel: ObservableObject {
                     slug: model.id,
                     backendModel: model.id,
                     provider: provider.name,
-                    displayName: model.id,
-                    supportedReasoningEfforts: ["low", "medium", "high"],
-                    defaultReasoningEffort: "medium"
+                    displayName: model.displayName ?? model.id,
+                    supportedReasoningEfforts: model.effectiveReasoningEfforts,
+                    defaultReasoningEffort: model.defaultReasoningEffort
                 )
             }
         }

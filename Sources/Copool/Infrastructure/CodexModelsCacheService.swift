@@ -226,8 +226,23 @@ struct CodexModelsCacheService {
     /// provider prefix), and provider is a neutral marker (`opencodex`).
     /// Prefixing the slug (`antigravity/gemini-3.6-flash`) makes ChatGPT.app
     /// truncate it to `agy/...` and reject the model as unsupported.
-    static func catalogEntry(providerName: String, clientModelID: String, backendModel: String, protocol: ProviderProtocol) -> JSONValue {
-        let contextWindow = 200_000
+    /// `model` supplies the discovered context window and reasoning levels;
+    /// hardcoding them advertises options the provider rejects and mis-sizes
+    /// compaction on both ends.
+    static func catalogEntry(
+        providerName: String,
+        clientModelID: String,
+        backendModel: String,
+        protocol: ProviderProtocol,
+        model: ProviderModel? = nil
+    ) -> JSONValue {
+        let contextWindow = model?.effectiveContextWindow ?? ProviderModel.fallbackContextWindow
+        let efforts = model?.effectiveReasoningEfforts ?? ["low", "medium", "high"]
+        let reasoningLevels: [[String: Any]] = efforts.map { effort in
+            ["effort": effort, "description": Self.reasoningDescription(for: effort)]
+        }
+        let defaultEffort = model?.defaultReasoningEffort
+            ?? (efforts.contains("medium") ? "medium" : efforts.first ?? "medium")
         var entry: [String: Any] = [
             "slug": backendModel,
             "model": backendModel,
@@ -243,12 +258,8 @@ struct CodexModelsCacheService {
             "max_context_window": contextWindow,
             "auto_compact_token_limit": Int(Double(contextWindow) * 0.8),
             "truncation_policy": ["mode": "tokens", "limit": Int(Double(contextWindow) * 0.2)],
-            "supported_reasoning_levels": [
-                ["effort": "low", "description": "Minimal reasoning for simple tasks"],
-                ["effort": "medium", "description": "Balances speed and reasoning depth"],
-                ["effort": "high", "description": "Greater reasoning depth for complex problems"],
-            ],
-            "default_reasoning_level": "medium",
+            "supported_reasoning_levels": reasoningLevels,
+            "default_reasoning_level": defaultEffort,
             "default_reasoning_summary": "none",
             "reasoning_summary_format": "none",
             "supports_reasoning_summaries": true,
@@ -295,9 +306,24 @@ struct CodexModelsCacheService {
                     providerName: provider.name,
                     clientModelID: clientID,
                     backendModel: backendID,
-                    protocol: provider.resolvedProtocol(forModel: backendID)
+                    protocol: provider.resolvedProtocol(forModel: backendID),
+                    model: provider.models.first { $0.id == backendID }
                 )
             }
+        }
+    }
+
+    /// Descriptions Codex shows beside each reasoning level. Levels beyond the
+    /// common three get a generic line rather than being dropped.
+    static func reasoningDescription(for effort: String) -> String {
+        switch effort {
+        case "minimal": return "Fastest responses with almost no reasoning"
+        case "low": return "Minimal reasoning for simple tasks"
+        case "medium": return "Balances speed and reasoning depth"
+        case "high": return "Greater reasoning depth for complex problems"
+        case "xhigh": return "Extra reasoning depth for hard problems"
+        case "max": return "Maximum reasoning depth"
+        default: return "Reasoning level \(effort)"
         }
     }
 
