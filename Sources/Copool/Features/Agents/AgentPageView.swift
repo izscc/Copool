@@ -72,14 +72,10 @@ struct AgentPageView: View {
     }
 
     private var subTabPicker: some View {
-        Picker("", selection: $model.subTab) {
-            ForEach(AgentSubTab.allCases) { tab in
-                Text(tab.label).tag(tab)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .controlSize(.small)
+        CapsuleSubTabBar(
+            selection: $model.subTab,
+            tabs: AgentSubTab.allCases.map { ($0, $0.label) }
+        )
         .padding(.horizontal, LayoutRules.pagePadding)
     }
 

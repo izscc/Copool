@@ -41,14 +41,10 @@ struct ProxyPageView: View {
     }
 
     private var subTabPicker: some View {
-        Picker("", selection: $model.subTab) {
-            ForEach(ProxySubTab.allCases) { tab in
-                Text(tab.label).tag(tab)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .controlSize(.small)
+        CapsuleSubTabBar(
+            selection: $model.subTab,
+            tabs: ProxySubTab.allCases.map { ($0, $0.label) }
+        )
     }
 }
 

@@ -18,14 +18,10 @@ private struct MacSettingsPageContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("", selection: $model.subTab) {
-                ForEach(SettingsSubTab.allCases) { tab in
-                    Text(tab.label).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.small)
+            CapsuleSubTabBar(
+                selection: $model.subTab,
+                tabs: SettingsSubTab.allCases.map { ($0, $0.label) }
+            )
             .padding(.horizontal, LayoutRules.pagePadding)
             .padding(.top, LayoutRules.pagePadding)
 
