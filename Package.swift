@@ -11,8 +11,14 @@ let package = Package(
         .executable(name: "Copool", targets: ["Copool"])
     ],
     targets: [
+        .target(
+            name: "CZstd",
+            path: "Sources/CZstd",
+            publicHeadersPath: "include"
+        ),
         .executableTarget(
             name: "Copool",
+            dependencies: ["CZstd"],
             path: "Sources/Copool",
             exclude: [
                 "Copool.icon",

@@ -24,6 +24,9 @@ protocol ProviderStoreRepository: Sendable {
     func loadProviders() throws -> ProviderStore
     func saveProviders(_ store: ProviderStore) throws
     func mutateProviders(_ transform: (inout ProviderStore) throws -> Void) throws -> ProviderStore
+    /// One-shot migration hook (e.g. plaintext secrets → keychain). Default
+    /// no-op; implementations must be idempotent and non-throwing.
+    func migrateLegacySecretsIfNeeded()
 }
 
 extension ProviderStoreRepository {
@@ -33,6 +36,8 @@ extension ProviderStoreRepository {
         try saveProviders(store)
         return store
     }
+
+    func migrateLegacySecretsIfNeeded() {}
 }
 
 protocol ThirdPartyUsageRepository: Sendable {

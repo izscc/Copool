@@ -36,8 +36,7 @@ final class AppContainer {
     private var accountsPageSnapshotCancellable: AnyCancellable?
     private var widgetUsageProgressDisplayMode: UsageProgressDisplayMode
 
-    lazy var proxyModel: ProxyPageModel = ProxyPageModel(
-        coordinator: proxyCoordinator,
+    lazy var proxyModel: ProxyPageModel = ProxyPageModel(        coordinator: proxyCoordinator,
         settingsCoordinator: settingsCoordinator,
         localProxyCommandService: localProxyCommandService,
         chooseIdentityFilePath: {
@@ -63,10 +62,6 @@ final class AppContainer {
             let settingsRepository = SettingsFileRepository(paths: paths)
             let authRepository = AuthFileRepository(paths: paths)
             let providerRepository = ProviderFileRepository(paths: paths)
-            // Move any secrets still stored in plaintext into the keychain.
-            // One-shot and failable: a keychain that refuses the write leaves
-            // the file untouched and the app keeps working off it.
-            providerRepository.migrateLegacySecretsIfNeeded()
             let usageRepository = ThirdPartyUsageFileRepository(paths: paths)
             let agentRepository = AgentProfileFileRepository(paths: paths)
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
@@ -308,6 +303,16 @@ final class AppContainer {
     func syncThirdPartyModelsToCodex() {
         let providers = (try? providerRepository.loadProviders())?.providers ?? []
         try? chatGPTAppService.syncThirdPartyModels(providers: providers)
+    }
+
+    /// Moves any plaintext provider secrets into the keychain, off the main
+    /// thread. Every keychain call is time-boxed, so a build whose keychain
+    /// access is awaiting user approval degrades instead of stalling.
+    func migrateProviderSecretsIfNeeded() {
+        let repository = providerRepository
+        Task.detached(priority: .utility) {
+            repository.migrateLegacySecretsIfNeeded()
+        }
     }
 
     /// Watches `~/.codex/models_cache.json` and re-injects the third-party

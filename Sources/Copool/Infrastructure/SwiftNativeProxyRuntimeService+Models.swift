@@ -91,7 +91,7 @@ extension SwiftNativeProxyRuntimeService {
         return URL(string: "\(base)/responses")!
     }
 
-    private func resolveUpstreamBaseURL(routeFamily: UpstreamRouteFamily) -> String {
+    func resolveUpstreamBaseURL(routeFamily: UpstreamRouteFamily) -> String {
         let defaultOrigin = "https://chatgpt.com"
         let configured = readChatGPTBaseURLFromConfig() ?? defaultOrigin
         return Self.resolveUpstreamBaseURL(configuredBaseURL: configured, routeFamily: routeFamily)

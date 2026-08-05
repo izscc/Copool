@@ -15,6 +15,12 @@ struct CopoolApp: App {
         Task { @MainActor in
             container.trayModel.startBackgroundRefresh()
             await container.settingsModel.loadIfNeeded()
+            // Move any secrets still stored in plaintext into the keychain.
+            // Background and time-boxed: an ad-hoc build whose keychain access
+            // is still awaiting user approval must not stall launch — the
+            // keychain calls themselves give up after a few seconds, and the
+            // file keeps working as the fallback meanwhile.
+            container.migrateProviderSecretsIfNeeded()
             // Write the third-party catalog into ~/.codex/models_cache.json at
             // launch so ChatGPT.app's model menu shows imported models even if
             // Codex overwrote the cache with its server-side list.

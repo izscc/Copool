@@ -232,17 +232,93 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         }
 
         if request.path == "/v1/responses" && request.method == "POST" {
-            return await handleResponsesRequest(body: request.body, downstreamHeaders: request.headers)
+            guard let body = decompressRequestBody(request) else {
+                return jsonError(statusCode: 415, message: "Unsupported content encoding or malformed compressed body.")
+            }
+            return await handleResponsesRequest(body: body, downstreamHeaders: request.headers)
         }
 
         if request.path == "/v1/chat/completions" && request.method == "POST" {
-            return await handleChatCompletionsRequest(body: request.body, downstreamHeaders: request.headers)
+            guard let body = decompressRequestBody(request) else {
+                return jsonError(statusCode: 415, message: "Unsupported content encoding or malformed compressed body.")
+            }
+            return await handleChatCompletionsRequest(body: body, downstreamHeaders: request.headers)
+        }
+
+        // Image generation/editing always goes to the native OpenAI backend,
+        // never to a third-party provider (mirroring codex-router).
+        if (request.path == "/v1/images/generations" || request.path == "/v1/images/edits")
+            && request.method == "POST" {
+            guard let body = decompressRequestBody(request) else {
+                return jsonError(statusCode: 415, message: "Unsupported content encoding or malformed compressed body.")
+            }
+            return await handleNativeImageRequest(
+                endpointPath: String(request.path.dropFirst(4)),
+                body: body,
+                downstreamHeaders: request.headers
+            )
         }
 
         return jsonError(
             statusCode: 404,
             message: L10n.tr("error.proxy_runtime.unsupported_route")
         )
+    }
+
+    /// Forwards an image request verbatim to the native OpenAI backend.
+    ///
+    /// Codex never routes these through a third-party provider, so neither do
+    /// we — the request is sent over the account candidates like any native
+    /// call, with only the selected account's credentials attached.
+    private func handleNativeImageRequest(
+        endpointPath: String,
+        body: Data,
+        downstreamHeaders: [String: String]
+    ) async -> HTTPResponse {
+        guard let object = try? parseJSONObject(from: body) else {
+            return jsonError(statusCode: 400, message: "Invalid JSON body.")
+        }
+        do {
+            let response = try await sendOverCandidates(
+                payload: object,
+                downstreamHeaders: downstreamHeaders,
+                endpointPath: endpointPath
+            )
+            return HTTPResponse(
+                statusCode: response.statusCode,
+                headers: ["Content-Type": "application/json; charset=utf-8"],
+                body: response.body
+            )
+        } catch {
+            return jsonError(statusCode: 502, message: error.localizedDescription)
+        }
+    }
+
+    /// Inflates a request body according to its `Content-Encoding`.
+    ///
+    /// Codex CLI compresses Responses bodies with zstd by default, so this is
+    /// on the hot path; gzip/deflate/brotli are decoded for generic
+    /// OpenAI-compatible clients. Returns nil for unknown encodings or
+    /// malformed frames, which the caller maps to 415.
+    private func decompressRequestBody(_ request: HTTPRequest) -> Data? {
+        let encoding = (request.headers["content-encoding"] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !encoding.isEmpty, encoding != "identity" else { return request.body }
+        switch encoding {
+        case "zstd":
+            return ZstdDecompression.decompress(request.body)
+        case "gzip":
+            return LibzDecompression.decompressGzipOrZlib(request.body)
+        case "deflate":
+            // RFC 7230 says deflate is a zlib wrapper; some clients send raw.
+            return LibzDecompression.decompressGzipOrZlib(request.body)
+                ?? LibzDecompression.decompressRawDeflate(request.body)
+        case "br":
+            return BrotliDecompression.decompress(request.body)
+        default:
+            return nil
+        }
     }
 
     private func handleResponsesRequest(body: Data, downstreamHeaders: [String: String]) async -> HTTPResponse {
@@ -741,7 +817,11 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         try? usageRepository.saveUsage(mutated)
     }
 
-    private func sendOverCandidates(payload: [String: Any], downstreamHeaders: [String: String]) async throws -> UpstreamResponse {
+    private func sendOverCandidates(
+        payload: [String: Any],
+        downstreamHeaders: [String: String],
+        endpointPath: String? = nil
+    ) async throws -> UpstreamResponse {
         let candidates = try currentCandidates()
         guard !candidates.isEmpty else {
             throw AppError.invalidData(L10n.tr("error.proxy_runtime.no_accounts_available"))
@@ -751,7 +831,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
         var retryFailures: [RetryFailureInfo] = []
         for candidate in candidates {
             do {
-                let response = try await sendUpstream(payload: payload, candidate: candidate, downstreamHeaders: downstreamHeaders)
+                let response = try await sendUpstream(
+                    payload: payload,
+                    candidate: candidate,
+                    downstreamHeaders: downstreamHeaders,
+                    endpointPath: endpointPath
+                )
                 if response.statusCode >= 200 && response.statusCode < 300 {
                     try await recordSuccessfulCandidate(candidate)
                     return response

@@ -11,6 +11,12 @@ import Security
 /// previous build created. Callers must therefore keep working when the
 /// keychain says no — losing a user's imported OAuth token would be far worse
 /// than leaving it in a 0600 file.
+///
+/// Every call is also time-boxed: `SecItemCopyMatching` can block
+/// indefinitely on an authorization prompt (macOS asks before letting a new
+/// build read an item another build created). Calls run on a background queue
+/// and give up after `timeout`, returning the failable result, so no caller —
+/// including the main-thread provider list — can ever stall on the keychain.
 struct KeychainSecretStore: Sendable {
     let service: String
 
@@ -18,9 +24,35 @@ struct KeychainSecretStore: Sendable {
         self.service = service
     }
 
-    func read(account: String) -> String? {
-        #if canImport(Security)
-        var query = baseQuery(account: account)
+    func read(account: String, timeout: TimeInterval = 3) -> String? {
+        runOnBackground(timeout: timeout) {
+            Self.readSynchronously(service: self.service, account: account)
+        } ?? nil
+    }
+
+    /// Returns false when the secret could not be stored, so the caller can
+    /// fall back rather than dropping it.
+    @discardableResult
+    func write(account: String, value: String, timeout: TimeInterval = 3) -> Bool {
+        guard !value.isEmpty else { return delete(account: account, timeout: timeout) }
+        let data = Data(value.utf8)
+        return runOnBackground(timeout: timeout) {
+            Self.writeSynchronously(service: self.service, account: account, data: data)
+        } ?? false
+    }
+
+    @discardableResult
+    func delete(account: String, timeout: TimeInterval = 3) -> Bool {
+        runOnBackground(timeout: timeout) {
+            Self.deleteSynchronously(service: self.service, account: account)
+        } ?? false
+    }
+
+    // MARK: - Synchronous core (runs on a background queue)
+
+    #if canImport(Security)
+    private static func readSynchronously(service: String, account: String) -> String? {
+        var query = baseQuery(service: service, account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -33,20 +65,10 @@ struct KeychainSecretStore: Sendable {
             return nil
         }
         return value
-        #else
-        return nil
-        #endif
     }
 
-    /// Returns false when the secret could not be stored, so the caller can
-    /// fall back rather than dropping it.
-    @discardableResult
-    func write(account: String, value: String) -> Bool {
-        #if canImport(Security)
-        guard !value.isEmpty else { return delete(account: account) }
-        let data = Data(value.utf8)
-
-        let query = baseQuery(account: account)
+    private static func writeSynchronously(service: String, account: String, data: Data) -> Bool {
+        let query = baseQuery(service: service, account: account)
         let attributes: [String: Any] = [kSecValueData as String: data]
         let updateStatus = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
         if updateStatus == errSecSuccess { return true }
@@ -58,23 +80,14 @@ struct KeychainSecretStore: Sendable {
         // travel to other devices via iCloud keychain.
         insert[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         return SecItemAdd(insert as CFDictionary, nil) == errSecSuccess
-        #else
-        return false
-        #endif
     }
 
-    @discardableResult
-    func delete(account: String) -> Bool {
-        #if canImport(Security)
-        let status = SecItemDelete(baseQuery(account: account) as CFDictionary)
+    private static func deleteSynchronously(service: String, account: String) -> Bool {
+        let status = SecItemDelete(baseQuery(service: service, account: account) as CFDictionary)
         return status == errSecSuccess || status == errSecItemNotFound
-        #else
-        return false
-        #endif
     }
 
-    #if canImport(Security)
-    private func baseQuery(account: String) -> [String: Any] {
+    private static func baseQuery(service: String, account: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -82,6 +95,40 @@ struct KeychainSecretStore: Sendable {
         ]
     }
     #endif
+
+    // MARK: - Time boxing
+
+    private final class Box: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: Any?
+
+        func set(_ value: Any?) {
+            lock.lock()
+            stored = value
+            lock.unlock()
+        }
+
+        func get() -> Any? {
+            lock.lock()
+            defer { lock.unlock() }
+            return stored
+        }
+    }
+
+    private func runOnBackground<T>(timeout: TimeInterval, _ body: @escaping () -> T) -> T? {
+        #if canImport(Security)
+        let box = Box()
+        let semaphore = DispatchSemaphore(value: 0)
+        DispatchQueue.global(qos: .utility).async {
+            box.set(body())
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + timeout)
+        return box.get() as? T
+        #else
+        return nil
+        #endif
+    }
 }
 
 /// Keychain account names for one provider's secrets.
