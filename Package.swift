@@ -17,6 +17,10 @@ let package = Package(
             publicHeadersPath: "include"
         ),
         .executableTarget(
+            name: "CopoolRouterHost",
+            path: "Sources/CopoolRouterHost"
+        ),
+        .executableTarget(
             name: "Copool",
             dependencies: ["CZstd"],
             path: "Sources/Copool",
