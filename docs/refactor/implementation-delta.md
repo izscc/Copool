@@ -65,7 +65,16 @@
 
 - 初版用 `String.hashValue` 计算 v1 指纹——Swift 的 hashValue 是 per-process 随机，重启后 journal 匹配失败导致重复迁移。改为 FNV-1a 64 位确定性哈希（`628db436...`），重启幂等验证通过。
 
+### D-012：CanonicalTool.schema 用 Data 承载
+
+- PRD 想用 JSON 对象承载工具参数 schema；Swift 6 严格并发下  不满足 Sendable/Equatable。改为 （序列化字节），构造时用  便捷方法。
+
+### D-013：Anthropic tool_result 归为 user 消息
+
+- Anthropic Messages 方言要求 tool_result 放在 user 角色的 content block 里；Canonical 层保持独立 tool 角色，由 AnthropicAdapter 编码时映射（与原实现一致）。
+
 ## 阶段差异日志
+| 阶段 | 日期 | 差异 | 处置 |
 
 | 阶段 | 日期 | 差异 | 处置 |
 |---|---|---|---|
