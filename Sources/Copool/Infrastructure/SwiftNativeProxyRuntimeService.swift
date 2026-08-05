@@ -1,6 +1,6 @@
 import Foundation
 
-actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
+actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
     enum UpstreamRouteFamily: Equatable {
         case codex
         case general
@@ -83,6 +83,30 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService {
             activeAccountID: activeAccountID,
             activeAccountLabel: activeAccountLabel,
             lastError: lastError
+        )
+    }
+
+    // MARK: - RouterEngine (vNext façade)
+
+    func engineStatus() async -> RouterEngineStatus {
+        let proxy = await status()
+        return RouterEngineStatus(
+            running: proxy.running,
+            port: proxy.port,
+            apiKey: proxy.apiKey,
+            baseURL: proxy.baseURL,
+            availableAccounts: proxy.availableAccounts,
+            activeAccountID: proxy.activeAccountID,
+            activeAccountLabel: proxy.activeAccountLabel,
+            lastError: proxy.lastError
+        )
+    }
+
+    nonisolated var engineCapabilities: RouterEngineCapabilities {
+        RouterEngineCapabilities(
+            transports: ["http"],
+            supportedPaths: ["/health", "/v1/models", "/v1/responses", "/v1/chat/completions", "/v1/images/generations", "/v1/images/edits"],
+            maxInboundRequestBytes: ProxyRuntimeLimits.maxInboundRequestBytes
         )
     }
 

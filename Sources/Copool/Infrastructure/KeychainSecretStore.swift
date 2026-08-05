@@ -17,7 +17,7 @@ import Security
 /// build read an item another build created). Calls run on a background queue
 /// and give up after `timeout`, returning the failable result, so no caller —
 /// including the main-thread provider list — can ever stall on the keychain.
-struct KeychainSecretStore: Sendable {
+struct KeychainSecretStore: Sendable, SecureStore {
     let service: String
 
     init(service: String = "com.alick.copool.providers") {

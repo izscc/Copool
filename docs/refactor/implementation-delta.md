@@ -51,8 +51,19 @@
 - 现状：无 UI snapshot 测试；Phase 0 截图因环境（无 GUI 交互通道）延后。
 - 处置：Phase 5 用 `screencapture`/XCTest snapshot 补；验收 AC-015 关联。
 
+### D-009：物理多 target 拆分暂缓（PRD Phase 1「调整 Package.swift 为多个 target」）
+
+- 评估：Domain 层无 UI 依赖但 5 个文件引用 `L10n`（依赖主 target 的 lproj 资源 bundle）；拆出 `CopoolDomain` 需要 public 风暴 + 资源移动 + XcodeGen 同步，在「无行为变化」约束下回归风险高。
+- 决策：**保持单 executable target**；模块边界用 `Domain/VNextProtocols.swift` 协议层 + 目录边界表达（RouterEngine/SecureStore/TargetConfigManaging + façade）。依赖方向无循环（Domain 不依赖 Infrastructure/Features）。物理拆分推迟到 Phase 6（独立 CopoolRouterHost 进程自然形成模块边界）。
+- 不静默偏离：此为记录在案的决策，非遗漏。
+
+### D-010：RouterEngine 生命周期方法收敛
+
+- PRD 设想 RouterEngine 含 start/stop；与现有 `ProxyRuntimeService.status/start/stop`（返回 `ApiProxyStatus`）签名冲突。收敛为状态+能力契约面（`engineStatus()` + `engineCapabilities`），生命周期仍走 ProxyRuntimeService 直至 RouterHost。
+
 ## 阶段差异日志
 
 | 阶段 | 日期 | 差异 | 处置 |
 |---|---|---|---|
-| Phase 0 | 2026-08-05 | 见 D-001..D-008 | 记录完成，进入 Phase 1 |
+| Phase 0 | 2026-08-05 | 见 D-001..D-008 | 记录完成 |
+| Phase 1 | 2026-08-05 | D-009（拆 target 暂缓）、D-010（RouterEngine 面收敛） | 协议层 + façade 落地，提交 |
