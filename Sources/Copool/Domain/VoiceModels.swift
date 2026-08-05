@@ -85,7 +85,51 @@ struct RealtimeSession: Codable, Equatable, Sendable, Identifiable {
 /// A unit of delegated work from a realtime session. MUST be confirmed by the
 /// user before any execution side effect happens (AC-203: TaskEnvelope 必须
 /// 用户确认后执行).
-struct TaskEnvelope: Codable, Equatable, Sendable, Identifiable {
+struct TaskEnvelope: Equatable, Sendable, Identifiable {
+    // Codable with a custom Status encoding (case name + optional detail).
+    enum CodingKeys: String, CodingKey {
+        case id, sessionID, kind, intent, payloadRef, userConfirmed, status, statusDetail
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        sessionID = try container.decode(String.self, forKey: .sessionID)
+        kind = try container.decode(RealtimeSessionKind.self, forKey: .kind)
+        intent = try container.decode(String.self, forKey: .intent)
+        payloadRef = try container.decodeIfPresent(String.self, forKey: .payloadRef)
+        userConfirmed = try container.decode(Bool.self, forKey: .userConfirmed)
+        switch try container.decode(String.self, forKey: .status) {
+        case "pending": status = .pending
+        case "confirmed": status = .confirmed
+        case "rejected": status = .rejected
+        case "executing": status = .executing
+        case "completed": status = .completed
+        case "failed":
+            status = .failed((try? container.decode(String.self, forKey: .statusDetail)) ?? "")
+        default: status = .pending
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(sessionID, forKey: .sessionID)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(intent, forKey: .intent)
+        try container.encodeIfPresent(payloadRef, forKey: .payloadRef)
+        try container.encode(userConfirmed, forKey: .userConfirmed)
+        switch status {
+        case .pending: try container.encode("pending", forKey: .status)
+        case .confirmed: try container.encode("confirmed", forKey: .status)
+        case .rejected: try container.encode("rejected", forKey: .status)
+        case .executing: try container.encode("executing", forKey: .status)
+        case .completed: try container.encode("completed", forKey: .status)
+        case .failed(let detail):
+            try container.encode("failed", forKey: .status)
+            try container.encode(detail, forKey: .statusDetail)
+        }
+    }
     var id: String
     var sessionID: String
     var kind: RealtimeSessionKind
