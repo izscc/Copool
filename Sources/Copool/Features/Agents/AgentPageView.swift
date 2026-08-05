@@ -463,9 +463,9 @@ private struct AgentProfileEditor: View {
                             set: { profile.reasoningEffort = $0.isEmpty ? nil : $0 }
                         )) {
                             Text(L10n.tr("agents.editor.reasoning.inherit")).tag("")
-                            Text("low").tag("low")
-                            Text("medium").tag("medium")
-                            Text("high").tag("high")
+                            Text(L10n.tr("agents.editor.reasoning.low")).tag("low")
+                            Text(L10n.tr("agents.editor.reasoning.medium")).tag("medium")
+                            Text(L10n.tr("agents.editor.reasoning.high")).tag("high")
                         }
                         .labelsHidden()
                     }

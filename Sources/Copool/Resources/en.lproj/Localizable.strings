@@ -613,3 +613,12 @@
 "proxy.targets.config_confirm_title" = "Apply target config?";
 "proxy.targets.config_confirm_apply" = "Apply";
 "proxy.targets.config_confirm_message" = "This rewrites config.toml's managed blocks (user lines are preserved) and writes a backup for rollback.";
+
+"providers.usage.reset_at_format" = "resets %@";
+"providers.usage.remaining_left_format" = "%@ left";
+"providers.usage.row_format" = "%@ req · %@ tok";
+"providers.usage.requests_format" = "requests %@";
+"providers.usage.tokens_format" = "tokens %@";
+"agents.editor.reasoning.low" = "low";
+"agents.editor.reasoning.medium" = "medium";
+"agents.editor.reasoning.high" = "high";

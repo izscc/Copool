@@ -626,15 +626,15 @@ private struct RateLimitLine: View {
                     Text("\(remaining)/\(limit)")
                         .font(.caption2.weight(.medium))
                     if remaining == 0, let resetAt = window.resetAt {
-                        Text("reset \(Self.relativeTime(resetAt))")
+                        Text(L10n.tr("providers.usage.reset_at_format", Self.relativeTime(resetAt)))
                             .font(.caption2)
                             .foregroundStyle(.red)
                     }
                 } else if let remaining = window.remaining {
-                    Text("\(remaining) left")
+                    Text(L10n.tr("providers.usage.remaining_left_format", String(remaining)))
                         .font(.caption2)
                 } else if let resetAt = window.resetAt {
-                    Text("reset \(Self.relativeTime(resetAt))")
+                    Text(L10n.tr("providers.usage.reset_at_format", Self.relativeTime(resetAt)))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -831,7 +831,7 @@ private struct UsageSection: View {
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                         Spacer(minLength: 0)
-                        Text("\(row.requests) req · \(row.totalTokens) tok")
+                        Text(L10n.tr("providers.usage.row_format", String(row.requests), String(row.totalTokens)))
                             .font(.caption2)
                     }
                 }
@@ -846,11 +846,11 @@ private struct UsageSection: View {
                                     .font(.caption2)
                                 Spacer(minLength: 0)
                                 if let remaining = snapshot.requests?.remaining {
-                                    Text("requests \(remaining)")
+                                    Text(L10n.tr("providers.usage.requests_format", String(remaining)))
                                         .font(.caption2)
                                 }
                                 if let remaining = snapshot.tokens?.remaining {
-                                    Text("tokens \(remaining)")
+                                    Text(L10n.tr("providers.usage.tokens_format", String(remaining)))
                                         .font(.caption2)
                                 }
                             }
