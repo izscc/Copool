@@ -181,27 +181,7 @@ struct ProxyDoctor: Sendable {
 
         var checks: [DoctorCheck] = []
         let raw = try? Data(contentsOf: paths.registryV2Path)
-        let registry = raw.flatMap { try? JSONDecoder().decode(ProviderRegistryV2.self, from: $0) }
-
-        // 8. 注册表能解析且版本是当前版本。解析不了 = 第三方路由整体失效：fail。
-        // 版本落后只是还没迁移，路由会回落 v1，仍然可用：warn。
-        if let registry {
-            let current = registry.version == ProviderRegistryV2.currentVersion
-            checks.append(
-                DoctorCheck(
-                    id: "registry.version",
-                    name: L10n.tr("doctor.registry.version"),
-                    severity: current ? .pass : .warn,
-                    message: current
-                        ? nil
-                        : L10n.tr(
-                            "doctor.registry.version.warn_format",
-                            String(registry.version),
-                            String(ProviderRegistryV2.currentVersion)
-                        )
-                )
-            )
-        } else {
+        guard let registry = raw.flatMap({ try? JSONDecoder().decode(ProviderRegistryV2.self, from: $0) }) else {
             checks.append(
                 DoctorCheck(
                     id: "registry.version",
@@ -213,6 +193,24 @@ struct ProxyDoctor: Sendable {
             // 解析失败时后面三项没有可检查的对象，继续走只会连报三条同因错误。
             return checks
         }
+
+        // 8. 注册表能解析且版本是当前版本。解析不了 = 第三方路由整体失效：fail。
+        // 版本落后只是还没迁移，路由会回落 v1，仍然可用：warn。
+        let current = registry.version == ProviderRegistryV2.currentVersion
+        checks.append(
+            DoctorCheck(
+                id: "registry.version",
+                name: L10n.tr("doctor.registry.version"),
+                severity: current ? .pass : .warn,
+                message: current
+                    ? nil
+                    : L10n.tr(
+                        "doctor.registry.version.warn_format",
+                        String(registry.version),
+                        String(ProviderRegistryV2.currentVersion)
+                    )
+            )
+        )
 
         // 9. 凭据健康：有多少把处于"用不了"的状态。
         //
