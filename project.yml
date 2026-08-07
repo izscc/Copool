@@ -12,8 +12,25 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: Sources/Copool
+        excludes:
+          - "Resources/proxyd-prebuilt"
+          - "Resources/proxyd-prebuilt-archives"
+          - "Resources/proxyd-src"
+      - path: Sources/Copool/Resources/proxyd-prebuilt-archives
+        type: folder
+        buildPhase: resources
+      - path: Sources/Copool/Resources/proxyd-src
+        type: folder
+        buildPhase: resources
+      - path: Sources/CZstd/zstddeclib.c
+      - path: Sources/CZstd/include
+        headerVisibility: public
     resources:
       - path: Sources/Copool/Resources
+        excludes:
+          - "proxyd-prebuilt"
+          - "proxyd-prebuilt-archives"
+          - "proxyd-src"
     settings:
       base:
         PRODUCT_NAME: icopool
@@ -23,10 +40,12 @@ targets:
         INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
         INFOPLIST_KEY_LSUIElement: YES
         CODE_SIGN_STYLE: Automatic
-        CURRENT_PROJECT_VERSION: 31
+        CURRENT_PROJECT_VERSION: 32
         MARKETING_VERSION: 3.0.0
         DEVELOPMENT_TEAM: KLU8GF65GP
         PRODUCT_BUNDLE_IDENTIFIER: com.alick.copool
+        HEADER_SEARCH_PATHS: $(inherited) $(SRCROOT)/Sources/CZstd/include
+        SWIFT_INCLUDE_PATHS: $(inherited) $(SRCROOT)/Sources/CZstd/include
   CopoolTests:
     type: bundle.unit-test
     platform: macOS

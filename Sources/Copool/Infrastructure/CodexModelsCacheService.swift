@@ -437,6 +437,49 @@ struct CodexModelsCacheService {
             || slug.hasPrefix("codex-") || slug.hasPrefix("chatgpt")
     }
 
+    /// Re-slugs third-party catalog entries whose plain backend id collides
+    /// with a native Codex model.
+    ///
+    /// When a custom relay serves a model id that Codex also returns natively
+    /// (e.g. `gpt-5.6-sol`), both the native entry and the third-party entry
+    /// share the same slug. The merge dedups by slug and keeps the native
+    /// entry — which carries no relay routing marker and no `available_in_plans`
+    /// — so ChatGPT.app never shows the relay model. To let the two coexist,
+    /// colliding entries are re-slugged to the provider-namespaced form
+    /// `<providerName>/<backend>` (the `legacyClientModelID` shape the proxy
+    /// already routes via `ProviderConfig.matchesClientModel`). Non-colliding
+    /// models keep their plain backend slug, so existing gemini/grok entries
+    /// are untouched.
+    ///
+    /// The provider name is expected to be plain English (per the custom
+    /// provider form), so the lowercased name is a clean slug component.
+    static func resolveCollisions(
+        _ entries: [JSONValue],
+        nativeSlugs: Set<String>
+    ) -> [JSONValue] {
+        guard !nativeSlugs.isEmpty else { return entries }
+        return entries.map { entry in
+            guard case .object(var dict) = entry,
+                  let slug = dict["slug"]?.stringValue,
+                  nativeSlugs.contains(slug) else {
+                return entry
+            }
+            let backendModel = dict["backend_model"]?.stringValue ?? slug
+            let providerName = (dict["backend_provider"]?.stringValue ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let prefix = providerName.lowercased()
+            let namespaced = prefix.isEmpty ? backendModel : "\(prefix)/\(backendModel)"
+            // A collision that re-slugs to the same value can't be resolved
+            // (no provider name to namespace under); leave it untouched so the
+            // native entry wins deterministically rather than duplicating.
+            guard namespaced != slug else { return entry }
+            dict["slug"] = .string(namespaced)
+            dict["model"] = .string(namespaced)
+            dict["display_name"] = .string(namespaced)
+            return .object(dict)
+        }
+    }
+
     /// Reads Codex's own models_cache.json (server-fetched; native entries).
     func readModelsCache() throws -> [JSONValue] {
         let path = paths.codexModelsCachePath
@@ -462,9 +505,13 @@ struct CodexModelsCacheService {
 
     private func sync(thirdParty: [JSONValue]) throws -> [JSONValue] {
         let nativeModels = (try? readModelsCache()) ?? []
-        var merged = nativeModels.filter { Self.isNativeModel($0) }
-        var existingSlugs = Set(merged.compactMap { $0.objectValue?["slug"]?.stringValue })
-        for entry in thirdParty {
+        let nativeKept = nativeModels.filter { Self.isNativeModel($0) }
+        let nativeSlugs = Set(nativeKept.compactMap { $0.objectValue?["slug"]?.stringValue })
+        let resolved = Self.resolveCollisions(thirdParty, nativeSlugs: nativeSlugs)
+
+        var merged = nativeKept
+        var existingSlugs = nativeSlugs
+        for entry in resolved {
             let slug = entry.objectValue?["slug"]?.stringValue
             if let slug, existingSlugs.insert(slug).inserted {
                 merged.append(entry)
@@ -479,9 +526,13 @@ struct CodexModelsCacheService {
 
     private func mergeCatalogIntoModelsCache(thirdParty: [JSONValue]) throws {
         let nativeModels = try readModelsCache()
-        var merged = nativeModels.filter { Self.isNativeCacheEntry($0) }
-        var existingSlugs = Set(merged.compactMap { $0.objectValue?["slug"]?.stringValue })
-        for entry in thirdParty {
+        let nativeKept = nativeModels.filter { Self.isNativeCacheEntry($0) }
+        let nativeSlugs = Set(nativeKept.compactMap { $0.objectValue?["slug"]?.stringValue })
+        let resolved = Self.resolveCollisions(thirdParty, nativeSlugs: nativeSlugs)
+
+        var merged = nativeKept
+        var existingSlugs = nativeSlugs
+        for entry in resolved {
             let slug = entry.objectValue?["slug"]?.stringValue
             if let slug, existingSlugs.insert(slug).inserted {
                 merged.append(entry)
