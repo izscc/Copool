@@ -138,7 +138,10 @@ struct AccountCardExpandedUsageSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: LayoutRules.accountCardContentSpacing) {
-            AccountWindowSection(presentation: presentation.oneWeekWindow, tint: .teal)
+            AccountWindowSection(
+                presentation: presentation.oneWeekWindow,
+                tint: usageProgressColor(presentation.oneWeekWindow.progressPercent / 100)
+            )
 
             HStack(spacing: LayoutRules.accountCardContentSpacing) {
                 Text(L10n.tr("accounts.card.credits_format", presentation.creditsText))
@@ -155,14 +158,15 @@ struct AccountCardCompactUsageSection: View {
     let presentation: AccountCardPresentation
 
     var body: some View {
+        let ringProgress = compactProgress(presentation.compactUsage.oneWeekDisplayPercent)
         AccountCompactUsageRow(
             rings: [
                 AccountCompactRingDescriptor(
                     id: "one-week",
                     valueText: compactPercentText(presentation.compactUsage.oneWeekDisplayPercent),
                     subtitleText: L10n.tr("accounts.window.one_week"),
-                    progress: compactProgress(presentation.compactUsage.oneWeekDisplayPercent),
-                    tint: .teal
+                    progress: ringProgress,
+                    tint: usageProgressColor(ringProgress)
                 ),
             ]
         )

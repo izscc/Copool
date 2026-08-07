@@ -1,5 +1,29 @@
 import SwiftUI
 
+/// 根据用量百分比返回渐进式颜色：0-60% 绿色，60-80% 绿→橙过渡，80-100% 橙→红过渡。
+///
+/// 使用 HSL 色相空间插值，饱和度与亮度保持恒定，仅色相随用量平滑变化，
+/// 使颜色过渡自然且符合"健康→警告→危险"的直觉。
+func usageProgressColor(_ progress: Double) -> Color {
+    let p = max(0, min(1, progress))
+
+    // 色相插值：
+    //   0%   → 绿   (hue 0.36)
+    //  60%   → 绿   (hue 0.33)  几乎不变，保持清晰绿色
+    //  80%   → 橙   (hue 0.08)
+    // 100%   → 红   (hue 0.00)
+    let hue: Double
+    if p <= 0.6 {
+        hue = 0.36 - 0.03 * (p / 0.6)
+    } else if p <= 0.8 {
+        hue = 0.33 - 0.25 * ((p - 0.6) / 0.2)
+    } else {
+        hue = 0.08 - 0.08 * ((p - 0.8) / 0.2)
+    }
+
+    return Color(hue: hue, saturation: 0.75, brightness: 0.82)
+}
+
 struct LiquidProgressBar: View {
     let progress: Double
     let tint: Color
