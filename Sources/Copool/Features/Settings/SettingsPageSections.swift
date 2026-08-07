@@ -290,7 +290,7 @@ private struct SettingsDoctorSection: View {
                     Spacer(minLength: 0)
                     Text(migrationStatusText(entry))
                         .font(.caption2)
-                        .foregroundStyle(entry.rolledBack == true ? .secondary : (entry.verified ? .green : .orange))
+                        .foregroundStyle(entry.rolledBack == true ? Color.secondary : (entry.verified ? Color.green : Color.orange))
                 }
                 Text(L10n.tr(
                     "settings.migration.versions_format",
