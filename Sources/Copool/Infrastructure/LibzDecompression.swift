@@ -8,15 +8,21 @@ import zlib
 /// proxy does too. `inflateInit2` windowBits:
 ///   - 31: gzip only, 47: auto-detect zlib-or-gzip, -15: raw deflate.
 enum LibzDecompression {
-    static func decompressGzipOrZlib(_ data: Data) -> Data? {
-        inflateData(data, windowBits: 47)
+    static func decompressGzipOrZlib(
+        _ data: Data,
+        outputLimit: Int = ProxyRuntimeLimits.maxInboundRequestDecodedBytes
+    ) -> Data? {
+        inflateData(data, windowBits: 47, outputLimit: outputLimit)
     }
 
-    static func decompressRawDeflate(_ data: Data) -> Data? {
-        inflateData(data, windowBits: -15)
+    static func decompressRawDeflate(
+        _ data: Data,
+        outputLimit: Int = ProxyRuntimeLimits.maxInboundRequestDecodedBytes
+    ) -> Data? {
+        inflateData(data, windowBits: -15, outputLimit: outputLimit)
     }
 
-    private static func inflateData(_ data: Data, windowBits: Int32) -> Data? {
+    private static func inflateData(_ data: Data, windowBits: Int32, outputLimit: Int) -> Data? {
         guard !data.isEmpty else { return Data() }
         return data.withUnsafeBytes { inBuffer -> Data? in
             guard let inBase = inBuffer.bindMemory(to: UInt8.self).baseAddress else { return nil }
@@ -44,6 +50,8 @@ enum LibzDecompression {
                 }
                 guard produced >= 0 else { return nil }
                 output.append(chunk.prefix(produced))
+                // SEC-11：gzip 炸弹也是真实攻击手法，输出超限则拒绝。
+                if output.count > outputLimit { return nil }
             } while stream.avail_in > 0 || (result == Z_OK && stream.avail_out == 0)
             return output
         }

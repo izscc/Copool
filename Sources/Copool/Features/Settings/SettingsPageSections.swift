@@ -242,7 +242,85 @@ private struct SettingsDoctorSection: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(model.isRunningDoctor)
+
+                // 导出放在诊断结果之后：用户先看结果，看不懂才需要把它交给别人。
+                // 这个顺序也保证了导出时 `doctorChecks` 已经有内容。
+                HStack(spacing: 8) {
+                    Button(L10n.tr("settings.support_bundle.export")) {
+                        model.exportSupportBundle()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(model.isExportingSupportBundle)
+
+                    #if os(macOS)
+                    // 只有 macOS 有访达。iOS 上支持包同样会写到应用支持目录，
+                    // 但那里没有可以"揭示"给用户的文件浏览器，按钮就不出现。
+                    if let url = model.supportBundleURL {
+                        Button(L10n.tr("settings.support_bundle.reveal")) {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                    }
+                    #endif
+                }
+                Text(L10n.tr("settings.support_bundle.help"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            migrationRow
+        }
+        .onAppear { model.reloadMigrationState() }
+    }
+
+    /// 迁移状态与回滚（AC-004）。
+    ///
+    /// 从没迁移过就整行不出现：v1-only 的用户看到一个"未迁移"的空状态，
+    /// 只会以为自己少做了一步，而实际上什么都不需要做。
+    @ViewBuilder
+    private var migrationRow: some View {
+        if let entry = model.lastMigration {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(L10n.tr("settings.migration.title"))
+                        .font(.caption)
+                    Spacer(minLength: 0)
+                    Text(migrationStatusText(entry))
+                        .font(.caption2)
+                        .foregroundStyle(entry.rolledBack == true ? .secondary : (entry.verified ? .green : .orange))
+                }
+                Text(L10n.tr(
+                    "settings.migration.versions_format",
+                    String(entry.fromVersion),
+                    String(entry.toVersion)
+                ))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+                // 已回滚的记录不再给回滚按钮：再点一次是无操作，但按钮存在本身
+                // 会让用户以为还有什么没做完。
+                if entry.rolledBack != true {
+                    Button(L10n.tr("settings.migration.rollback")) {
+                        model.rollbackMigration()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(model.isRollingBackMigration)
+                    Text(L10n.tr("settings.migration.rollback_help"))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+    }
+
+    private func migrationStatusText(_ entry: MigrationEntry) -> String {
+        if entry.rolledBack == true { return L10n.tr("settings.migration.status.rolled_back") }
+        if entry.verified { return L10n.tr("settings.migration.status.verified") }
+        return L10n.tr("settings.migration.status.unverified")
     }
 }

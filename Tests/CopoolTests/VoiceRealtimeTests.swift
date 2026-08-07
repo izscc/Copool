@@ -69,10 +69,12 @@ final class VoiceRealtimeTests: XCTestCase {
     }
 
     func testCancelledSessionDiscardsTranscripts() {
-        var session = RealtimeSession(id: "s-1", kind: .conversation, startedAt: 0, pluginID: "mock", cancelled: false, transcriptCount: 2)
-        session.cancelled = true
-        // After cancel, transcriptCount is not allowed to grow (the manager
-        // stops appending; represented here by the gate the UI checks).
-        XCTAssertTrue(session.cancelled)
+        let manager = makeManager()
+        let session = manager.createSession(kind: .conversation, pluginID: "mock-realtime")!
+        var active = session
+        active.transcriptCount = 2
+        let cancelled = manager.cancel(active)
+        XCTAssertTrue(cancelled.cancelled)
+        XCTAssertEqual(cancelled.transcriptCount, 0)
     }
 }

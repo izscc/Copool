@@ -1,29 +1,19 @@
 import Foundation
 import Network
+#if canImport(Darwin)
+import Darwin
+#endif
 
-// CopoolRouterHost — standalone routing data-plane process (Phase 6).
-//
-// Design:
-//   - Runs as a per-user background process, fully separate from the SwiftUI
-//     app: a crash here never takes the UI down (AC: "崩溃不拖垮 UI").
-//   - Control surface: a UDS socket the app talks to (start/stop/status),
-//     per PRD architecture: "SwiftUI 通过 UDS/受 capability 保护的 local
-//     control API 管理".
-//   - Data surface: one loopback HTTP listener per target binding, bound to
-//     127.0.0.1 only, never answering browser origins, never emitting CORS
-//     headers (AC-009).
-//   - This is the vNext data-plane skeleton: contract-equivalent to the
-//     in-process engine for /health, /v1/models; richer routes arrive with
-//     the adapter migration. The app keeps its in-process engine until the
-//     feature flag flips (old path remains as rollback).
-
-// MARK: - Shared wire protocol (UDS control)
+// CopoolRouterHost is a per-user control/data-plane process. Secrets are not
+// loaded from provider files; the host owns only opaque capabilities and can
+// optionally forward traffic to an already-running in-process router.
 
 enum HostControlCommand: String {
     case start
     case stop
     case status
     case capabilities
+    case shutdown
 }
 
 struct HostStatus: Codable {
@@ -45,7 +35,17 @@ struct HostCapabilities: Codable {
     var version: String
 }
 
-// MARK: - State
+struct RegistryCatalogEntry: Decodable {
+    var providerInstanceID: String
+    var backendModelID: String
+    var displayName: String?
+    var aliases: [String]?
+    var visibility: String?
+}
+
+struct RegistryDocument: Decodable {
+    var catalog: [RegistryCatalogEntry]
+}
 
 final class HostState: @unchecked Sendable {
     static let shared = HostState()
@@ -58,7 +58,7 @@ final class HostState: @unchecked Sendable {
 
     private let lock = NSLock()
     private var bindings: [String: Binding] = [:]
-    private(set) var startedAt: Date?
+    private var startedAt: Date?
 
     func registerBinding(targetID: String, capability: String) {
         lock.lock()
@@ -66,13 +66,27 @@ final class HostState: @unchecked Sendable {
         bindings[targetID] = Binding(targetID: targetID, port: nil, capability: capability)
     }
 
-    func setPort(targetID: String, port: Int) {
+    func setPort(targetID: String, port: Int?) {
         lock.lock()
         defer { lock.unlock() }
-        if var binding = bindings[targetID] {
-            binding.port = port
-            bindings[targetID] = binding
+        guard var binding = bindings[targetID] else { return }
+        binding.port = port
+        bindings[targetID] = binding
+    }
+
+    func markStarted() {
+        lock.lock()
+        startedAt = Date()
+        lock.unlock()
+    }
+
+    func markStopped() {
+        lock.lock()
+        startedAt = nil
+        for targetID in bindings.keys {
+            bindings[targetID]?.port = nil
         }
+        lock.unlock()
     }
 
     func snapshot() -> HostStatus {
@@ -80,190 +94,333 @@ final class HostState: @unchecked Sendable {
         defer { lock.unlock() }
         return HostStatus(
             running: startedAt != nil,
-            port: bindings.first?.value.port,
+            port: bindings.values.compactMap(\.port).first,
             bindings: Dictionary(uniqueKeysWithValues: bindings.map { key, value in
                 (key, BindingStatus(targetID: value.targetID, port: value.port ?? 0, capability: value.capability))
             }),
             uptimeSeconds: startedAt.map { Int(Date().timeIntervalSince($0)) } ?? 0
         )
     }
-
-    func markStarted() {
-        lock.lock()
-        defer { lock.unlock() }
-        startedAt = Date()
-    }
 }
 
-// MARK: - Loopback HTTP data plane (one listener per binding)
+enum HostResponseBody {
+    case data(Data)
+    case stream(AsyncThrowingStream<Data, Error>)
+}
+
+struct HostResponse {
+    var statusCode: Int
+    var headers: [String: String]
+    var body: HostResponseBody
+}
 
 actor DataPlaneServer {
     let port: Int
     let targetID: String
+    private let callerCapability: String
+    private let registryPath: URL
+    private let upstreamBaseURL: URL?
+    private let upstreamAuthorization: String?
     private var listener: NWListener?
 
-    init(port: Int, targetID: String) {
+    init(
+        port: Int,
+        targetID: String,
+        callerCapability: String,
+        registryPath: URL,
+        upstreamBaseURL: URL? = nil,
+        upstreamAuthorization: String? = nil
+    ) {
         self.port = port
         self.targetID = targetID
+        self.callerCapability = callerCapability
+        self.registryPath = registryPath
+        self.upstreamBaseURL = upstreamBaseURL
+        self.upstreamAuthorization = upstreamAuthorization
     }
 
     func start() async throws {
         let parameters = NWParameters.tcp
-        // Loopback only (AC-009): bind to 127.0.0.1 explicitly.
         parameters.requiredInterfaceType = .loopback
         parameters.allowLocalEndpointReuse = true
-        let listener = try NWListener(using: parameters, on: NWEndpoint.Port(rawValue: UInt16(port))!)
-        listener.newConnectionHandler = { connection in
+        guard let endpointPort = NWEndpoint.Port(rawValue: UInt16(port)) else {
+            throw NSError(domain: "CopoolRouterHost", code: 1)
+        }
+        let listener = try NWListener(using: parameters, on: endpointPort)
+        listener.newConnectionHandler = { [weak self] connection in
             connection.start(queue: .global())
-            self.handle(connection: connection)
+            Task { [weak self] in
+                await self?.handle(connection: connection)
+            }
         }
         self.listener = listener
         listener.start(queue: .global())
     }
 
-    nonisolated private func handle(connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, isComplete, error in
-            if let data, !data.isEmpty {
-                let response = Self.route(requestData: data, targetID: self.targetID)
-                connection.send(content: response, completion: .contentProcessed { _ in
+    func stop() {
+        listener?.cancel()
+        listener = nil
+    }
+
+    private func handle(connection: NWConnection) async {
+        await withCheckedContinuation { continuation in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 1_048_576) { [weak self] data, _, _, error in
+                guard let self, let data, !data.isEmpty, error == nil else {
                     connection.cancel()
-                })
-            } else if isComplete || error != nil {
-                connection.cancel()
+                    continuation.resume()
+                    return
+                }
+                Task {
+                    let response = await self.route(requestData: data)
+                    await self.send(response: response, on: connection)
+                    connection.cancel()
+                    continuation.resume()
+                }
             }
         }
     }
 
-    /// Minimal contract-equivalent routing (Phase 6 skeleton):
-    ///   GET /health → 200 {"ok": true}
-    ///   GET /v1/models → 200 {"data": []} (registry wiring lands later)
-    /// Browser origins and everything else → 403/404. Never CORS headers.
-    private static func route(requestData: Data, targetID: String) -> Data {
-        let text = String(data: requestData, encoding: .utf8) ?? ""
-        let lines = text.split(separator: "\r\n")
-        guard let requestLine = lines.first else {
-            return httpResponse(status: 400, body: #"{"error":"bad request"}"#)
-        }
-        let parts = requestLine.split(separator: " ")
-        guard parts.count >= 2 else {
-            return httpResponse(status: 400, body: #"{"error":"bad request"}"#)
-        }
-        let method = String(parts[0])
-        let path = String(parts[1])
+    private func send(response: HostResponse, on connection: NWConnection) async {
+        do {
+            switch response.body {
+            case .data(let body):
+                try await send(Self.httpResponse(status: response.statusCode, headers: response.headers, body: body), on: connection)
+            case .stream(let stream):
+                let header = Self.httpHeader(status: response.statusCode, headers: response.headers.merging(["Transfer-Encoding": "chunked"]) { current, _ in current })
+                try await send(header, on: connection)
+                for try await chunk in stream where !chunk.isEmpty {
+                    try await send(Self.chunk(chunk), on: connection)
+                }
+                try await send(Data("0\r\n\r\n".utf8), on: connection)
+            }
+        } catch { }
+    }
 
-        // Browser origin rejection (AC-009).
-        if text.lowercased().contains("origin: http") || text.lowercased().contains("origin: https") {
-            return httpResponse(status: 403, body: #"{"error":"Browser origin rejected"}"#)
-        }
-
-        switch (method, path) {
-        case ("GET", "/health"):
-            return httpResponse(status: 200, body: #"{"ok":true,"target":"\#(targetID)"}"#)
-        case ("GET", "/v1/models"):
-            return httpResponse(status: 200, body: #"{"object":"list","data":[]}"#)
-        default:
-            return httpResponse(status: 404, body: #"{"error":"not found"}"#)
+    private func send(_ data: Data, on connection: NWConnection) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            connection.send(content: data, completion: .contentProcessed { error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume() }
+            })
         }
     }
 
-    private static func httpResponse(status: Int, body: String) -> Data {
-        let statusText: String
-        switch status {
-        case 200: statusText = "OK"
-        case 403: statusText = "Forbidden"
-        case 404: statusText = "Not Found"
-        default: statusText = "Error"
+    private func route(requestData: Data) async -> HostResponse {
+        guard let request = HTTPRequest.parse(requestData) else {
+            return Self.response(status: 400, body: Data(#"{"error":"bad request"}"#.utf8))
         }
-        return Data("""
-        HTTP/1.1 \(status) \(statusText)\r
-        Content-Type: application/json\r
-        Connection: close\r
-        Content-Length: \(body.utf8.count)\r
-        \r
-        \(body)
-        """.utf8)
+        if request.headers.keys.contains(where: { $0.lowercased() == "origin" }) {
+            return Self.response(status: 403, body: Data(#"{"error":"Browser origin rejected"}"#.utf8))
+        }
+        if request.path != "/health" {
+            guard request.headers["x-copool-caller-capability"] == callerCapability else {
+                return Self.response(status: 401, body: Data(#"{"error":"caller capability required"}"#.utf8))
+            }
+        }
+
+        switch (request.method, request.path) {
+        case ("GET", "/health"):
+            return Self.response(status: 200, body: Data(#"{"ok":true,"target":"\#(targetID)"}"#.utf8))
+        case ("GET", "/v1/models"):
+            return Self.response(status: 200, body: modelsBody())
+        case ("POST", "/v1/responses"), ("POST", "/v1/chat/completions"):
+            guard let upstreamBaseURL else {
+                return Self.response(status: 503, body: Data(#"{"error":"router data plane is not connected"}"#.utf8))
+            }
+            return await forward(request: request, upstreamBaseURL: upstreamBaseURL)
+        default:
+            return Self.response(status: 404, body: Data(#"{"error":"not found"}"#.utf8))
+        }
+    }
+
+    private func modelsBody() -> Data {
+        guard let data = try? Data(contentsOf: registryPath),
+              let document = try? JSONDecoder().decode(RegistryDocument.self, from: data) else {
+            return Data(#"{"object":"list","data":[]}"#.utf8)
+        }
+        let models = document.catalog
+            .filter { ($0.visibility ?? "visible") != "hidden" }
+            .map { entry in
+                [
+                    "id": entry.backendModelID,
+                    "object": "model",
+                    "owned_by": entry.providerInstanceID,
+                    "display_name": entry.displayName ?? entry.backendModelID,
+                    "aliases": entry.aliases ?? []
+                ] as [String: Any]
+            }
+        return (try? JSONSerialization.data(withJSONObject: ["object": "list", "data": models]))
+            ?? Data(#"{"object":"list","data":[]}"#.utf8)
+    }
+
+    private func forward(request: HTTPRequest, upstreamBaseURL: URL) async -> HostResponse {
+        let requestPath = request.path.hasPrefix("/v1/")
+            ? String(request.path.dropFirst(3))
+            : request.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let url = upstreamBaseURL.appendingPathComponent(requestPath)
+        var upstream = URLRequest(url: url)
+        upstream.httpMethod = request.method
+        upstream.httpBody = request.body
+        for (name, value) in request.headers where !["host", "origin", "x-copool-caller-capability"].contains(name.lowercased()) {
+            upstream.setValue(value, forHTTPHeaderField: name)
+        }
+        if let upstreamAuthorization {
+            upstream.setValue(upstreamAuthorization, forHTTPHeaderField: "Authorization")
+        }
+        do {
+            let (bytes, response) = try await URLSession.shared.bytes(for: upstream)
+            let http = response as? HTTPURLResponse
+            let status = http?.statusCode ?? 502
+            let headers = (http?.allHeaderFields ?? [:]).reduce(into: [String: String]()) { result, pair in
+                result[String(describing: pair.key)] = String(describing: pair.value)
+            }
+            let stream = AsyncThrowingStream<Data, Error> { continuation in
+                Task {
+                    do {
+                        var line = Data()
+                        for try await byte in bytes {
+                            line.append(byte)
+                            if byte == 0x0A {
+                                continuation.yield(line)
+                                line.removeAll(keepingCapacity: true)
+                            }
+                        }
+                        if !line.isEmpty { continuation.yield(line) }
+                        continuation.finish()
+                    } catch { continuation.finish(throwing: error) }
+                }
+            }
+            return HostResponse(statusCode: status, headers: headers, body: .stream(stream))
+        } catch {
+            return Self.response(status: 502, body: Data(#"{"error":"upstream unavailable"}"#.utf8))
+        }
+    }
+
+    private static func response(status: Int, body: Data, headers: [String: String] = ["Content-Type": "application/json"]) -> HostResponse {
+        HostResponse(statusCode: status, headers: headers, body: .data(body))
+    }
+
+    private static func httpHeader(status: Int, headers: [String: String]) -> Data {
+        let reason = status == 200 ? "OK" : (status == 401 ? "Unauthorized" : "Error")
+        let fields = headers.map { "\($0.key): \($0.value)" }.joined(separator: "\r\n")
+        return Data("HTTP/1.1 \(status) \(reason)\r\n\(fields)\r\nConnection: close\r\n\r\n".utf8)
+    }
+
+    private static func httpResponse(status: Int, headers: [String: String], body: Data) -> Data {
+        var all = headers
+        all["Content-Length"] = String(body.count)
+        return httpHeader(status: status, headers: all) + body
+    }
+
+    private static func chunk(_ body: Data) -> Data {
+        Data(String(body.count, radix: 16).utf8) + Data("\r\n".utf8) + body + Data("\r\n".utf8)
     }
 }
 
-// MARK: - UDS control server (POSIX unix socket — the app's control surface)
+struct HTTPRequest: Sendable {
+    let method: String
+    let path: String
+    let headers: [String: String]
+    let body: Data
+
+    static func parse(_ data: Data) -> HTTPRequest? {
+        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        let separator = "\r\n\r\n"
+        let pieces = text.split(separator: separator, maxSplits: 1, omittingEmptySubsequences: false)
+        guard let head = pieces.first else { return nil }
+        let lines = head.split(separator: "\r\n")
+        guard let first = lines.first else { return nil }
+        let parts = first.split(separator: " ")
+        guard parts.count >= 2 else { return nil }
+        var headers: [String: String] = [:]
+        for line in lines.dropFirst() {
+            let pair = line.split(separator: ":", maxSplits: 1)
+            guard pair.count == 2 else { continue }
+            headers[String(pair[0]).lowercased()] = String(pair[1]).trimmingCharacters(in: .whitespaces)
+        }
+        let body = pieces.count == 2 ? Data(pieces[1].utf8) : Data()
+        return HTTPRequest(method: String(parts[0]), path: String(parts[1]), headers: headers, body: body)
+    }
+}
 
 final class ControlServer: @unchecked Sendable {
     let socketPath: String
+    private let capability: String
+    private let onCommand: @Sendable (HostControlCommand) -> Data
+    private let onShutdown: @Sendable () -> Void
     private let queue = DispatchQueue(label: "host.control")
+    private var serverFD: Int32 = -1
 
-    init(socketPath: String) {
+    init(socketPath: String, capability: String, onCommand: @escaping @Sendable (HostControlCommand) -> Data, onShutdown: @escaping @Sendable () -> Void) {
         self.socketPath = socketPath
+        self.capability = capability
+        self.onCommand = onCommand
+        self.onShutdown = onShutdown
     }
 
     func start() {
         try? FileManager.default.removeItem(atPath: socketPath)
-        queue.async {
-            self.runLoop()
-        }
+        queue.async { self.runLoop() }
     }
 
     private func runLoop() {
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
         guard fd >= 0 else { return }
-
+        serverFD = fd
         var addr = sockaddr_un()
         addr.sun_family = sa_family_t(AF_UNIX)
         withUnsafeMutablePointer(to: &addr.sun_path) { pathPtr in
             let raw = UnsafeMutableRawPointer(pathPtr)
-            socketPath.withCString { bytes in
-                _ = memcpy(raw, bytes, min(socketPath.utf8.count, 104))
-            }
+            socketPath.withCString { bytes in _ = memcpy(raw, bytes, min(socketPath.utf8.count, 104)) }
         }
         let size = socklen_t(MemoryLayout<sockaddr_un>.size)
-        guard bind(fd, withUnsafePointer(to: &addr) { UnsafeRawPointer($0).assumingMemoryBound(to: sockaddr.self) }, size) == 0 else {
+        guard bind(fd, withUnsafePointer(to: &addr) { UnsafeRawPointer($0).assumingMemoryBound(to: sockaddr.self) }, size) == 0,
+              listen(fd, 8) == 0 else {
             close(fd)
             return
         }
-        guard listen(fd, 8) == 0 else {
-            close(fd)
-            return
-        }
-
+        _ = chmod(socketPath, S_IRUSR | S_IWUSR)
         while true {
             let client = accept(fd, nil, nil)
             guard client >= 0 else { break }
-            DispatchQueue.global().async {
-                Self.handleClient(client)
-            }
+            DispatchQueue.global().async { [self] in handleClient(client) }
         }
         close(fd)
+        serverFD = -1
+        try? FileManager.default.removeItem(atPath: socketPath)
     }
 
-    private static func handleClient(_ client: Int32) {
+    func stop() {
+        let fd = serverFD
+        if fd >= 0 { close(fd) }
+        serverFD = -1
+        try? FileManager.default.removeItem(atPath: socketPath)
+    }
+
+    private func handleClient(_ client: Int32) {
         defer { close(client) }
         var buffer = [UInt8](repeating: 0, count: 4096)
-        let n = read(client, &buffer, buffer.count)
-        guard n > 0 else { return }
-        let command = String(decoding: buffer[0..<n], as: UTF8.self)
+        let count = read(client, &buffer, buffer.count)
+        guard count > 0 else { return }
+        let request = String(decoding: buffer[0..<count], as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let response: Data
-        switch HostControlCommand(rawValue: command) {
-        case .start:
-            Task { @MainActor in HostApplication.shared.startDataPlane() }
-            response = Data(#"{"ok":true,"action":"start"}"#.utf8)
-        case .stop:
-            Task { @MainActor in HostApplication.shared.stopDataPlane() }
-            response = Data(#"{"ok":true,"action":"stop"}"#.utf8)
-        case .status:
-            response = (try! JSONEncoder().encode(HostState.shared.snapshot()))
-        case .capabilities:
-            let caps = HostCapabilities(transports: ["http"], supportedPaths: ["/health", "/v1/models"], version: "0.1.0")
-            response = (try! JSONEncoder().encode(caps))
-        case nil:
-            response = Data(#"{"error":"unknown command"}"#.utf8)
+        let parts = request.split(separator: "\n", maxSplits: 1).map(String.init)
+        guard parts.count == 2,
+              parts[0] == capability,
+              let command = HostControlCommand(rawValue: parts[1]) else {
+            writeResponse(Data(#"{"error":"unauthorized"}"#.utf8), to: client)
+            return
         }
-        response.withUnsafeBytes { raw in
-            _ = write(client, raw.baseAddress, response.count)
+        writeResponse(onCommand(command), to: client)
+        if command == .shutdown {
+            onShutdown()
         }
     }
-}
 
-// MARK: - Application
+    private func writeResponse(_ data: Data, to client: Int32) {
+        data.withUnsafeBytes { raw in _ = write(client, raw.baseAddress, data.count) }
+    }
+}
 
 @MainActor
 final class HostApplication {
@@ -271,73 +428,121 @@ final class HostApplication {
 
     private var controlServer: ControlServer?
     private var dataServers: [String: DataPlaneServer] = [:]
-    private var socketsPath: String {
-        let base = FileManager.default.homeDirectoryForCurrentUser
+    private let targetID = "codex"
+    private var internalCapability = UUID().uuidString
+    private var callerCapability = UUID().uuidString
+    private var hostRoot: URL {
+        FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/CodexToolsSwift/host", isDirectory: true)
-        try? FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-        return base.appendingPathComponent("control.sock").path
+    }
+    private var socketPath: String { hostRoot.appendingPathComponent("control.sock").path }
+    var socketPathForShutdown: String { socketPath }
+    private var registryPath: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/CodexToolsSwift/provider-registry-v2.json")
     }
 
     func run() async {
-        HostState.shared.registerBinding(targetID: "codex", capability: "cap-codex-internal")
-        let control = ControlServer(socketPath: socketsPath)
+        try? FileManager.default.createDirectory(at: hostRoot, withIntermediateDirectories: true)
+        writeCapability(internalCapability, to: hostRoot.appendingPathComponent("internal-capability"))
+        writeCapability(callerCapability, to: hostRoot.appendingPathComponent("targets/codex/caller-capability"))
+        HostState.shared.registerBinding(targetID: targetID, capability: callerCapability)
+        let control = ControlServer(socketPath: socketPath, capability: internalCapability, onCommand: { command in
+            switch command {
+            case .start:
+                Task { @MainActor in await HostApplication.shared.startDataPlane() }
+                return Data(#"{"ok":true,"action":"start"}"#.utf8)
+            case .stop:
+                Task { @MainActor in await HostApplication.shared.stopDataPlane() }
+                return Data(#"{"ok":true,"action":"stop"}"#.utf8)
+            case .status:
+                return (try? JSONEncoder().encode(HostState.shared.snapshot())) ?? Data(#"{"running":false}"#.utf8)
+            case .capabilities:
+                let caps = HostCapabilities(
+                    transports: ["http-loopback", "uds-control"],
+                    supportedPaths: ["/health", "/v1/models", "/v1/responses", "/v1/chat/completions"],
+                    version: "0.2.0"
+                )
+                return (try? JSONEncoder().encode(caps)) ?? Data(#"{}"#.utf8)
+            case .shutdown:
+                return Data(#"{"ok":true,"action":"shutdown"}"#.utf8)
+            }
+        }, onShutdown: {
+            Task { @MainActor in await HostApplication.shared.shutdown() }
+        })
         controlServer = control
-        try? await control.start()
-        // Keep the process alive.
-        while true {
+        control.start()
+        await startDataPlane()
+        while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 3_600_000_000_000)
         }
     }
 
-    func startDataPlane() {
-        // Target-specific port with automatic fallback: 18787 is the Codex
-        // binding's default, but another local service may hold it — scan
-        // forward for a free port instead of failing (AC: 升级/停止/恢复明确).
-        let basePort = 18787
-        let chosen = Self.firstFreePort(startingAt: basePort, attempts: 8)
-        guard let chosen else { return }
-        let server = DataPlaneServer(port: chosen, targetID: "codex")
-        dataServers["codex"] = server
-        Task {
-            try? await server.start()
-            HostState.shared.setPort(targetID: "codex", port: chosen)
+    func startDataPlane() async {
+        guard dataServers[targetID] == nil else { return }
+        guard let port = Self.firstFreePort(startingAt: 18787, attempts: 8) else { return }
+        let upstream = ProcessInfo.processInfo.environment["COPOOL_INPROCESS_UPSTREAM"].flatMap(URL.init(string:))
+        let authorization = ProcessInfo.processInfo.environment["COPOOL_INPROCESS_AUTH"]
+        let server = DataPlaneServer(
+            port: port,
+            targetID: targetID,
+            callerCapability: callerCapability,
+            registryPath: registryPath,
+            upstreamBaseURL: upstream,
+            upstreamAuthorization: authorization.map { $0.hasPrefix("Bearer ") ? $0 : "Bearer \($0)" }
+        )
+        dataServers[targetID] = server
+        do {
+            try await server.start()
+            HostState.shared.setPort(targetID: targetID, port: port)
+            HostState.shared.markStarted()
+        } catch {
+            dataServers.removeValue(forKey: targetID)
         }
-        HostState.shared.markStarted()
+    }
+
+    func stopDataPlane() async {
+        for server in dataServers.values { await server.stop() }
+        dataServers.removeAll()
+        HostState.shared.markStopped()
+    }
+
+    func shutdown() async {
+        await stopDataPlane()
+        controlServer?.stop()
+        controlServer = nil
+        try? FileManager.default.removeItem(atPath: socketPath)
+        exit(0)
+    }
+
+    private func writeCapability(_ capability: String, to url: URL) {
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? capability.write(to: url, atomically: true, encoding: .utf8)
+        _ = chmod(url.path, S_IRUSR | S_IWUSR)
     }
 
     static func firstFreePort(startingAt base: Int, attempts: Int) -> Int? {
         for offset in 0..<attempts {
             let port = base + offset
             let probe = socket(AF_INET, SOCK_STREAM, 0)
-            if probe >= 0 {
-                var addr = sockaddr_in()
-                addr.sin_family = sa_family_t(AF_INET)
-                addr.sin_port = UInt16(port).bigEndian
-                addr.sin_addr.s_addr = inet_addr("127.0.0.1")
-                let ok = withUnsafePointer(to: &addr) { ptr in
-                    ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                        bind(probe, sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0
-                    }
-                }
-                close(probe)
-                if ok { return port }
+            guard probe >= 0 else { continue }
+            var address = sockaddr_in()
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_port = UInt16(port).bigEndian
+            address.sin_addr.s_addr = inet_addr("127.0.0.1")
+            let available = withUnsafePointer(to: &address) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(probe, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) == 0 }
             }
+            close(probe)
+            if available { return port }
         }
         return nil
     }
-
-    func stopDataPlane() {
-        dataServers.removeAll()
-    }
 }
-
-// MARK: - Entry point
 
 @main
 struct CopoolRouterHostMain {
     static func main() async {
-        // Ignore SIGPIPE so a client disconnecting mid-response cannot kill
-        // the host (the UI relies on the host staying up).
         signal(SIGPIPE, SIG_IGN)
         await HostApplication.shared.run()
     }

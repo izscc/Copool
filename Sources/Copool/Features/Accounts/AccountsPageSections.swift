@@ -175,8 +175,8 @@ private struct PendingWorkspaceAuthorizationSection: View {
     let onDeletePendingWorkspace: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: LayoutRules.accountCardSectionSpacing) {
+            VStack(alignment: .leading, spacing: LayoutRules.accountCardTightSpacing) {
                 Text(L10n.tr("accounts.pending.title"))
                     .font(.headline)
                 if let errorMessage {
@@ -238,10 +238,10 @@ private struct PendingWorkspaceAuthorizationCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 8) {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: LayoutRules.listRowSpacing) {
+            HStack(alignment: .top, spacing: LayoutRules.accountCardContentSpacing) {
+                VStack(alignment: .leading, spacing: LayoutRules.accountCardItemSpacing) {
+                    HStack(spacing: LayoutRules.accountCardItemSpacing) {
                         AccountTagView(
                             text: planLabel,
                             backgroundColor: Color.indigo.opacity(0.18),
@@ -276,7 +276,7 @@ private struct PendingWorkspaceAuthorizationCard: View {
                 .foregroundStyle(isDeactivated ? .red : .secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .center, spacing: LayoutRules.listRowSpacing) {
                 if !isDeactivated {
                     Button(action: card.authorizing ? onCancelAuthorize : onAuthorize) {
                         Label(
@@ -299,14 +299,14 @@ private struct PendingWorkspaceAuthorizationCard: View {
                     .accessibilityLabel(L10n.tr("accounts.pending.action.delete"))
             }
         }
-        .padding(12)
+        .padding(LayoutRules.accountCardPadding)
         .frostedRoundedSurface(
-            cornerRadius: 12,
+            cornerRadius: LayoutRules.accountCardRadius,
             prominent: true,
             tint: isDeactivated ? .red.opacity(0.18) : .indigo.opacity(0.2)
         )
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: LayoutRules.accountCardRadius, style: .continuous)
                 .strokeBorder(isDeactivated ? Color.red.opacity(0.18) : Color.indigo.opacity(0.2), lineWidth: 1)
         }
     }
@@ -316,8 +316,8 @@ private struct PendingWorkspaceAuthorizationFailureCard: View {
     let message: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: LayoutRules.listRowSpacing) {
+            HStack(spacing: LayoutRules.accountCardItemSpacing) {
                 AccountTagView(
                     text: L10n.tr("accounts.pending.error.tag"),
                     backgroundColor: Color.red.opacity(0.18),
@@ -340,10 +340,10 @@ private struct PendingWorkspaceAuthorizationFailureCard: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
-        .frostedRoundedSurface(cornerRadius: 12, prominent: true, tint: .red.opacity(0.18))
+        .padding(LayoutRules.accountCardPadding)
+        .frostedRoundedSurface(cornerRadius: LayoutRules.accountCardRadius, prominent: true, tint: .red.opacity(0.18))
         .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: LayoutRules.accountCardRadius, style: .continuous)
                 .strokeBorder(Color.red.opacity(0.18), lineWidth: 1)
         }
     }
@@ -363,7 +363,7 @@ struct ThirdPartyUsageStatisticsSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: LayoutRules.accountCardSectionSpacing) {
             header
                 .padding(.horizontal, LayoutRules.pagePadding)
 
@@ -373,7 +373,7 @@ struct ThirdPartyUsageStatisticsSection: View {
             }
 
             if isExpanded || !hasTokenData {
-                VStack(spacing: 8) {
+                VStack(spacing: LayoutRules.accountCardContentSpacing) {
                     ForEach(rows) { row in
                         ThirdPartyUsageRowView(row: row)
                     }
@@ -386,8 +386,8 @@ struct ThirdPartyUsageStatisticsSection: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .firstTextBaseline, spacing: LayoutRules.listRowSpacing) {
+            VStack(alignment: .leading, spacing: LayoutRules.accountCardTightSpacing) {
                 Text(L10n.tr("accounts.stats.third_party.title"))
                     .font(.headline)
                 Text(L10n.tr("accounts.stats.third_party.subtitle"))
@@ -430,7 +430,7 @@ private struct ThirdPartyUsageShareChart: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 18) {
+        HStack(alignment: .center, spacing: LayoutRules.accountCardHeroSpacing) {
             ZStack {
                 ForEach(Array(segments.enumerated()), id: \.element.id) { _, segment in
                     Circle()
@@ -445,11 +445,11 @@ private struct ThirdPartyUsageShareChart: View {
             .frame(width: 116, height: 116)
             // The stroke straddles the circle path, so half its width sits
             // outside the frame.
-            .padding(11)
+            .padding(LayoutRules.accountCardTightPadding)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: LayoutRules.accountCardItemSpacing) {
                 ForEach(rows) { row in
-                    HStack(spacing: 8) {
+                    HStack(spacing: LayoutRules.accountCardContentSpacing) {
                         Circle()
                             .fill(Self.color(at: row.colorIndex))
                             .frame(width: 8, height: 8)
@@ -457,7 +457,7 @@ private struct ThirdPartyUsageShareChart: View {
                             .font(.caption)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: LayoutRules.accountCardContentSpacing)
                         Text(row.sharePercentText)
                             .font(.caption.weight(.semibold))
                             .monospacedDigit()
@@ -467,8 +467,8 @@ private struct ThirdPartyUsageShareChart: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(14)
-        .frostedRoundedSurface(cornerRadius: 12, prominent: false)
+        .padding(LayoutRules.accountCardComfyPadding)
+        .frostedRoundedSurface(cornerRadius: LayoutRules.accountCardRadius, prominent: false)
     }
 
     private struct Segment: Identifiable {
@@ -500,12 +500,12 @@ private struct ThirdPartyUsageRowView: View {
     let row: ThirdPartyUsageRowPresentation
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: LayoutRules.listRowSpacing) {
             Circle()
                 .fill(ThirdPartyUsageShareChart.color(at: row.colorIndex))
                 .frame(width: 8, height: 8)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: LayoutRules.accountCardMicroSpacing) {
                 Text(row.title)
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
@@ -526,8 +526,8 @@ private struct ThirdPartyUsageRowView: View {
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frostedRoundedSurface(cornerRadius: 10, prominent: false)
+        .padding(.horizontal, LayoutRules.accountCardHorizontalPadding)
+        .padding(.vertical, LayoutRules.accountCardVerticalPadding)
+        .frostedRoundedSurface(cornerRadius: LayoutRules.accountCardCompactRadius, prominent: false)
     }
 }

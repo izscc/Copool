@@ -41,6 +41,9 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
 
     private let models = SwiftNativeProxyRuntimeService.clientVisibleModels
     let v2RouteResolver: V2RouteResolver?
+    /// 把真实请求结果写回凭据健康状态（FR-IDT-07）。nil 表示没有 v2 注册表，
+    /// 此时凭据状态无处可写——v1-only 的用户不受影响。
+    let credentialHealthWriter: CredentialHealthWriter?
 
     init(
         paths: FileSystemPaths,
@@ -53,6 +56,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         rateLimitRepository: ProviderRateLimitFileRepository? = nil,
         usageLedger: UsageEventLedger? = nil,
         v2RouteResolver: V2RouteResolver? = nil,
+        credentialHealthWriter: CredentialHealthWriter? = nil,
         onAccountsStoreChanged: (@Sendable () -> Void)? = nil,
         switchAccount: (@Sendable (String) async throws -> Void)? = nil,
         dateProvider: DateProviding = SystemDateProvider()
@@ -67,9 +71,41 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         self.rateLimitRepository = rateLimitRepository
         self.usageLedger = usageLedger
         self.v2RouteResolver = v2RouteResolver
+        self.credentialHealthWriter = credentialHealthWriter
         self.onAccountsStoreChanged = onAccountsStoreChanged
         self.switchAccount = switchAccount
         self.dateProvider = dateProvider
+    }
+
+    /// 分流三态（A2）。托管块是唯一事实来源——内存里的 `server` 在进程被强杀
+    /// 后一起消失，只看它会把"托管块还指着死端口"误报成干净的已停止。
+    func providerSplitState() -> ProviderSplitState {
+        let installedPort = CodexModelsCacheService(paths: paths).installedRoutingPort()
+        switch (server != nil, installedPort) {
+        case (true, let installed?):
+            // 端口不符也算不一致：代理换端口重启后，托管块指向的旧端口没人听。
+            return installed == runningPort ? .active : .inconsistent
+        case (true, nil):
+            // 代理在跑但托管块不在，第三方模型同样走不通，仍需重新写入。
+            return .inconsistent
+        case (false, .some):
+            return .inconsistent
+        case (false, nil):
+            return .degraded
+        }
+    }
+
+    /// 把不一致态收敛掉：托管块指向没人监听的端口时剥离它（A2 自愈）。
+    ///
+    /// 返回是否真的做了剥离，让调用方决定要不要提示用户——静默恢复不需要打扰，
+    /// 但从"能用"变成"不能用"必须说明（A3）。
+    @discardableResult
+    func reconcileProviderSplit() -> Bool {
+        guard server == nil, CodexModelsCacheService(paths: paths).installedRoutingPort() != nil else {
+            return false
+        }
+        try? CodexModelsCacheService(paths: paths).removeProxyRouting()
+        return true
     }
 
     func status() async -> ApiProxyStatus {
@@ -109,7 +145,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         RouterEngineCapabilities(
             transports: ["http"],
             supportedPaths: ["/health", "/v1/models", "/v1/responses", "/v1/chat/completions", "/v1/images/generations", "/v1/images/edits"],
-            maxInboundRequestBytes: ProxyRuntimeLimits.maxInboundRequestBytes
+            maxInboundRequestBytes: ProxyRuntimeLimits.maxInboundRequestDecodedBytes
         )
     }
 
@@ -340,11 +376,20 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
     /// on the hot path; gzip/deflate/brotli are decoded for generic
     /// OpenAI-compatible clients. Returns nil for unknown encodings or
     /// malformed frames, which the caller maps to 415.
+    ///
+    /// SEC-11：解码后超出 maxInboundRequestDecodedBytes 的炸弹攻击由各解压器
+    /// 内部检测并返回 nil；这里只需要在调用前检查编码前大小。
     private func decompressRequestBody(_ request: HTTPRequest) -> Data? {
         let encoding = (request.headers["content-encoding"] ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         guard !encoding.isEmpty, encoding != "identity" else { return request.body }
+
+        // 第一道限制：编码前（压缩状态）大小。
+        if request.body.count > ProxyRuntimeLimits.maxInboundRequestEncodedBytes {
+            return nil
+        }
+
         switch encoding {
         case "zstd":
             return ZstdDecompression.decompress(request.body)
@@ -374,7 +419,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         let compaction = Self.isCompactionRequest(path: path, object: object)
         if compaction.v1 || compaction.v2 {
             let requestedModel = (object["model"] as? String) ?? ""
-            if let route = try? resolveThirdPartyRoute(for: requestedModel) {
+            let routeContext = routeRequestContext(from: object)
+            if let route = try? resolveThirdPartyRoute(for: requestedModel, context: routeContext) {
                 return await handleCompactionRequest(
                     route: route,
                     object: object,
@@ -397,7 +443,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         }
 
         let requestedModel = (object["model"] as? String) ?? "gpt-5"
-        if let route = try? resolveThirdPartyRoute(for: requestedModel) {
+        let routeContext = routeRequestContext(from: object)
+        if let route = try? resolveThirdPartyRoute(for: requestedModel, context: routeContext) {
             return await handleThirdPartyRequest(
                 route: route,
                 body: body,
@@ -454,7 +501,8 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         }
 
         let requestedModel = (object["model"] as? String) ?? "gpt-5"
-        if let route = try? resolveThirdPartyRoute(for: requestedModel) {
+        let routeContext = routeRequestContext(from: object)
+        if let route = try? resolveThirdPartyRoute(for: requestedModel, context: routeContext) {
             return await handleThirdPartyRequest(
                 route: route,
                 body: body,
@@ -540,6 +588,9 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
             )
         }
 
+        // FR-RTE-05：耗时从"准备发出"开始计，不含路由解析——用户在路由 tab 里
+        // 看这一列是为了判断上游快不慢，把本地打分的耗时混进去会污染这个判断。
+        let startedAt = ContinuousClock.now
         do {
             let payload = try thirdPartyUpstreamPayload(
                 route: route,
@@ -547,45 +598,81 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                 asResponses: asResponses
             )
 
-            let response = try await sendThirdPartyRequest(
+            let firstResponse = try await sendThirdPartyRequestWithRetry(
                 route: route,
                 payload: payload,
-                downstreamHeaders: downstreamHeaders
+                downstreamHeaders: downstreamHeaders,
+                object: object
             )
 
-            // Retry once with a refreshed token on auth failures for
-            // subscription-imported providers (401/403).
-            if response.statusCode == 401 || response.statusCode == 403 {
-                if let refreshed = await refreshProviderTokenIfNeeded(route: route) {
-                    let retried = try await sendThirdPartyRequest(
-                        route: route,
-                        payload: payload,
-                        downstreamHeaders: downstreamHeaders,
-                        apiKeyOverride: refreshed
-                    )
-                    if retried.statusCode >= 200 && retried.statusCode < 300 {
-                        return self.thirdPartySuccessResponse(
-                            route: route,
-                            response: retried
-                        )
-                    }
-                    return self.thirdPartyErrorResponse(route: route, response: retried)
+            // FR-RTE-04：同凭据的机会用尽后才谈转移。是否值得转移由失败分类
+            // 决定（请求体错误、凭据失效不转移），`sendWithFailover` 内部判断；
+            // 成功时它原样返回，不产生任何额外调用。
+            var failoverAttempts: [String] = []
+            var failoverFailures: [String] = []
+            // 实际把这次请求发出去的那条路由。转移成功时它不是 `route`，
+            // 用量与限流必须记在真正被调用的那一家头上——记错了，用户看到的
+            // 是一份和账单对不上的用量表。
+            var servingRoute = route
+            let response: UpstreamResponse
+            if firstResponse.statusCode >= 200 && firstResponse.statusCode < 300 {
+                response = firstResponse
+            } else {
+                let failover = await sendWithFailover(
+                    route: route,
+                    payload: payload,
+                    downstreamHeaders: downstreamHeaders,
+                    object: object,
+                    primaryResponse: firstResponse,
+                    primaryError: nil
+                )
+                failoverAttempts = failover.attempts
+                failoverFailures = failover.failures
+                if let servedBy = failover.servedBy { servingRoute = servedBy }
+                if let failoverResponse = failover.response {
+                    response = failoverResponse
+                } else if let failoverError = failover.error {
+                    throw failoverError
+                } else {
+                    response = firstResponse
                 }
             }
 
             if response.statusCode >= 200 && response.statusCode < 300 {
-                recordThirdPartyUsage(route: route, responseBody: response.body, statusCode: response.statusCode)
-                captureRateLimits(from: response.headers, route: route)
+                recordThirdPartyUsage(route: servingRoute, responseBody: response.body, statusCode: response.statusCode)
+                captureRateLimits(from: response.headers, route: servingRoute)
                 recordUsageEvent(
-                    route: route,
+                    route: servingRoute,
                     status: response.statusCode,
                     durationMs: 0,
                     tokens: Self.tokenUsage(fromResponseBody: response.body)
+                )
+                completeRouteTrace(
+                    route: route,
+                    startedAt: startedAt,
+                    outcome: .succeeded,
+                    httpStatus: response.statusCode,
+                    fallbackAttempts: failoverAttempts,
+                    // 转移成功时失败链仍要留着：这条请求确实先失败过，那是用户
+                    // 排查"为什么这次特别慢"时唯一的线索。
+                    failureChain: failoverFailures
                 )
             } else {
                 let bodyText = String(data: response.body, encoding: .utf8) ?? ""
                 let message = "\(route.provider.name): \(response.statusCode) \(truncateForError(bodyText, maxLength: 120))"
                 lastError = message
+                // 落 trace 的失败原因必须脱敏（INV-1）：上游错误体里经常带 key
+                // 片段和账号邮箱，而 route-decisions.jsonl 会进支持包。
+                completeRouteTrace(
+                    route: route,
+                    startedAt: startedAt,
+                    outcome: .failed,
+                    httpStatus: response.statusCode,
+                    fallbackAttempts: failoverAttempts,
+                    failureChain: failoverFailures.isEmpty
+                        ? [SecretRedactor.redactText(message)]
+                        : failoverFailures
+                )
                 return jsonError(statusCode: 502, message: message)
             }
 
@@ -612,6 +699,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
             }
             return HTTPResponse.json(statusCode: 200, object: responseObject)
         } catch {
+            completeRouteTrace(
+                route: route,
+                startedAt: startedAt,
+                outcome: .failed,
+                failureChain: [SecretRedactor.redactText(error.localizedDescription)]
+            )
             return jsonError(statusCode: 502, message: error.localizedDescription)
         }
     }
@@ -641,6 +734,11 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
         asResponses: Bool,
         clientWantsResponses: Bool
     ) async -> HTTPResponse {
+        // FR-RTE-05：流式请求的耗时必须算到**流结束**，不是算到返回
+        // `HTTPResponse` 那一刻——后者只是首字节到达，一个跑了 40 秒的长回复
+        // 会被记成 200ms，这一列就完全没有参考价值了。所以回填放在流的
+        // 收尾处，不在这个函数里。
+        let startedAt = ContinuousClock.now
         do {
             var payload = try thirdPartyUpstreamPayload(
                 route: route,
@@ -664,7 +762,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                 var discarded = 0
                 for try await _ in upstream.bytes {
                     discarded += 1
-                    if discarded > ProxyRuntimeLimits.maxUpstreamResponseBytes { break }
+                    if discarded > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes { break }
                 }
                 upstream = try await openThirdPartyStreamingRequest(
                     route: route,
@@ -674,25 +772,70 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                 )
             }
 
+            // 这条路由实际把流发出来的那一家。转移成功后用量、限流、以及下面
+            // 各协议解码器读的 `protocolKind` 都必须跟着换。
+            var servingRoute = route
+            var failoverAttempts: [String] = []
+            var failoverFailures: [String] = []
+
             if !(upstream.statusCode >= 200 && upstream.statusCode < 300) {
                 var buffered = Data()
                 for try await byte in upstream.bytes {
                     buffered.append(byte)
-                    if buffered.count > ProxyRuntimeLimits.maxUpstreamResponseBytes { break }
+                    if buffered.count > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes { break }
                 }
                 let bodyText = String(data: buffered, encoding: .utf8) ?? ""
-                let message = "\(route.provider.name): \(upstream.statusCode) \(truncateForError(bodyText, maxLength: 120))"
-                lastError = message
-                return jsonError(statusCode: 502, message: message)
+                // 流没开起来：状态码与错误体都齐了，这是判定凭据健康最可靠的
+                // 时刻（FR-IDT-07）。开流成功不在这里记——那时还不知道流会不会
+                // 中途断掉。
+                recordCredentialHealth(route: route, statusCode: upstream.statusCode, responseBody: buffered)
+
+                // 流还没开起来，一个字节都没发给客户端——此刻换一家是干净的。
+                // 一旦开始推送就绝不转移（FR-RTE-04 `.streamInterrupted`）。
+                let failover = await openStreamWithFailover(
+                    route: route,
+                    payload: payload,
+                    downstreamHeaders: downstreamHeaders,
+                    object: object,
+                    primaryStatus: upstream.statusCode,
+                    primaryBodyText: bodyText
+                )
+                failoverAttempts = failover.attempts
+                failoverFailures = failover.failures
+
+                guard let recovered = failover.upstream, let servedBy = failover.servedBy else {
+                    let message = "\(route.provider.name): \(upstream.statusCode) \(truncateForError(bodyText, maxLength: 120))"
+                    lastError = message
+                    completeRouteTrace(
+                        route: route,
+                        startedAt: startedAt,
+                        outcome: .failed,
+                        httpStatus: upstream.statusCode,
+                        fallbackAttempts: failoverAttempts,
+                        failureChain: failoverFailures.isEmpty
+                            ? [SecretRedactor.redactText(message)]
+                            : failoverFailures
+                    )
+                    return jsonError(statusCode: 502, message: message)
+                }
+                upstream = recovered
+                servingRoute = servedBy
             }
 
             // Usage collected by protocol-specific streaming decoders.
-            let protocolKind = route.protocolKind
-            captureRateLimits(from: upstream.headers, route: route)
+            let protocolKind = servingRoute.protocolKind
+            captureRateLimits(from: upstream.headers, route: servingRoute)
 
             // Echo back the model the client asked for, not the internal
             // provider-qualified id.
             let clientModelID = (object["model"] as? String) ?? route.clientModelID
+            // 流的收尾在逃逸的 Task 里，`var` 捕不进去。在这里定格成不可变副本：
+            // 用量记给真正发出请求的那一家，trace 回填仍走首选——只有首选带着
+            // `traceRequestID`，那条 trace 才是这次请求在账本里的唯一一行。
+            let usageRoute = servingRoute
+            let traceRoute = route
+            let traceFallbackAttempts = failoverAttempts
+            let traceFailureChain = failoverFailures
             let stream = AsyncThrowingStream<Data, Error> { continuation in
                 Task {
                     // Local mutable state, serial access within this task only.
@@ -738,11 +881,11 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                         while let byte = try await iterator.next() {
                             buffer.append(byte)
                             totalBytes += 1
-                            if totalBytes > ProxyRuntimeLimits.maxUpstreamResponseBytes {
+                            if totalBytes > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes {
                                 throw AppError.network(
                                     L10n.tr(
                                         "error.proxy_runtime.upstream_response_too_large_format",
-                                        ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseBytes)
+                                        ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes)
                                     )
                                 )
                             }
@@ -750,7 +893,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                             if byte == 0x0A {
                                 switch protocolKind {
                                 case .anthropic:
-                                    for chunk in consumeAnthropicSSEChunk(buffer, isFinal: false, state: anthropicState) {
+                                    for chunk in consumeAnthropicSSEChunk(
+                                        buffer,
+                                        isFinal: false,
+                                        state: anthropicState,
+                                        emitsReasoning: !clientWantsResponses
+                                    ) {
                                         emitChatChunk(chunk)
                                     }
                                 case .google:
@@ -781,17 +929,22 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
 
                         switch protocolKind {
                         case .anthropic:
-                            for chunk in consumeAnthropicSSEChunk(buffer, isFinal: true, state: anthropicState) {
+                            for chunk in consumeAnthropicSSEChunk(
+                                buffer,
+                                isFinal: true,
+                                state: anthropicState,
+                                emitsReasoning: !clientWantsResponses
+                            ) {
                                 emitChatChunk(chunk)
                             }
                             emitChatStreamEnd(anthropicStreamUsage(anthropicState))
-                            recordStreamingThirdPartyUsage(route: route, usage: anthropicStreamUsage(anthropicState))
+                            recordStreamingThirdPartyUsage(route: usageRoute, usage: anthropicStreamUsage(anthropicState))
                         case .google:
                             for chunk in consumeGeminiSSEChunk(buffer, isFinal: true, state: geminiState) {
                                 emitChatChunk(chunk)
                             }
                             emitChatStreamEnd(geminiStreamUsage(geminiState))
-                            recordStreamingThirdPartyUsage(route: route, usage: geminiStreamUsage(geminiState))
+                            recordStreamingThirdPartyUsage(route: usageRoute, usage: geminiStreamUsage(geminiState))
                         case .responses:
                             for eventData in consumeResponsesPassthroughSSEChunk(
                                 sseDecoder,
@@ -800,7 +953,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                             ) {
                                 continuation.yield(eventData)
                             }
-                            recordStreamingThirdPartyUsage(route: route, usage: nil)
+                            recordStreamingThirdPartyUsage(route: usageRoute, usage: nil)
                         case .chat:
                             for chunk in consumeUpstreamChatSSEChunk(
                                 sseDecoder,
@@ -811,11 +964,48 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                                 emitChatChunk(chunk)
                             }
                             emitChatStreamEnd(nil)
-                            recordStreamingThirdPartyUsage(route: route, usage: nil)
+                            recordStreamingThirdPartyUsage(route: usageRoute, usage: nil)
                         }
                         continuation.finish()
+                        // 流真正跑完才算这把凭据可用（FR-IDT-07）。记在
+                        // `usageRoute` 上：转移后真正被调用的是它，把成功记给
+                        // 首选会让一把刚失败的凭据显示成"刚刚验证通过"。
+                        self.recordCredentialHealth(route: usageRoute, statusCode: 200, responseBody: nil)
+                        self.completeRouteTrace(
+                            route: traceRoute,
+                            startedAt: startedAt,
+                            outcome: .succeeded,
+                            httpStatus: upstream.statusCode,
+                            fallbackAttempts: traceFallbackAttempts,
+                            // 转移成功也把失败链留着：这条请求确实先失败过，
+                            // 那是"为什么这次特别慢"唯一的线索。
+                            failureChain: traceFailureChain
+                        )
                     } catch {
-                        continuation.finish(throwing: error)
+                        // FR-RTE-04 `.streamInterrupted`：SSE 已开始后断开，显式
+                        // error 事件收尾，不重试。
+                        //
+                        // `[DONE]` 只在下游线格式确实是 Chat Completions 时才发：
+                        // Responses 协议没有这个 sentinel，多发一帧会让严格的
+                        // 客户端把它当成一个畸形事件。protocolKind == .responses
+                        // 时事件是原样透传的，下游看到的也是 Responses 格式。
+                        let needsDone = !clientWantsResponses && protocolKind != .responses
+                        continuation.yield(
+                            SwiftNativeProxyRuntimeService.sseStreamInterruptedFrame(error, includeDoneSentinel: needsDone)
+                        )
+                        continuation.finish()
+                        // 上游状态码是 2xx（流开起来了），失败发生在传输途中。
+                        // 记 `.failed` 而不是 `.succeeded`：客户端拿到的是一段
+                        // 被截断的回答，这不是成功。
+                        self.completeRouteTrace(
+                            route: traceRoute,
+                            startedAt: startedAt,
+                            outcome: .failed,
+                            httpStatus: upstream.statusCode,
+                            fallbackAttempts: traceFallbackAttempts,
+                            failureChain: traceFailureChain
+                                + [SecretRedactor.redactText(error.localizedDescription)]
+                        )
                     }
                 }
             }
@@ -829,6 +1019,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                 body: stream
             )
         } catch {
+            completeRouteTrace(
+                route: route,
+                startedAt: startedAt,
+                outcome: .failed,
+                failureChain: [SecretRedactor.redactText(error.localizedDescription)]
+            )
             return jsonError(statusCode: 502, message: error.localizedDescription)
         }
     }
@@ -837,11 +1033,14 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
     private func consumeAnthropicSSEChunk(
         _ data: Data,
         isFinal: Bool,
-        state: AnthropicStreamState
+        state: AnthropicStreamState,
+        emitsReasoning: Bool = true
     ) -> [[String: Any]] {
         let decoder = SSEStreamDecoder()
         let events = decoder.push(data: data, isFinal: isFinal)
-        return events.flatMap { translateAnthropicSSEEvent($0, state: state) }
+        return events.flatMap {
+            translateAnthropicSSEEvent($0, state: state, emitsReasoning: emitsReasoning)
+        }
     }
 
     /// Feeds one SSE frame into the Gemini translator.
@@ -951,8 +1150,13 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
 
         var failureDetails: [String] = []
         var retryFailures: [RetryFailureInfo] = []
-        // AC-013: hard cap on total upstream attempts across candidates.
-        let maxTotalAttempts = 3
+        // AC-013 / FR-RTE-04: hard cap on total upstream attempts across
+        // candidates. 6 = 最坏情况下一个候选用满 3 次（networkTimeout 的
+        // 1+2）后，仍留有余量转移到别的候选，而不是把预算烧在第一个上。
+        let maxTotalAttempts = 6
+        // 单个候选上的尝试上限。实际次数由失败分类的
+        // `maxRetriesOnSameCredential` 决定，这里只是兜底。
+        let maxAttemptsPerCandidate = 3
         var totalAttempts = 0
         // Deterministic (non-classified) client errors must not be replayed
         // against other candidates — that is the legacy behavior (break all).
@@ -960,12 +1164,11 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
 
         for candidate in candidates {
             if stopAllCandidates { break }
-            // AC-013 per candidate: attempt 1 → on classified failure, cool
-            // down and retry the same candidate once (honoring Retry-After or
-            // exponential backoff) → then move on. Network errors also retry
-            // once with backoff. Non-classified 4xx stops every candidate.
+            // FR-RTE-04 per candidate：重试次数由失败分类决定，不再无差别
+            // "总是重试一次"。attempt 从 1 开始计数，因此"第 N 次重试"对应
+            // attempt == N + 1。
             var attempt = 0
-            while attempt < 2 && totalAttempts < maxTotalAttempts && !stopAllCandidates {
+            while attempt < maxAttemptsPerCandidate && totalAttempts < maxTotalAttempts && !stopAllCandidates {
                 attempt += 1
                 totalAttempts += 1
                 do {
@@ -984,35 +1187,57 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                     let detail = "\(candidate.label): \(response.statusCode) \(truncateForError(bodyText, maxLength: 120))"
                     failureDetails.append(detail)
 
-                    if let retryFailure = classifyRetryFailure(statusCode: response.statusCode, bodyText: bodyText) {
-                        retryFailures.append(retryFailure)
-                        // Dynamic cooldown: Retry-After when the provider says
-                        // so, else the category default.
-                        let retryAfter = Self.parseRetryAfter(headers: response.headers)
-                        markCooldown(for: candidate.accountID, category: retryFailure.category, retryAfterSeconds: retryAfter)
-                        if attempt == 1 {
-                            // One in-candidate retry: wait Retry-After (bounded
-                            // to 30s) or the backoff step, then retry.
-                            let wait = min(retryAfter ?? Self.backoffSeconds(attempt: attempt + 1), 30)
-                            if wait > 0 {
-                                try await Task.sleep(nanoseconds: UInt64(wait) * 1_000_000_000)
-                            }
-                            continue
-                        }
-                        break
-                    } else {
-                        // Deterministic client/provider error: do not replay
-                        // against other candidates (legacy behavior).
+                    guard let retryFailure = classifyRetryFailure(statusCode: response.statusCode, bodyText: bodyText) else {
+                        // FR-RTE-04 `.requestError`（400/404/422）：请求本身有问题，
+                        // 换任何凭据都会收到同一个错误。原样透传，不重试不转移。
                         lastError = detail
                         stopAllCandidates = true
                         break
                     }
+                    retryFailures.append(retryFailure)
+                    let failureClass = retryFailure.failureClass
+                    let retryAfter = Self.parseRetryAfter(headers: response.headers)
+                    markCooldown(
+                        for: candidate.accountID,
+                        category: retryFailure.category,
+                        retryAfterSeconds: retryAfter
+                    )
+
+                    // FR-RTE-04：401 → 零重试，标记凭据无权限。
+                    //
+                    // 这里**不**终止整个请求：候选池里的下一个是另一个账号、
+                    // 另一份凭据，对它发请求不是"重试"而是转移。一个账号 token
+                    // 过期就让用户整条请求失败，是把单点故障放大成全局故障。
+                    // 规范里的"立即返回"约束的是同一凭据，而单凭据场景下这个
+                    // 循环本来就只有一轮。
+                    if failureClass.shouldMarkCredentialUnauthorized {
+                        await markCandidateUnauthorized(candidate, reason: retryFailure.detail)
+                        break
+                    }
+
+                    // FR-RTE-04：同凭据重试预算。networkTimeout 2 次、
+                    // upstreamError 1 次、其余 0 次。用次数而非布尔量判断——
+                    // 布尔量说不清"5xx 要先重试一次再转移"这种两段式动作。
+                    if attempt <= failureClass.maxRetriesOnSameCredential {
+                        let wait = min(retryAfter ?? Self.backoffSeconds(attempt: attempt + 1), 30)
+                        if wait > 0 {
+                            try await Task.sleep(nanoseconds: UInt64(wait) * 1_000_000_000)
+                        }
+                        continue
+                    }
+
+                    // 预算用尽：转移到下一个候选（rateLimited / forbidden /
+                    // 重试后仍失败的 upstreamError 都走这里）。
+                    break
                 } catch {
                     let detail = "\(candidate.label): \(error.localizedDescription)"
                     failureDetails.append(detail)
-                    // Network errors are transient: one backoff retry on the
-                    // same candidate before moving on.
-                    if attempt == 1 {
+
+                    // FR-RTE-04：网络层异常分类。超时/连不上/DNS 失败是瞬时的，
+                    // 值得在同一凭据上退避重试；TLS 失败、意外 EOF 归为上游错误，
+                    // 只给 1 次。
+                    let failureClass = Self.classifyNetworkFailure(error)
+                    if attempt <= failureClass.maxRetriesOnSameCredential {
                         let wait = Self.backoffSeconds(attempt: attempt + 1)
                         if wait > 0 {
                             try await Task.sleep(nanoseconds: UInt64(wait) * 1_000_000_000)
@@ -1067,7 +1292,7 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                 var buffered = Data()
                 for try await byte in response.bytes {
                     buffered.append(byte)
-                    if buffered.count > ProxyRuntimeLimits.maxUpstreamResponseBytes {
+                    if buffered.count > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes {
                         break
                     }
                 }
@@ -1078,8 +1303,13 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                 if let retryFailure = classifyRetryFailure(statusCode: response.statusCode, bodyText: bodyText) {
                     markCooldown(for: candidate.accountID, category: retryFailure.category)
                     retryFailures.append(retryFailure)
+                    // FR-RTE-04：streaming 路径的特殊规则。流已经打开但错误
+                    // 还未发送到下游，此时允许切到下一个候选（否则用户只能看到
+                    // 一片空白后超时）。已经开始发送 data: 事件后断开的情况由
+                    // SSE 消费者处理（此函数不负责那个阶段）。
                     continue
                 } else {
+                    // 确定性客户端错误（400/404/422）：不转移，保留原始错误。
                     lastError = detail
                     break
                 }
@@ -1126,11 +1356,11 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                     while let byte = try await iterator.next() {
                         buffer.append(byte)
                         totalBytes += 1
-                        if totalBytes > ProxyRuntimeLimits.maxUpstreamResponseBytes {
+                        if totalBytes > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes {
                             throw AppError.network(
                                 L10n.tr(
                                     "error.proxy_runtime.upstream_response_too_large_format",
-                                    ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseBytes)
+                                    ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes)
                                 )
                             )
                         }
@@ -1148,7 +1378,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                     }
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: error)
+                    // FR-RTE-04 `.streamInterrupted`：SSE 已开始后断开，显式发
+                    // error 事件收尾。Responses 协议不需要 [DONE] sentinel。
+                    continuation.yield(
+                        SwiftNativeProxyRuntimeService.sseStreamInterruptedFrame(error, includeDoneSentinel: false)
+                    )
+                    continuation.finish()
                 }
             }
         }
@@ -1184,11 +1419,11 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                     while let byte = try await iterator.next() {
                         buffer.append(byte)
                         totalBytes += 1
-                        if totalBytes > ProxyRuntimeLimits.maxUpstreamResponseBytes {
+                        if totalBytes > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes {
                             throw AppError.network(
                                 L10n.tr(
                                     "error.proxy_runtime.upstream_response_too_large_format",
-                                    ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseBytes)
+                                    ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes)
                                 )
                             )
                         }
@@ -1217,7 +1452,12 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
                     continuation.yield(Data("data: [DONE]\n\n".utf8))
                     continuation.finish()
                 } catch {
-                    continuation.finish(throwing: error)
+                    // FR-RTE-04 `.streamInterrupted`：显式 error 事件 + [DONE]。
+                    // 静默断开在客户端看来与正常结束无法区分。
+                    continuation.yield(
+                        SwiftNativeProxyRuntimeService.sseStreamInterruptedFrame(error, includeDoneSentinel: true)
+                    )
+                    continuation.finish()
                 }
             }
         }
@@ -1329,6 +1569,23 @@ actor SwiftNativeProxyRuntimeService: ProxyRuntimeService, RouterEngine {
 
     func currentUnixMilliseconds() -> Int64 {
         dateProvider.unixMillisecondsNow()
+    }
+
+    func markCandidateUnauthorized(_ candidate: ProxyCandidate, reason: String) async {
+        // FR-RTE-04：401 时立即标记凭据无权限，用于下轮路由的门禁淘汰。
+        // 这是 markCooldown 的扩展版：它不仅冷却，还改健康状态。
+        //
+        // 两件事都要做，缺一不可：冷却是进程内的、立刻生效但重启即失效；
+        // 写回注册表是落盘的、下次启动后路由的凭据门禁仍然认得它。只冷却的话
+        // 用户重启一次 App，请求就又打到那把已被吊销的 Key 上去了。
+        markCooldown(for: candidate.accountID, category: .authentication)
+        credentialHealthWriter?.record(
+            instanceID: candidate.accountID,
+            // 已经确定是 401 才会走到这里，直接给结论而不是再传一次状态码——
+            // 让判定重新解析一遍字符串，只会多一处可能对不上的地方。
+            outcome: .unauthorized(detail: reason)
+        )
+        lastError = reason
     }
 
     func cooldownDuration(for category: RetryFailureCategory) -> Int64 {

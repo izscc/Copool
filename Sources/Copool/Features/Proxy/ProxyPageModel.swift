@@ -28,8 +28,17 @@ final class ProxyPageModel: ObservableObject {
     /// Derives target binding snapshots (AC-008/AC-012); injected by the app
     /// container so this model stays storage-agnostic.
     var targetsProvider: (@MainActor @Sendable () -> [ProxyTargetSnapshot])?
+    /// Notifies the Models page after local proxy state changes so its split
+    /// summary stays current without depending on the proxy infrastructure.
+    var onProviderSplitStateChanged: (@MainActor () -> Void)?
     /// Target config plan/apply/rollback (AC-101/AC-007).
     var targetConfigCoordinator: TargetConfigCoordinator?
+    /// M3 目标绑定：绑定 CRUD、provider 关联、目录过期检测（FR-CAT-11）。
+    ///
+    /// 与 `targetConfigCoordinator` 并存而不是替换它：后者按固定的三个目标
+    /// 硬编码，仍被运行时页的旧调用点依赖；新逻辑走这里，等旧调用点全部
+    /// 迁完再删。
+    var targetBindingCoordinator: TargetBindingCoordinator?
 
     private let noticeScheduler = NoticeAutoDismissScheduler()
 

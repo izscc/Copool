@@ -7,25 +7,29 @@ import Compression
 /// Some OpenAI-compatible gateways and clients send `Content-Encoding: br`.
 /// Codex CLI itself does not, but codex-router decodes it and so do we.
 enum BrotliDecompression {
-    static func decompress(_ data: Data) -> Data? {
+    static func decompress(_ data: Data, outputLimit: Int = ProxyRuntimeLimits.maxInboundRequestDecodedBytes) -> Data? {
         guard !data.isEmpty else { return Data() }
 
         return data.withUnsafeBytes { inBuffer -> Data? in
             guard let inBase = inBuffer.bindMemory(to: UInt8.self).baseAddress else { return nil }
 
-            // C struct without a zeroed default init; give it valid pointers
-            // that compression_stream_init will replace immediately.
             var dstPlaceholder: UInt8 = 0
             var srcPlaceholder: UInt8 = 0
-            var stream = compression_stream(
-                dst_ptr: &dstPlaceholder,
-                dst_size: 0,
-                src_ptr: &srcPlaceholder,
-                src_size: 0,
-                state: nil
-            )
-            let initStatus = compression_stream_init(&stream, COMPRESSION_STREAM_DECODE, COMPRESSION_BROTLI)
-            guard initStatus != COMPRESSION_STATUS_ERROR else { return nil }
+            let initialized: (compression_stream, compression_status) = withUnsafeMutablePointer(to: &dstPlaceholder) { dstPointer in
+                withUnsafeMutablePointer(to: &srcPlaceholder) { srcPointer in
+                    var stream = compression_stream(
+                        dst_ptr: dstPointer,
+                        dst_size: 0,
+                        src_ptr: UnsafePointer(srcPointer),
+                        src_size: 0,
+                        state: nil
+                    )
+                    let status = compression_stream_init(&stream, COMPRESSION_STREAM_DECODE, COMPRESSION_BROTLI)
+                    return (stream, status)
+                }
+            }
+            var stream = initialized.0
+            guard initialized.1 != COMPRESSION_STATUS_ERROR else { return nil }
             defer { compression_stream_destroy(&stream) }
 
             stream.src_ptr = inBase
@@ -46,6 +50,8 @@ enum BrotliDecompression {
                 }
                 guard produced >= 0 else { return nil }
                 output.append(chunk.prefix(produced))
+                // SEC-11：解压后大小超限视为炸弹攻击，拒绝并返回 nil。
+                if output.count > outputLimit { return nil }
                 if status == COMPRESSION_STATUS_END { break }
                 if status == COMPRESSION_STATUS_ERROR { return nil }
             }

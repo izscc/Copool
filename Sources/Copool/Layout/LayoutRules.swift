@@ -56,6 +56,29 @@ enum LayoutRules {
     static let proxyPublicFieldMinWidth = CGFloat(220)
     static let proxyPublicStatusCardMinWidth = CGFloat(170)
 
+    /// 账号卡片密度族（B4-1）。值沿用原散落字面量——集中到这里只为「一处改、
+    /// 全局生效」，不与全局 pagePadding/cardRadius 混用：账号卡密度更紧，强行
+    /// 对齐全局会改变视觉。`spacing: 10` 复用既有 `listRowSpacing`，不另造。
+    static let accountCardRadius = CGFloat(12)
+    static let accountCardCompactRadius = CGFloat(10)
+    static let accountCardPadding = CGFloat(12)
+    static let accountCardComfyPadding = CGFloat(14)
+    static let accountCardTightPadding = CGFloat(11)
+    static let accountCardCollapsedPadding = CGFloat(8)
+    static let accountCardExpandedPadding = CGFloat(10)
+    static let accountCardActionReservationWidth = CGFloat(144)
+    static let accountCardHorizontalPadding = CGFloat(12)
+    static let accountCardVerticalPadding = CGFloat(10)
+    static let accountCardHeroSpacing = CGFloat(18)
+    static let accountCardSectionSpacing = CGFloat(12)
+    static let accountCardContentSpacing = CGFloat(8)
+    static let accountCardItemSpacing = CGFloat(6)
+    static let accountCardTightSpacing = CGFloat(4)
+    static let accountCardMicroSpacing = CGFloat(3)
+    /// 紧凑动作芯片（卡片右下角 overlay）的内边距，与卡片主体的 padding 族区分。
+    static let accountCardChipHorizontalPadding = CGFloat(10)
+    static let accountCardChipVerticalPadding = CGFloat(8)
+
     static var accountsTwoColumnContentWidth: CGFloat {
         accountsCardWidth * CGFloat(accountsExpandedColumns) + accountsRowSpacing
     }

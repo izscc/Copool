@@ -11,7 +11,7 @@ import CZstd
 enum ZstdDecompression {
     /// Decompresses a complete zstd frame. Returns nil when the frame is
     /// malformed or the output would exceed `outputLimit` bytes.
-    static func decompress(_ data: Data, outputLimit: Int = ProxyRuntimeLimits.maxInboundRequestBytes) -> Data? {
+    static func decompress(_ data: Data, outputLimit: Int = ProxyRuntimeLimits.maxInboundRequestDecodedBytes) -> Data? {
         guard !data.isEmpty else { return Data() }
 
         // Fast path: the frame header usually declares the content size.

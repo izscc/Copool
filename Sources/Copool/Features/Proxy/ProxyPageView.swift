@@ -95,6 +95,14 @@ private struct ProxyTargetsSection: View {
                                     Text(L10n.tr("proxy.targets.no_credential"))
                                         .foregroundStyle(.orange)
                                 }
+                                // 目录漂移后写在磁盘上的那份配置已经不是当前目录了
+                                // （FR-CAT-11）。只对该目标启用的 provider 判定，
+                                // 改别家 provider 不会点亮这里。
+                                if model.targetBindingCoordinator?.isStale(bindingID: target.id) == true {
+                                    Text(L10n.tr("targets.badge.stale"))
+                                        .foregroundStyle(.orange)
+                                        .help(L10n.tr("targets.badge.stale_help"))
+                                }
                             }
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -102,6 +110,30 @@ private struct ProxyTargetsSection: View {
                     }
                     .padding(10)
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: LayoutRules.cardRadius))
+                    if target.id == "cursor" || target.id == "opencode" {
+                        HStack(spacing: 6) {
+                            Button(L10n.tr("targets.action.plan")) {
+                                model.targetConfigCoordinator?.planTarget(target.id, port: 8787)
+                            }
+                            Button(L10n.tr("targets.action.apply")) {
+                                model.targetConfigCoordinator?.applyTarget(target.id, port: 8787)
+                            }
+                            .disabled(model.targetConfigCoordinator?.targetPlanSummaries[target.id] == nil)
+                            Button(L10n.tr("targets.action.rollback")) {
+                                model.targetConfigCoordinator?.rollbackTarget(target.id)
+                            }
+                            Button(L10n.tr("targets.action.uninstall"), role: .destructive) {
+                                model.targetConfigCoordinator?.uninstallTarget(target.id)
+                            }
+                        }
+                        .font(.caption2)
+                    }
+                    if let summary = model.targetConfigCoordinator?.targetPlanSummaries[target.id] {
+                        Text(summary)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
                 }
             }
         }

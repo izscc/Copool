@@ -137,6 +137,20 @@ struct ApiProxyStatus: Codable, Equatable {
     )
 }
 
+/// 第三方模型分流的三态（A2）。
+///
+/// 单一事实来源是 config.toml 里的托管块，而不是代理进程的内存状态：进程被
+/// 强杀时 `stop()` 根本不会执行，托管块会留在文件里指向一个没人监听的端口。
+/// 只看内存会得出"已停止、干净"，而 ChatGPT.app 那边第三方模型全是死路。
+enum ProviderSplitState: String, Codable, Equatable, Sendable {
+    /// 代理在跑，托管块已写入且端口与实际监听一致。第三方模型可用。
+    case active
+    /// 代理不在，托管块也已剥离。第三方模型停服，原生 GPT 直连不受影响。
+    case degraded
+    /// 托管块存在但代理没在跑（或端口不符）。需要自愈剥离。
+    case inconsistent
+}
+
 enum CloudflaredTunnelMode: String, Codable, CaseIterable {
     case quick
     case named

@@ -60,6 +60,7 @@ extension ProxyPageModel {
         lastRemoteCommandError = normalizedSnapshot.lastCommandError
         lastAppliedRemoteSnapshotSyncedAt = normalizedSnapshot.syncedAt
         lastAppliedRemoteStatusesSyncedAt = normalizedSnapshot.remoteStatusesSyncedAt
+        onProviderSplitStateChanged?()
         lastSyncedProxyConfiguration = ProxyConfiguration(
             preferredPortText: nextState.preferredPortText,
             cloudflared: CloudflaredConfiguration(

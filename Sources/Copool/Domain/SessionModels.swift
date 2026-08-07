@@ -1,14 +1,10 @@
 import Foundation
 
-// MARK: - Session domain (Phase 7)
-
-/// One recorded session across targets (PRD: Session 1---* TargetBinding;
-/// *---1 ModelCatalogEntry; *---0..1 Credential).
 struct SessionRecord: Codable, Equatable, Sendable, Identifiable {
     var id: String
-    /// Thread/session id as the target app knows it.
     var targetSessionID: String
     var targetID: String
+    var source: Source
     var displayName: String?
     var modelEntryID: String?
     var startedAt: Int64
@@ -16,6 +12,12 @@ struct SessionRecord: Codable, Equatable, Sendable, Identifiable {
     var lastTaskSummary: String?
     var turnCount: Int
     var status: Status
+
+    enum Source: String, Codable, Equatable, Sendable {
+        case codex
+        case copool
+        case externalAgent
+    }
 
     enum Status: String, Codable, Equatable, Sendable {
         case active
@@ -27,6 +29,7 @@ struct SessionRecord: Codable, Equatable, Sendable, Identifiable {
         id: String = UUID().uuidString,
         targetSessionID: String,
         targetID: String,
+        source: Source = .codex,
         displayName: String? = nil,
         modelEntryID: String? = nil,
         startedAt: Int64 = Int64(Date().timeIntervalSince1970),
@@ -38,6 +41,7 @@ struct SessionRecord: Codable, Equatable, Sendable, Identifiable {
         self.id = id
         self.targetSessionID = targetSessionID
         self.targetID = targetID
+        self.source = source
         self.displayName = displayName
         self.modelEntryID = modelEntryID
         self.startedAt = startedAt
@@ -48,8 +52,62 @@ struct SessionRecord: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+struct SessionImportPreview: Codable, Equatable, Sendable, Identifiable {
+    var id: String
+    var sourcePath: String
+    var source: SessionRecord.Source
+    var recordCount: Int
+    var mappedFields: [String]
+    var droppedFields: [String]
+}
+
+protocol SessionImportAdapter: Sendable {
+    var source: SessionRecord.Source { get }
+    func preview() -> SessionImportPreview
+    func importRecords() -> [SessionRecord]
+}
+
+struct JSONLSessionImportAdapter: SessionImportAdapter {
+    let source: SessionRecord.Source
+    let path: URL
+    let targetID: String
+
+    func preview() -> SessionImportPreview {
+        let records = importRecords()
+        return SessionImportPreview(
+            id: "\(source.rawValue):\(path.path)",
+            sourcePath: path.path,
+            source: source,
+            recordCount: records.count,
+            mappedFields: ["id", "displayName", "updatedAt"],
+            droppedFields: ["raw transcript", "attachments", "tool arguments"]
+        )
+    }
+
+    func importRecords() -> [SessionRecord] {
+        guard let data = try? Data(contentsOf: path) else { return [] }
+        return String(decoding: data, as: UTF8.self)
+            .split(whereSeparator: \.isNewline)
+            .compactMap { line in
+                guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+                      let id = object["id"] as? String else { return nil }
+                let name = object["thread_name"] as? String ?? object["name"] as? String
+                let updated = (object["updated_at"] as? String).flatMap(Double.init).map(Int64.init)
+                    ?? (object["updatedAt"] as? NSNumber)?.int64Value
+                    ?? 0
+                return SessionRecord(
+                    targetSessionID: id,
+                    targetID: targetID,
+                    source: source,
+                    displayName: name,
+                    updatedAt: updated
+                )
+            }
+    }
+}
+
 struct SessionStore: Codable, Equatable, Sendable {
-    static let currentVersion = 1
+    static let currentVersion = 2
     var version: Int
     var sessions: [SessionRecord]
 
@@ -59,88 +117,44 @@ struct SessionStore: Codable, Equatable, Sendable {
     }
 }
 
-/// Indexes sessions from Codex's `session_index.jsonl` (display names) and
-/// merges them with our own session ledger, deduping by
-/// (targetID, targetSessionID).
 struct SessionIndexRepository: Sendable {
     var indexPath: URL
     var storePath: URL
+    var adapters: [any SessionImportAdapter]
 
     init(
-        indexPath: URL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".codex/session_index.jsonl"),
-        storePath: URL
+        indexPath: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex/session_index.jsonl"),
+        storePath: URL,
+        adapters: [any SessionImportAdapter] = []
     ) {
         self.indexPath = indexPath
         self.storePath = storePath
+        self.adapters = adapters
     }
 
-    /// Reads the store, merges names from the Codex index (newest first),
-    /// dedupes and persists. Returns the merged sessions.
     func sync() -> [SessionRecord] {
-        var sessions = loadStore()
-
-        // Import names from the Codex index.
-        let indexed = codexIndexEntries()
-        var byKey: [String: (name: String, updatedAt: Int64)] = [:]
-        for entry in indexed {
-            byKey[entry.key] = (entry.name, entry.updatedAt)
-        }
-
-        var merged: [SessionRecord] = []
-        var seen: Set<String> = []
-        for var session in sessions {
+        let stored = loadStore()
+        let codex = JSONLSessionImportAdapter(source: .codex, path: indexPath, targetID: "codex").importRecords()
+        let imported = adapters.flatMap { $0.importRecords() }
+        var byKey: [String: SessionRecord] = [:]
+        for session in stored + codex + imported {
             let key = "\(session.targetID)|\(session.targetSessionID)"
-            if let index = byKey[key] {
-                session.displayName = index.name
-                session.updatedAt = max(session.updatedAt, index.updatedAt)
-                seen.insert(key)
-            }
-            merged.append(session)
+            if let current = byKey[key], current.updatedAt >= session.updatedAt { continue }
+            byKey[key] = session
         }
-        // New sessions from the index (not yet in our store).
-        for entry in indexed where !seen.contains(entry.key) {
-            let parts = entry.key.split(separator: "|")
-            guard parts.count == 2 else { continue }
-            merged.append(
-                SessionRecord(
-                    targetSessionID: String(parts[1]),
-                    targetID: String(parts[0]),
-                    displayName: entry.name,
-                    updatedAt: entry.updatedAt
-                )
-            )
-        }
-
-        merged.sort { $0.updatedAt > $1.updatedAt }
+        let merged = byKey.values.sorted { $0.updatedAt > $1.updatedAt }
         try? persist(merged)
         return merged
     }
 
-    /// Codex index entries: thread id → display name + updated_at.
-    func codexIndexEntries() -> [(key: String, name: String, updatedAt: Int64)] {
-        guard let data = try? Data(contentsOf: indexPath) else { return [] }
-        var entries: [(key: String, name: String, updatedAt: Int64)] = []
-        for line in String(data: data, encoding: .utf8)?.split(whereSeparator: \.isNewline) ?? [] {
-            guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
-                  let id = object["id"] as? String,
-                  let name = object["thread_name"] as? String else {
-                continue
-            }
-            let updated = (object["updated_at"] as? String)
-                .flatMap { Double($0) }
-                .map { Int64($0) } ?? 0
-            entries.append((key: "codex|\(id)", name: name, updatedAt: updated))
-        }
-        return entries
+    func importPreviews() -> [SessionImportPreview] {
+        [JSONLSessionImportAdapter(source: .codex, path: indexPath, targetID: "codex").preview()]
+            + adapters.map { $0.preview() }
     }
 
     func loadStore() -> [SessionRecord] {
-        guard FileManager.default.fileExists(atPath: storePath.path),
-              let data = try? Data(contentsOf: storePath),
-              let store = try? JSONDecoder().decode(SessionStore.self, from: data) else {
-            return []
-        }
+        guard let data = try? Data(contentsOf: storePath),
+              let store = try? JSONDecoder().decode(SessionStore.self, from: data) else { return [] }
         return store.sessions
     }
 
@@ -148,7 +162,6 @@ struct SessionIndexRepository: Sendable {
         try FileManager.default.createDirectory(at: storePath.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(SessionStore(sessions: sessions))
-        try data.write(to: storePath, options: .atomic)
+        try encoder.encode(SessionStore(sessions: sessions)).write(to: storePath, options: .atomic)
     }
 }

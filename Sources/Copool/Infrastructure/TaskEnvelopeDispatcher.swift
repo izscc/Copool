@@ -56,6 +56,23 @@ final class TaskEnvelopeDispatcher: @unchecked Sendable {
         appendTrail(envelope)
     }
 
+    func current(_ envelopeID: String) -> TaskEnvelope? {
+        io.lock()
+        defer { io.unlock() }
+        return envelopes[envelopeID]
+    }
+
+    /// Cancellation is an audited terminal failure. It never executes a
+    /// pending envelope and never reopens a completed one.
+    func cancel(_ envelopeID: String) {
+        io.lock()
+        defer { io.unlock() }
+        guard var envelope = envelopes[envelopeID], envelope.status == .executing else { return }
+        envelope.status = .failed("cancelled")
+        envelopes[envelopeID] = envelope
+        appendTrail(envelope)
+    }
+
     // MARK: - Delegation
 
     /// Forwards the confirmed envelope to the trusted agent channel: appends

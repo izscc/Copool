@@ -86,10 +86,23 @@ final class ProviderFileRepositoryTests: XCTestCase {
     func testMigrateLegacySecretsIfNeededMovesPlaintextFile() throws {
         // Simulate a store written before the keychain migration: plaintext on
         // disk, nothing in the keychain.
-        let legacy = makeStore(providerID: "provider-b", apiKey: "sk-legacy", refreshToken: nil)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(legacy).write(to: paths.providerStorePath)
+        let legacy = """
+        {
+          "version": 1,
+          "providers": [{
+            "id": "provider-b",
+            "name": "provider-b",
+            "baseURL": "https://example.com/v1",
+            "apiKey": "sk-legacy",
+            "authKind": "apiKey",
+            "models": [],
+            "modelProtocols": {},
+            "defaultProtocol": "chat",
+            "addedAt": 0
+          }]
+        }
+        """
+        try legacy.write(to: paths.providerStorePath, atomically: true, encoding: .utf8)
 
         let repository = makeRepository()
         repository.migrateLegacySecretsIfNeeded()

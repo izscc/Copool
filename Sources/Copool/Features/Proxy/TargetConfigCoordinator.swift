@@ -1,82 +1,114 @@
 import Foundation
 import SwiftUI
 
-/// Wires the target config adapters into the runtime UI (AC-101/AC-007):
-/// read-only detect/plan, explicit user-confirmed apply, and rollback.
-/// Never writes without an explicit user action.
 @MainActor
 final class TargetConfigCoordinator: ObservableObject {
-    private let codexAdapter: CodexTargetAdapter
-    private let genericAdapter: TargetConfigFileAdapter
+    private let adapters: [String: any TargetConfigManaging]
+    private var plannedDiffs: [String: TargetConfigDiff] = [:]
 
-    /// Last plan result (diff summary), so the UI can show what apply would
-    /// write before the user confirms.
     @Published private(set) var codexPlanSummary: String?
+    @Published private(set) var targetPlanSummaries: [String: String] = [:]
     @Published private(set) var lastAppliedTargetID: String?
     @Published var notice: String?
 
     init(paths: FileSystemPaths) {
-        self.codexAdapter = CodexTargetAdapter(paths: paths)
-        self.genericAdapter = TargetConfigFileAdapter(
-            targetID: "codex",
-            configPath: paths.codexConfigPath,
-            stateRoot: paths.applicationSupportDirectory.appendingPathComponent("targets", isDirectory: true),
-            managedProviderID: CodexTargetAdapter.managedProviderID,
-            providerBlockName: "model_providers"
+        let stateRoot = paths.applicationSupportDirectory.appendingPathComponent("targets", isDirectory: true)
+        let codex = CodexTargetAdapter(paths: paths)
+        let cursor = TargetJSONConfigAdapter(
+            targetID: "cursor",
+            configPath: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support/Cursor/User/globalStorage/copool.json"),
+            stateRoot: stateRoot
         )
+        let opencode = TargetJSONConfigAdapter(
+            targetID: "opencode",
+            configPath: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".config/opencode/copool.json"),
+            stateRoot: stateRoot
+        )
+        self.adapters = ["codex": codex, "cursor": cursor, "opencode": opencode]
     }
 
-    /// Whether the Codex config currently carries the managed block.
     var codexManaged: Bool {
-        let content = codexAdapter.detect()?.content ?? ""
-        return content.contains(">>> copool managed")
+        adapters["codex"]?.detect()?.content.contains(">>> copool managed") == true
     }
 
-    /// Read-only plan: computes what apply would write (port 8787 — the
-    /// default local proxy port) and keeps the diff for the UI.
-    func planCodexApply() {
-        let desired = codexAdapter.desiredConfig(port: 8787)
-        let diff = codexAdapter.plan(to: desired)
-        let beforeLines = diff.before?.content.split(separator: "\n").count ?? 0
-        let afterLines = diff.after.content.split(separator: "\n").count
-        codexPlanSummary = "config.toml: \(beforeLines) → \(afterLines) lines; \(diff.preservedUserLines.count) user line(s) preserved"
+    func planCodexApply(port: Int = 8787) {
+        guard let adapter = adapters["codex"] as? CodexTargetAdapter else { return }
+        let diff = adapter.plan(to: adapter.desiredConfig(port: port))
+        plannedDiffs["codex"] = diff
+        let summary = summary(for: diff)
+        codexPlanSummary = summary
+        targetPlanSummaries["codex"] = summary
     }
 
-    /// Explicit user action: apply the planned diff, then verify.
-    func applyCodexPlan() {
-        guard let summary = codexPlanSummary ?? (codexPlanSummaryIfNeeded()) else {
-            notice = "Nothing planned yet — run Plan first."
+    func planTarget(_ targetID: String, port: Int) {
+        guard let adapter = adapters[targetID] as? TargetJSONConfigAdapter else { return }
+        let diff = adapter.plan(to: adapter.desiredConfig(port: port))
+        plannedDiffs[targetID] = diff
+        targetPlanSummaries[targetID] = summary(for: diff)
+    }
+
+    func applyCodexPlan(port: Int = 8787) {
+        applyTarget("codex", port: port)
+    }
+
+    func applyTarget(_ targetID: String, port: Int) {
+        guard let adapter = adapters[targetID] else {
+            notice = "Unknown target: \(targetID)"
             return
         }
-        let desired = codexAdapter.desiredConfig(port: 8787)
-        let diff = codexAdapter.plan(to: desired)
+        if plannedDiffs[targetID] == nil {
+            if targetID == "codex" { planCodexApply(port: port) }
+            else { planTarget(targetID, port: port) }
+        }
+        guard let diff = plannedDiffs[targetID] else { return }
         do {
-            try codexAdapter.apply(diff)
-            let verified = codexAdapter.verify(diff)
-            lastAppliedTargetID = "codex"
-            notice = verified
-                ? "Applied & verified: \(summary)"
-                : "Applied but verification failed — use Rollback."
+            try adapter.apply(diff)
+            guard adapter.verify(diff) else {
+                notice = "\(targetID) applied but verification failed — use Rollback."
+                return
+            }
+            lastAppliedTargetID = targetID
+            notice = "\(targetID) applied and verified: \(summary(for: diff))"
         } catch {
-            notice = "Apply failed: \(error.localizedDescription)"
+            notice = "\(targetID) apply failed: \(error.localizedDescription)"
         }
     }
 
-    /// Restores the pre-apply snapshot for the last applied diff.
     func rollbackCodex() {
-        let desired = codexAdapter.desiredConfig(port: 8787)
-        let diff = codexAdapter.plan(to: desired)
+        rollbackTarget("codex")
+    }
+
+    func rollbackTarget(_ targetID: String) {
+        guard let adapter = adapters[targetID], let diff = plannedDiffs[targetID] else {
+            notice = "No planned change for \(targetID)."
+            return
+        }
         do {
-            try codexAdapter.rollback(diff)
+            try adapter.rollback(diff)
+            plannedDiffs.removeValue(forKey: targetID)
             lastAppliedTargetID = nil
-            notice = "Rolled back to the pre-apply config."
+            notice = "\(targetID) rolled back."
         } catch {
-            notice = "Rollback failed: \(error.localizedDescription)"
+            notice = "\(targetID) rollback failed: \(error.localizedDescription)"
         }
     }
 
-    private func codexPlanSummaryIfNeeded() -> String? {
-        planCodexApply()
-        return codexPlanSummary
+    func uninstallTarget(_ targetID: String) {
+        guard let adapter = adapters[targetID] else { return }
+        do {
+            try adapter.uninstall()
+            plannedDiffs.removeValue(forKey: targetID)
+            notice = "\(targetID) unmanaged configuration removed."
+        } catch {
+            notice = "\(targetID) uninstall failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func summary(for diff: TargetConfigDiff) -> String {
+        let before = diff.before?.content.split(separator: "\n").count ?? 0
+        let after = diff.after.content.split(separator: "\n").count
+        return "lines \(before) → \(after); preserved \(diff.preservedUserLines.count) user field(s)"
     }
 }

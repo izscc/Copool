@@ -231,11 +231,11 @@ extension SwiftNativeProxyRuntimeService {
 
         for try await byte in responseBytes {
             responseBody.append(byte)
-            if responseBody.count > ProxyRuntimeLimits.maxUpstreamResponseBytes {
+            if responseBody.count > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes {
                 throw AppError.network(
                     L10n.tr(
                         "error.proxy_runtime.upstream_response_too_large_format",
-                        ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseBytes)
+                        ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes)
                     )
                 )
             }

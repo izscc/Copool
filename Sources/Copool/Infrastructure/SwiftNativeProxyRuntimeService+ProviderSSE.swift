@@ -12,10 +12,37 @@ extension SwiftNativeProxyRuntimeService {
         var toolNameByIndex: [Int: String] = [:]
         var toolIDByIndex: [Int: String] = [:]
         var usage: [String: Any]?
+        /// Anthropic content-block 序号 → OpenAI tool_call 序号（FR-PRO-06）。
+        ///
+        /// 两者**不是同一个编号空间**：Anthropic 的 `index` 数的是所有内容块
+        /// （text、thinking、tool_use 混在一起连续编号），OpenAI 的
+        /// `tool_calls[].index` 只数工具调用。一条"先说一句话再调工具"的回复
+        /// 里，tool_use 的 block index 是 1 而 tool_call index 是 0。
+        ///
+        /// 不做这层映射的后果很隐蔽：`content_block_start` 用 tool_call 序号
+        /// 发出 name 和 id，`input_json_delta` 用 block 序号发出 arguments，
+        /// 下游按 index 累积，于是得到一个有名字没参数的工具调用、外加一个
+        /// 有参数没名字的幽灵调用。两个都调不起来，而且报错信息不会指向这里。
+        var toolCallIndexByBlockIndex: [Int: Int] = [:]
+        /// 各 tool_call 的参数片段累积。Anthropic 把一个 JSON 对象拆成任意
+        /// 多个 `partial_json` 片段，单个片段几乎必然不是合法 JSON
+        /// （`{"pa` 这种），**拼完再解析**是唯一正确的做法。
+        var toolArgumentsByCallIndex: [Int: String] = [:]
+        /// 已经发出 `content_block_start` 的 thinking 块序号，用于在下游不
+        /// 支持推理内容时整块丢弃而不是折进 content。
+        var thinkingBlockIndexes: Set<Int> = []
     }
 
     /// Parses one Anthropic SSE event into chat.completion.chunk dictionaries.
-    func translateAnthropicSSEEvent(_ event: SSEEvent, state: AnthropicStreamState) -> [[String: Any]] {
+    ///
+    /// - Parameter emitsReasoning: 目标协议是否支持独立的推理字段。为 false
+    ///   时 thinking 内容**整块丢弃**，绝不折进 `content`——把思维链混进正文
+    ///   会污染用户可见输出，而且下游没有任何办法把它再分离出来。
+    func translateAnthropicSSEEvent(
+        _ event: SSEEvent,
+        state: AnthropicStreamState,
+        emitsReasoning: Bool = true
+    ) -> [[String: Any]] {
         guard event.data != "[DONE]",
               let payloadData = event.data.data(using: .utf8),
               let parsed = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else {
@@ -40,6 +67,10 @@ extension SwiftNativeProxyRuntimeService {
                     state.toolCallIndex += 1
                     state.toolNameByIndex[callIndex] = block["name"] as? String
                     state.toolIDByIndex[callIndex] = block["id"] as? String
+                    // 记下这个 block 属于哪个 tool_call，供后续
+                    // input_json_delta 查表。
+                    state.toolCallIndexByBlockIndex[index] = callIndex
+                    state.toolArgumentsByCallIndex[callIndex] = ""
                     return [[
                         "choices": [[
                             "index": 0,
@@ -54,10 +85,14 @@ extension SwiftNativeProxyRuntimeService {
                         ]],
                     ]]
                 } else if blockType == "thinking" {
+                    state.thinkingBlockIndexes.insert(index)
+                    guard emitsReasoning else { return [] }
+                    let seed = block["thinking"] as? String ?? ""
+                    guard !seed.isEmpty else { return [] }
                     return [[
                         "choices": [[
                             "index": 0,
-                            "delta": ["reasoning_content": block["thinking"] as? String ?? ""],
+                            "delta": ["reasoning_content": seed],
                         ]],
                     ]]
                 }
@@ -74,25 +109,36 @@ extension SwiftNativeProxyRuntimeService {
                         ]],
                     ]]
                 } else if deltaType == "input_json_delta" {
-                    let index = (parsed["index"] as? Int) ?? 0
+                    let blockIndex = (parsed["index"] as? Int) ?? 0
+                    // 查表拿 tool_call 序号。查不到说明上游发了一个我们没见过
+                    // content_block_start 的块——按 block 序号原样透传是唯一
+                    // 还能自洽的兜底。
+                    let callIndex = state.toolCallIndexByBlockIndex[blockIndex] ?? blockIndex
+                    let fragment = delta["partial_json"] as? String ?? ""
+                    state.toolArgumentsByCallIndex[callIndex, default: ""] += fragment
                     return [[
                         "choices": [[
                             "index": 0,
                             "delta": [
                                 "tool_calls": [[
-                                    "index": index,
-                                    "function": ["arguments": delta["partial_json"] as? String ?? ""],
+                                    "index": callIndex,
+                                    "function": ["arguments": fragment],
                                 ]],
                             ],
                         ]],
                     ]]
                 } else if deltaType == "thinking_delta" {
+                    guard emitsReasoning else { return [] }
                     return [[
                         "choices": [[
                             "index": 0,
                             "delta": ["reasoning_content": delta["thinking"] as? String ?? ""],
                         ]],
                     ]]
+                } else if deltaType == "signature_delta" {
+                    // extended thinking 的签名，对 OpenAI 形状没有对应字段，
+                    // 也不该出现在用户可见输出里。丢弃。
+                    return []
                 }
             }
             return []
@@ -101,7 +147,7 @@ extension SwiftNativeProxyRuntimeService {
                 state.usage = usage
             }
             let stopReason = ((parsed["delta"] as? [String: Any])?["stop_reason"] as? String) ?? "end_turn"
-            let finishReason = stopReason == "tool_use" ? "tool_calls" : "stop"
+            let finishReason = Self.openAIFinishReason(forAnthropicStopReason: stopReason)
             return [[
                 "choices": [[
                     "index": 0,
@@ -115,6 +161,19 @@ extension SwiftNativeProxyRuntimeService {
             return []
         default:
             return []
+        }
+    }
+
+    /// Anthropic `stop_reason` → OpenAI `finish_reason`（FR-PRO-06）。
+    ///
+    /// `max_tokens` 必须映射成 `length` 而不是 `stop`：客户端靠这个区分
+    /// "模型说完了"和"被截断了"，映射错会让被截断的回复看起来是完整的。
+    nonisolated static func openAIFinishReason(forAnthropicStopReason stopReason: String) -> String {
+        switch stopReason {
+        case "tool_use": return "tool_calls"
+        case "max_tokens": return "length"
+        case "refusal": return "content_filter"
+        default: return "stop"
         }
     }
 

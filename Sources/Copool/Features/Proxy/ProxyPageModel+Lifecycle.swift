@@ -16,9 +16,22 @@ extension ProxyPageModel {
         }
 
         stopRemoteSnapshotSync()
+
+        // 先收敛残留的托管块（A2）。放在 autoStart 判断之前：上一次异常退出留下
+        // 的托管块指向一个没人监听的端口，此时不管要不要自动启动，它都得清掉，
+        // 否则 ChatGPT.app 里第三方模型全是死路。自动启动会紧接着重新写入。
+        let didReconcile = await coordinator.reconcileProviderSplitOnLaunch()
+
         await refreshLocalRuntimeStatus()
 
-        guard settings.autoStartApiProxy, !proxyStatus.running else { return }
+        guard settings.autoStartApiProxy, !proxyStatus.running else {
+            // 只在不会立刻重启代理时提示——马上就要恢复的话，提示"已停服"只会
+            // 让用户困惑（A3）。
+            if didReconcile {
+                notice = NoticeMessage(style: .info, text: L10n.tr("proxy.split.recovered"))
+            }
+            return
+        }
 
         do {
             proxyStatus = try await coordinator.startProxy(preferredPort: nil)

@@ -22,6 +22,13 @@ final class SettingsPageModel: ObservableObject {
     /// Latest diagnostic run, empty until the user runs it.
     @Published var doctorChecks: [DoctorCheck] = []
     @Published var isRunningDoctor = false
+    /// 最近一次导出的支持包路径，用于在界面上给出"在访达中显示"的落点。
+    @Published var supportBundleURL: URL?
+    @Published var isExportingSupportBundle = false
+    /// 最近一条迁移记录（AC-004）。nil 表示从未迁移过——v1-only 的用户就是
+    /// 这个状态，不是错误。
+    @Published var lastMigration: MigrationEntry?
+    @Published var isRollingBackMigration = false
     @Published var notice: NoticeMessage? {
         didSet {
             noticeScheduler.schedule(notice) { [weak self] in
@@ -97,6 +104,73 @@ final class SettingsPageModel: ObservableObject {
             guard let self else { return }
             defer { self.isRunningDoctor = false }
             self.doctorChecks = await ProxyDoctor().run(paths: paths)
+        }
+    }
+
+    /// 导出脱敏支持包（M5）。
+    ///
+    /// 复用刚跑过的 `doctorChecks`，而不是在这里再跑一次诊断：诊断会发一次
+    /// 健康探测请求，用户点"导出"时不该再等一轮网络往返。没跑过就是空的，
+    /// 支持包里那一项直接缺席——这比塞一份现编的结果诚实。
+    func exportSupportBundle() {
+        guard let paths, !isExportingSupportBundle else { return }
+        isExportingSupportBundle = true
+        let providersSnapshot = providers
+        let checks = doctorChecks
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.isExportingSupportBundle = false }
+            let text = await SupportBundleBuilder(paths: paths).build(
+                providers: providersSnapshot,
+                engineStatus: nil,
+                doctorChecks: checks
+            )
+            let url = paths.applicationSupportDirectory.appendingPathComponent(
+                "copool-support-bundle.json",
+                isDirectory: false
+            )
+            do {
+                try Data(text.utf8).write(to: url, options: .atomic)
+                self.supportBundleURL = url
+                self.notice = NoticeMessage(style: .success, text: L10n.tr("settings.support_bundle.saved"))
+            } catch {
+                self.notice = NoticeMessage(style: .error, text: error.localizedDescription)
+            }
+        }
+    }
+
+    /// 读取最近一条迁移记录（AC-004）。
+    func reloadMigrationState() {
+        guard let paths else { return }
+        let repository = ProviderRegistryV2Repository(
+            registryPath: paths.registryV2Path,
+            journalPath: paths.migrationJournalPath
+        )
+        lastMigration = repository.loadJournal().entries.last
+    }
+
+    /// 回滚最近一次迁移（AC-004）。
+    ///
+    /// 只删 v2 注册表，v1 存储原封不动——那才是回滚安全且可重复的原因。
+    /// 下次启动 `migrateIfNeeded` 会从 v1 重新生成，所以这个操作没有"回不去"
+    /// 的风险，不需要二次确认吓唬用户。
+    func rollbackMigration() {
+        guard let paths, let entry = lastMigration, !isRollingBackMigration else { return }
+        isRollingBackMigration = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.isRollingBackMigration = false }
+            let repository = ProviderRegistryV2Repository(
+                registryPath: paths.registryV2Path,
+                journalPath: paths.migrationJournalPath
+            )
+            let service = RegistryMigrationService(repository: repository)
+            let succeeded = service.rollbackMigration(sourceHash: entry.sourceHash)
+            self.reloadMigrationState()
+            self.notice = NoticeMessage(
+                style: succeeded ? .success : .error,
+                text: L10n.tr(succeeded ? "settings.migration.rolled_back" : "settings.migration.rollback_failed")
+            )
         }
     }
 

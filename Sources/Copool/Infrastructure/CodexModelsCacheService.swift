@@ -54,9 +54,9 @@ struct CodexModelsCacheService {
     /// existing managed value only when it points at our catalog.
     func setModelCatalogInConfig() throws {
         let configPath = paths.codexConfigPath
-        guard fileManager.fileExists(atPath: configPath.path) else { return }
-
-        var text = try String(contentsOf: configPath, encoding: .utf8)
+        var text = fileManager.fileExists(atPath: configPath.path)
+            ? try String(contentsOf: configPath, encoding: .utf8)
+            : ""
         let catalogLine = "model_catalog_json = \"\(customCatalogPath.path)\""
 
         let managedValue = "\"\(customCatalogPath.path)\""
@@ -83,6 +83,10 @@ struct CodexModelsCacheService {
         }
 
         text = lines.joined(separator: "\n")
+        try fileManager.createDirectory(
+            at: configPath.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try text.write(to: configPath, atomically: true, encoding: .utf8)
     }
 
@@ -149,17 +153,48 @@ struct CodexModelsCacheService {
         try rewriteManagedConfig { $0 }
     }
 
+    /// The port the managed block currently points Codex at, or nil when no
+    /// managed routing is installed.
+    ///
+    /// This is what makes the "inconsistent" state detectable: `server != nil`
+    /// lives in the proxy actor's memory, so a hard kill of the app skips
+    /// `stop()` entirely and leaves the managed block behind. The config file is
+    /// the only witness that survives the process, so recovery has to read it.
+    func installedRoutingPort() -> Int? {
+        guard let text = try? String(contentsOf: paths.codexConfigPath, encoding: .utf8) else { return nil }
+        guard text.contains(Self.managedProviderStart) else { return nil }
+        // Parse the base_url we wrote ourselves rather than any user line: only
+        // the managed block's port tells us where Codex is being sent. Anchor on
+        // the host so the scheme's own colon can't be read as the port
+        // separator — splitting on the first ":" would yield 127.
+        let hostMarker = "127.0.0.1:"
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            guard trimmed.hasPrefix("base_url"),
+                  let hostRange = trimmed.range(of: hostMarker) else { continue }
+            let digits = trimmed[hostRange.upperBound...].prefix(while: { $0.isNumber })
+            if let port = Int(digits), port > 0 { return port }
+        }
+        return nil
+    }
+
     /// Strips every managed region (and any hand-written
     /// `[model_providers.opencodex]` table) from config.toml, then lets the
     /// caller rebuild it.
     private func rewriteManagedConfig(_ rebuild: (String) -> String) throws {
         let configPath = paths.codexConfigPath
-        guard fileManager.fileExists(atPath: configPath.path) else { return }
-
-        let original = try String(contentsOf: configPath, encoding: .utf8)
+        let original = fileManager.fileExists(atPath: configPath.path)
+            ? try String(contentsOf: configPath, encoding: .utf8)
+            : ""
         let stripped = Self.stripManagedConfig(original)
-        let rebuilt = rebuild(stripped).trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
+        let rebuiltBody = rebuild(stripped).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rebuiltBody.isEmpty || !original.isEmpty else { return }
+        let rebuilt = rebuiltBody + "\n"
         guard rebuilt != original else { return }
+        try fileManager.createDirectory(
+            at: configPath.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
         try rebuilt.write(to: configPath, atomically: true, encoding: .utf8)
     }
 
@@ -313,6 +348,66 @@ struct CodexModelsCacheService {
         }
     }
 
+    func catalogEntries(registry: ProviderRegistryV2) -> [JSONValue] {
+        registry.catalog.compactMap { entry in
+            guard entry.visibility != .hidden,
+                  entry.upstreamAvailable,
+                  let instance = registry.instance(id: entry.providerInstanceID),
+                  instance.enabled,
+                  credentialIsResolved(instance.credentialID, registry: registry) else {
+                return nil
+            }
+
+            return Self.catalogEntry(
+                providerName: instance.displayName,
+                clientModelID: entry.effectiveDisplayName,
+                backendModel: entry.backendModelID,
+                protocol: instance.protocolBindings[entry.backendModelID]?.legacy ?? instance.defaultProtocol.legacy,
+                model: Self.providerModel(from: entry)
+            )
+        }
+    }
+
+    private func credentialIsResolved(_ credentialID: String, registry: ProviderRegistryV2) -> Bool {
+        guard let credential = registry.credential(id: credentialID),
+              credential.gateState(now: Int64(Date().timeIntervalSince1970)) != .notReady,
+              let reference = credential.secureReference else { return false }
+        switch reference.storage {
+        case .keychainAccount:
+            return KeychainSecretStore().read(account: reference.name) != nil
+        case .environmentVariable:
+            return !(ProcessInfo.processInfo.environment[reference.name] ?? "").isEmpty
+        case .externalSessionFile:
+            // External CLI sessions must pass the explicit consent/read path;
+            // file existence alone does not make the credential routable.
+            return false
+        }
+    }
+
+    private static func providerModel(from entry: ModelCatalogEntry) -> ProviderModel {
+        let contextSource: ModelMetadataSource?
+        switch entry.contextWindowSource {
+        case .provider: contextSource = .provider
+        case .registry: contextSource = .registry
+        case .fallback: contextSource = .fallback
+        }
+        let reasoningSource: ModelMetadataSource?
+        switch entry.reasoningSource {
+        case .provider: reasoningSource = .provider
+        case .registry: reasoningSource = .registry
+        case .fallback: reasoningSource = .fallback
+        }
+        return ProviderModel(
+            id: entry.backendModelID,
+            displayName: entry.displayName,
+            contextWindow: entry.capabilities.contextWindow,
+            contextWindowSource: contextSource,
+            supportedReasoningEfforts: entry.capabilities.supportedReasoningEfforts,
+            defaultReasoningEffort: entry.capabilities.defaultReasoningEffort,
+            reasoningSource: reasoningSource
+        )
+    }
+
     /// Descriptions Codex shows beside each reasoning level. Levels beyond the
     /// common three get a generic line rather than being dropped.
     static func reasoningDescription(for effort: String) -> String {
@@ -354,19 +449,41 @@ struct CodexModelsCacheService {
         return models.compactMap { try? JSONValue.from(any: $0) }
     }
 
-    /// Rewrites models_cache.json keeping native entries and appending the
-    /// third-party catalog. This is the file ChatGPT.app's model menu reads.
-    ///
-    /// Stale third-party entries from previous runs (e.g. `agy/...` or
-    /// provider-prefixed slugs) are dropped so they never reach the menu.
-    func mergeCatalogIntoModelsCache(providers: [ProviderConfig]) throws {
-        let nativeModels = try readModelsCache()
-        let thirdParty = catalogEntries(providers: providers)
-        var merged = nativeModels.filter { Self.isNativeCacheEntry($0) }
-        let existingSlugs = Set(merged.compactMap { $0.objectValue?["slug"]?.stringValue })
+    /// Full sync for the legacy v1 provider store.
+    func sync(providers: [ProviderConfig]) throws -> [JSONValue] {
+        try sync(thirdParty: catalogEntries(providers: providers))
+    }
+
+    /// Full sync for the v2 registry plus any legacy v1 providers that have not
+    /// migrated yet. Registry entries are filtered before they reach Codex.
+    func sync(providers: [ProviderConfig], registry: ProviderRegistryV2) throws -> [JSONValue] {
+        try sync(thirdParty: catalogEntries(registry: registry) + catalogEntries(providers: providers))
+    }
+
+    private func sync(thirdParty: [JSONValue]) throws -> [JSONValue] {
+        let nativeModels = (try? readModelsCache()) ?? []
+        var merged = nativeModels.filter { Self.isNativeModel($0) }
+        var existingSlugs = Set(merged.compactMap { $0.objectValue?["slug"]?.stringValue })
         for entry in thirdParty {
             let slug = entry.objectValue?["slug"]?.stringValue
-            if let slug, !existingSlugs.contains(slug) {
+            if let slug, existingSlugs.insert(slug).inserted {
+                merged.append(entry)
+            }
+        }
+
+        try writeCustomCatalog(merged)
+        try setModelCatalogInConfig()
+        try mergeCatalogIntoModelsCache(thirdParty: thirdParty)
+        return thirdParty
+    }
+
+    private func mergeCatalogIntoModelsCache(thirdParty: [JSONValue]) throws {
+        let nativeModels = try readModelsCache()
+        var merged = nativeModels.filter { Self.isNativeCacheEntry($0) }
+        var existingSlugs = Set(merged.compactMap { $0.objectValue?["slug"]?.stringValue })
+        for entry in thirdParty {
+            let slug = entry.objectValue?["slug"]?.stringValue
+            if let slug, existingSlugs.insert(slug).inserted {
                 merged.append(entry)
             }
         }
@@ -376,33 +493,5 @@ struct CodexModelsCacheService {
         let object: [String: Any] = ["models": merged.map { $0.toAny() }]
         let data = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: paths.codexModelsCachePath, options: .atomic)
-    }
-
-    /// Full sync: writes the custom catalog (native models from models_cache
-    /// merged with third-party entries), points config.toml at it, and merges
-    /// entries into models_cache.json for the desktop model menu.
-    ///
-    /// opencodex does the same: the custom catalog must include the official
-    /// models (from `codex debug models` / models_cache.json) or ChatGPT.app
-    /// shows only the third-party entries when `model_catalog_json` is set.
-    func sync(providers: [ProviderConfig]) throws -> [JSONValue] {
-        let thirdParty = catalogEntries(providers: providers)
-
-        // Native models come from Codex's own server-fetched cache; keep them
-        // so the desktop model menu still shows gpt-5.x / o-series models.
-        let nativeModels = (try? readModelsCache()) ?? []
-        var merged = nativeModels.filter { Self.isNativeModel($0) }
-        let existingSlugs = Set(merged.compactMap { $0.objectValue?["slug"]?.stringValue })
-        for entry in thirdParty {
-            let slug = entry.objectValue?["slug"]?.stringValue
-            if let slug, !existingSlugs.contains(slug) {
-                merged.append(entry)
-            }
-        }
-
-        try writeCustomCatalog(merged)
-        try setModelCatalogInConfig()
-        try mergeCatalogIntoModelsCache(providers: providers)
-        return thirdParty
     }
 }

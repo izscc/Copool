@@ -5,15 +5,23 @@ final class ProxyCoordinator: @unchecked Sendable {
     private let proxyService: ProxyRuntimeService
     private let cloudflaredService: CloudflaredServiceProtocol
     private let remoteService: RemoteProxyServiceProtocol
+    private let routerHost: RouterHostControlClient
+    private let routerHostProcess: RouterHostProcess
+
+    private(set) var usingRouterHost = false
 
     init(
         proxyService: ProxyRuntimeService,
         cloudflaredService: CloudflaredServiceProtocol,
-        remoteService: RemoteProxyServiceProtocol
+        remoteService: RemoteProxyServiceProtocol,
+        routerHost: RouterHostControlClient = RouterHostControlClient(),
+        routerHostProcess: RouterHostProcess = RouterHostProcess()
     ) {
         self.proxyService = proxyService
         self.cloudflaredService = cloudflaredService
         self.remoteService = remoteService
+        self.routerHost = routerHost
+        self.routerHostProcess = routerHostProcess
     }
 
     func loadStatus() async -> (ApiProxyStatus, CloudflaredStatus) {
@@ -22,13 +30,60 @@ final class ProxyCoordinator: @unchecked Sendable {
         return await (proxy, cloudflared)
     }
 
+    /// 启动时收敛分流状态（A2 自愈）。
+    ///
+    /// App 被强杀时 `stopProxy()` 没机会执行，托管块会留在 config.toml 里指向
+    /// 一个没人监听的端口——ChatGPT.app 那边第三方模型全是死路，而原生 GPT 也
+    /// 被一起拖下水。这里在启动路径上把它剥离掉。
+    ///
+    /// 返回是否真的剥离过，调用方据此决定要不要提示用户（A3）。
+    @discardableResult
+    func reconcileProviderSplitOnLaunch() async -> Bool {
+        await proxyService.reconcileProviderSplit()
+    }
+
+    func providerSplitState() async -> ProviderSplitState {
+        await proxyService.providerSplitState()
+    }
+
     func startProxy(preferredPort: Int?) async throws -> ApiProxyStatus {
         try await proxyService.syncAccountsStore()
-        return try await proxyService.start(preferredPort: preferredPort)
+        let localStatus = try await proxyService.start(preferredPort: preferredPort)
+        guard routerHost.isEnabled else { return localStatus }
+
+        do {
+            guard let localBaseURL = localStatus.baseURL,
+                  let localAPIKey = localStatus.apiKey else {
+                return localStatus
+            }
+            let hostStatus = try routerHostProcess.start(
+                upstreamBaseURL: localBaseURL,
+                authorization: localAPIKey
+            )
+            guard let hostPort = hostStatus.port else { return localStatus }
+            usingRouterHost = true
+            return ApiProxyStatus(
+                running: true,
+                port: hostPort,
+                apiKey: localAPIKey,
+                baseURL: "http://127.0.0.1:\(hostPort)/v1",
+                availableAccounts: localStatus.availableAccounts,
+                activeAccountID: localStatus.activeAccountID,
+                activeAccountLabel: localStatus.activeAccountLabel,
+                lastError: localStatus.lastError
+            )
+        } catch {
+            usingRouterHost = false
+            return localStatus
+        }
     }
 
     func stopProxy() async -> ApiProxyStatus {
-        await proxyService.stop()
+        if usingRouterHost {
+            routerHostProcess.stop()
+            usingRouterHost = false
+        }
+        return await proxyService.stop()
     }
 
     func refreshAPIKey() async throws -> ApiProxyStatus {

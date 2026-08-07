@@ -110,5 +110,6 @@ extension ProxyPageModel {
         let pair = await coordinator.loadStatus()
         proxyStatus = pair.0
         applyCloudflaredStatus(pair.1)
+        onProviderSplitStateChanged?()
     }
 }

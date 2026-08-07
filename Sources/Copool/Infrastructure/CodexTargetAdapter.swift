@@ -151,11 +151,6 @@ final class CodexTargetAdapter: TargetConfigManaging, @unchecked Sendable {
 
     /// Stable fingerprint of a config for change detection.
     static func fingerprint(of text: String) -> String {
-        var hash: UInt64 = 0xcbf29ce484222325
-        for byte in text.utf8 {
-            hash ^= UInt64(byte)
-            hash = hash &* 0x100000001b3
-        }
-        return String(format: "%016llx", hash)
+        ContentFingerprint.of(text)
     }
 }

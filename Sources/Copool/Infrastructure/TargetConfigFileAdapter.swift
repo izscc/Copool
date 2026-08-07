@@ -1,13 +1,7 @@
 import Foundation
 
-/// Generic marked-block target config adapter for Beta target bindings
-/// (Cursor, opencode). Each binding is fully isolated: its own state
-/// directory, its own config file, its own managed provider id, and the same
-/// detect/plan/apply/verify/rollback contract as the Codex adapter.
-///
-/// Beta scope: config management only — no process control, no listener
-/// wiring yet. The binding registers its own TargetBinding so nothing is
-/// shared implicitly (AC-008).
+/// Marked-block target adapter for Cursor and opencode. Each binding owns
+/// its config file, state directory, provider id and rollback receipt.
 final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
     let targetID: String
     private let configPath: URL
@@ -38,6 +32,12 @@ final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
     func detect() -> TargetConfigSnapshot? {
         lock.lock()
         defer { lock.unlock() }
+        return detectLocked()
+    }
+
+    /// 不加锁的 detect。NSLock 不可重入：任何已持锁的方法都必须走这里，
+    /// 直接调 `detect()` 会自锁死。
+    private func detectLocked() -> TargetConfigSnapshot? {
         guard fileManager.fileExists(atPath: configPath.path),
               let text = try? String(contentsOf: configPath, encoding: .utf8) else {
             return nil
@@ -49,11 +49,14 @@ final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
     func plan(to desired: String) -> TargetConfigDiff {
         lock.lock()
         defer { lock.unlock() }
+        // 只读一次盘：两次 detect() 之间文件可能被目标应用改写，
+        // before 与 preservedUserLines 必须来自同一份快照。
+        let before = detectLocked()
         return TargetConfigDiff(
             targetID: targetID,
-            before: detect(),
+            before: before,
             after: TargetConfigSnapshot(targetID: targetID, content: desired, modifiedAt: nil),
-            preservedUserLines: TargetConfigFileAdapter.userOwnedLines(in: detect()?.content ?? "")
+            preservedUserLines: TargetConfigFileAdapter.userOwnedLines(in: before?.content ?? "")
         )
     }
 
@@ -61,7 +64,10 @@ final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
     /// outside the marked region.
     func desiredConfig(port: Int, baseURLTemplate: String) -> String {
         let current = detect()?.content ?? ""
-        let stripped = TargetConfigFileAdapter.stripMarkedBlocks(current, blockNames: ["managed", "managed-provider"])
+        let stripped = TargetConfigFileAdapter.stripMarkedBlocks(
+            current,
+            blockNames: TargetConfigFileAdapter.managedBlockNames
+        )
         let provider = String(
             format: """
             # >>> copool-managed-provider >>>
@@ -76,7 +82,7 @@ final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
         )
         return """
         # >>> copool-managed >>>
-        # Managed by Copool vNext (binding %@)
+        # Managed by Copool vNext (binding \(targetID))
         # <<< copool-managed <<<
         \(stripped)
 
@@ -109,7 +115,12 @@ final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         guard let current = try? String(contentsOf: configPath, encoding: .utf8) else { return false }
-        return current == diff.after.content
+        // 只比托管块。目标应用会在写回时重排键、补默认值，用户也随时可能
+        // 改块外的内容——全文比较会把这些正常改动判成"写入失败"，
+        // 进而触发不必要的回滚。我们只对自己写的那几行负责。
+        let expected = TargetConfigFileAdapter.markedBlocks(in: diff.after.content)
+        guard !expected.isEmpty else { return true }
+        return TargetConfigFileAdapter.markedBlocks(in: current) == expected
     }
 
     func rollback(_ diff: TargetConfigDiff) throws {
@@ -129,18 +140,28 @@ final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
         defer { lock.unlock() }
         guard fileManager.fileExists(atPath: configPath.path) else { return }
         let text = try String(contentsOf: configPath, encoding: .utf8)
-        let stripped = TargetConfigFileAdapter.stripMarkedBlocks(text, blockNames: ["managed", "managed-provider"])
+        let stripped = TargetConfigFileAdapter.stripMarkedBlocks(
+            text,
+            blockNames: TargetConfigFileAdapter.managedBlockNames
+        )
         try stripped.write(to: configPath, atomically: true, encoding: .utf8)
     }
 
     // MARK: - Marked block helpers
 
+    /// 托管块的完整名字。标记行长这样：`# >>> copool-managed >>>`，
+    /// 所以名字必须含 `copool-` 前缀——只写 `managed` 匹配不上任何东西。
+    static let managedBlockNames = ["copool-managed", "copool-managed-provider"]
+
+    private static func markers(for name: String) -> (start: String, end: String) {
+        ("# >>> \(name) >>>", "# <<< \(name) <<<")
+    }
+
     /// Removes copool-managed blocks (same contract as CodexModelsCacheService).
     static func stripMarkedBlocks(_ text: String, blockNames: [String]) -> String {
         var result = text
         for name in blockNames {
-            let start = "# >>> \(name) >>>"
-            let end = "# <<< \(name) <<<"
+            let (start, end) = markers(for: name)
             while let startRange = result.range(of: start),
                   let endRange = result.range(of: end, range: startRange.upperBound..<result.endIndex) {
                 result.removeSubrange(startRange.lowerBound..<endRange.upperBound)
@@ -149,8 +170,23 @@ final class TargetConfigFileAdapter: TargetConfigManaging, @unchecked Sendable {
         return result
     }
 
+    /// 抽出各托管块的正文（含标记行），供 `verify` 做区间级比较。
+    /// 缺失的块不进字典——"块不见了"与"块内容不同"都会让比较失败，这正是想要的。
+    static func markedBlocks(in text: String, blockNames: [String] = managedBlockNames) -> [String: String] {
+        var blocks: [String: String] = [:]
+        for name in blockNames {
+            let (start, end) = markers(for: name)
+            guard let startRange = text.range(of: start),
+                  let endRange = text.range(of: end, range: startRange.upperBound..<text.endIndex) else {
+                continue
+            }
+            blocks[name] = String(text[startRange.lowerBound..<endRange.upperBound])
+        }
+        return blocks
+    }
+
     static func userOwnedLines(in text: String) -> [String] {
-        stripMarkedBlocks(text, blockNames: ["managed", "managed-provider"])
+        stripMarkedBlocks(text, blockNames: managedBlockNames)
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map(String.init)
     }

@@ -50,4 +50,13 @@ final class TaskEnvelopeDispatcherTests: XCTestCase {
         let trail = (try? String(contentsOf: trailURL, encoding: .utf8)) ?? ""
         XCTAssertTrue(trail.contains("\"completed\""))
     }
+
+    func testExecutingEnvelopeCanBeCancelledAndAudited() {
+        let dispatcher = TaskEnvelopeDispatcher(trailURL: trailURL)
+        let executing = dispatcher.confirmAndDelegate(TaskEnvelope(sessionID: "s1", kind: .codingExecution, intent: "x"))
+        dispatcher.cancel(executing.id)
+        XCTAssertEqual(dispatcher.current(executing.id)?.status, .failed("cancelled"))
+        let trail = (try? String(contentsOf: trailURL, encoding: .utf8)) ?? ""
+        XCTAssertTrue(trail.contains("cancelled"))
+    }
 }

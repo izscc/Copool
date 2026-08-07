@@ -208,9 +208,20 @@ sign_app_bundle() {
   local app_bundle_id
   local plugin_path
   local plugin_bundle_id
+  local helper_path
 
   app_bundle_id="$(defaults read "$app_path/Contents/Info" CFBundleIdentifier)"
   embed_profile_if_found "$app_bundle_id" "$app_path"
+
+  helper_path="$app_path/Contents/Helpers/CopoolRouterHost"
+  if [[ -f "$helper_path" ]]; then
+    codesign \
+      --force \
+      --sign "$CODESIGN_IDENTITY" \
+      --timestamp \
+      --options runtime \
+      "$helper_path"
+  fi
 
   while IFS= read -r -d '' plugin_path; do
     plugin_bundle_id="$(defaults read "$plugin_path/Contents/Info" CFBundleIdentifier)"
@@ -287,6 +298,9 @@ if [[ "$NOTARIZATION_BACKEND" == "notarytool" ]]; then
 fi
 require_command xcrun
 
+log "Building RouterHost helper"
+swift build -c release
+
 log "Preparing release directories"
 ensure_clean_dir "$RELEASE_ROOT"
 mkdir -p "$WORK_ROOT"
@@ -316,6 +330,10 @@ fi
 
 APP_PATH="$STAGE_ROOT/$(basename "$ARCHIVED_APP_PATH")"
 sanitize_app_bundle "$ARCHIVED_APP_PATH" "$APP_PATH"
+mkdir -p "$APP_PATH/Contents/Helpers"
+cp "$ROOT_DIR/.build/release/CopoolRouterHost" "$APP_PATH/Contents/Helpers/CopoolRouterHost"
+chmod 755 "$APP_PATH/Contents/Helpers/CopoolRouterHost"
+log "Embedded CopoolRouterHost helper"
 log "Signing sanitized app bundle in temporary staging area"
 sign_app_bundle "$APP_PATH"
 

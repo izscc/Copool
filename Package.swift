@@ -43,7 +43,8 @@ let package = Package(
                 .process("Resources/zh-Hant.lproj"),
                 .process("Resources/proxyd-src"),
                 .copy("Resources/proxyd-prebuilt-archives"),
-                .copy("Resources/proxyd-prebuilt")
+                .copy("Resources/proxyd-prebuilt"),
+                .copy("Resources/provider-registry-seed.json")
             ]
         ),
         .testTarget(

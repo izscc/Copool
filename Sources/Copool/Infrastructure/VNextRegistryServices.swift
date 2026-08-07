@@ -1,64 +1,33 @@
 import Foundation
 
-/// Data-driven built-in provider registry (PRD: "registry is data-driven;
-/// model lists come from live discovery, not hardcoded research snapshots").
+/// 内置 provider 定义的查询入口。
 ///
-/// Definitions carry no user data and no secrets; model lists are deliberately
-/// NOT seeded here — discovery/curation populates them at runtime.
+/// **唯一真源是 `provider-registry-seed.json`**，不是本文件里的数组。曾经这里
+/// 硬编码了一份 11 家的清单，与种子的 23 家各自演进，id 还对不上
+/// （`kimi` vs `kimi-api`、`google` vs `gemini-api`）。结果是 v1 迁移出来的实例
+/// 挂在种子里不存在的 definition 上，供应商页按种子分组，那些实例一条都不显示。
+///
+/// 定义不含用户数据也不含密钥；模型清单有意不放在这里——实时发现与策展在
+/// 运行时填充。
 enum BuiltInProviderRegistry {
-    static let all: [ProviderDefinition] = [
+
+    /// 种子里的定义。解码失败时为空，由 `all` 兜底。
+    static let seeded: [ProviderDefinition] = (try? ProviderRegistrySeedLoader.load())?.definitions ?? []
+
+    /// 只在 v1 迁移里出现、种子里有意没有的 provider。
+    ///
+    /// 这两家不是"漏了"：Antigravity 走的是导入本机订阅登录态，火山方舟需要用户
+    /// 自带 endpoint id，都不适合作为开箱可用的内置条目。但老用户的 v1 配置里
+    /// 有它们，迁移时必须落到一条**有品牌名的**定义上——否则会退化成
+    /// `custom-<uuid>` 覆盖层，显示名变成一串 id。
+    static let legacySupplement: [ProviderDefinition] = [
         ProviderDefinition(
-            id: "deepseek",
-            displayName: "DeepSeek",
-            ownership: "deepseek",
-            supportedProtocols: [.chat],
-            defaultBaseURL: "https://api.deepseek.com/v1",
-            credentialKinds: [.apiKey],
-            isBuiltIn: true
-        ),
-        ProviderDefinition(
-            id: "qwen",
-            displayName: "Qwen",
-            ownership: "alibaba",
-            supportedProtocols: [.chat],
-            defaultBaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            credentialKinds: [.apiKey],
-            isBuiltIn: true
-        ),
-        ProviderDefinition(
-            id: "zai",
-            displayName: "Z.ai",
-            ownership: "zai",
-            supportedProtocols: [.chat],
-            defaultBaseURL: "https://api.z.ai/api/v1",
-            credentialKinds: [.apiKey, .oauth],
-            isBuiltIn: true
-        ),
-        ProviderDefinition(
-            id: "minimax",
-            displayName: "MiniMax",
-            ownership: "minimax",
-            supportedProtocols: [.chat],
-            defaultBaseURL: "https://api.minimax.chat/v1",
-            credentialKinds: [.apiKey],
-            isBuiltIn: true
-        ),
-        ProviderDefinition(
-            id: "kimi",
-            displayName: "Kimi",
-            ownership: "moonshot",
-            supportedProtocols: [.chat, .responses],
-            defaultBaseURL: "https://api.moonshot.cn/v1",
-            credentialKinds: [.apiKey, .oauth],
-            isBuiltIn: true
-        ),
-        ProviderDefinition(
-            id: "openrouter",
-            displayName: "OpenRouter",
-            ownership: "openrouter",
-            supportedProtocols: [.chat],
-            defaultBaseURL: "https://openrouter.ai/api/v1",
-            credentialKinds: [.apiKey],
+            id: "antigravity",
+            displayName: "Antigravity",
+            ownership: "google",
+            supportedProtocols: [.google],
+            defaultBaseURL: "https://generativelanguage.googleapis.com/v1beta",
+            credentialKinds: [.subscriptionImport, .oauthDeviceFlow],
             isBuiltIn: true
         ),
         ProviderDefinition(
@@ -70,40 +39,99 @@ enum BuiltInProviderRegistry {
             credentialKinds: [.apiKey],
             isBuiltIn: true
         ),
+    ]
+
+    /// 种子 + 迁移补充。种子解码失败时退到 `fallback`，让迁移仍能匹配到品牌名。
+    static var all: [ProviderDefinition] {
+        (seeded.isEmpty ? fallback : seeded) + legacySupplement
+    }
+
+    /// **仅在种子解码失败时使用**的应急清单。
+    ///
+    /// 保留它是为了让 v1 迁移在种子坏掉时不至于把所有 provider 都变成
+    /// `custom-` 覆盖层。id 与种子保持一致，这样种子修好后不会产生第二套身份。
+    static let fallback: [ProviderDefinition] = [
         ProviderDefinition(
-            id: "anthropic",
-            displayName: "Anthropic",
+            id: "deepseek",
+            displayName: "DeepSeek API",
+            ownership: "deepseek",
+            supportedProtocols: [.chat],
+            defaultBaseURL: "https://api.deepseek.com",
+            credentialKinds: [.apiKey, .environmentReference],
+            isBuiltIn: true
+        ),
+        ProviderDefinition(
+            id: "qwen-plan",
+            displayName: "Qwen（阿里云 Model Studio 套餐）",
+            ownership: "alibaba",
+            supportedProtocols: [.chat],
+            defaultBaseURL: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+            credentialKinds: [.apiKey, .environmentReference],
+            isBuiltIn: true
+        ),
+        ProviderDefinition(
+            id: "zai-coding",
+            displayName: "Z.ai GLM Coding Plan",
+            ownership: "zhipu",
+            supportedProtocols: [.chat],
+            defaultBaseURL: "https://api.z.ai/api/coding/paas/v4",
+            credentialKinds: [.apiKey, .environmentReference],
+            isBuiltIn: true
+        ),
+        ProviderDefinition(
+            id: "minimax-token-plan",
+            displayName: "MiniMax Token Plan",
+            ownership: "minimax",
+            supportedProtocols: [.chat],
+            defaultBaseURL: "https://api.minimax.io/v1",
+            credentialKinds: [.apiKey, .environmentReference],
+            isBuiltIn: true
+        ),
+        ProviderDefinition(
+            id: "kimi-api",
+            displayName: "Kimi Platform API",
+            ownership: "moonshot",
+            supportedProtocols: [.chat],
+            defaultBaseURL: "https://api.moonshot.cn/v1",
+            credentialKinds: [.apiKey, .environmentReference],
+            isBuiltIn: true
+        ),
+        ProviderDefinition(
+            id: "openrouter",
+            displayName: "OpenRouter",
+            ownership: "openrouter",
+            supportedProtocols: [.chat],
+            defaultBaseURL: "https://openrouter.ai/api/v1",
+            credentialKinds: [.apiKey, .environmentReference],
+            isBuiltIn: true,
+            catalogOnly: true
+        ),
+        ProviderDefinition(
+            id: "anthropic-api",
+            displayName: "Anthropic API",
             ownership: "anthropic",
             supportedProtocols: [.anthropic],
-            defaultBaseURL: "https://api.anthropic.com",
-            credentialKinds: [.apiKey, .oauth, .subscriptionImport],
+            defaultBaseURL: "https://api.anthropic.com/v1",
+            credentialKinds: [.apiKey, .environmentReference],
             isBuiltIn: true
         ),
         ProviderDefinition(
-            id: "google",
-            displayName: "Google Gemini",
+            id: "gemini-api",
+            displayName: "Google Gemini API",
             ownership: "google",
-            supportedProtocols: [.google],
-            defaultBaseURL: "https://generativelanguage.googleapis.com/v1beta",
-            credentialKinds: [.apiKey, .oauth, .subscriptionImport],
-            isBuiltIn: true
+            supportedProtocols: [.chat],
+            defaultBaseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+            credentialKinds: [.apiKey, .environmentReference],
+            isBuiltIn: true,
+            catalogOnly: true
         ),
         ProviderDefinition(
-            id: "antigravity",
-            displayName: "Antigravity",
-            ownership: "google",
-            supportedProtocols: [.google],
-            defaultBaseURL: "https://generativelanguage.googleapis.com/v1beta",
-            credentialKinds: [.subscriptionImport, .oauth],
-            isBuiltIn: true
-        ),
-        ProviderDefinition(
-            id: "grok",
-            displayName: "Grok",
+            id: "grok-api",
+            displayName: "xAI Grok API",
             ownership: "xai",
-            supportedProtocols: [.chat, .responses],
+            supportedProtocols: [.chat],
             defaultBaseURL: "https://api.x.ai/v1",
-            credentialKinds: [.apiKey, .oauth, .subscriptionImport],
+            credentialKinds: [.apiKey, .environmentReference],
             isBuiltIn: true
         ),
     ]
@@ -115,7 +143,7 @@ enum BuiltInProviderRegistry {
 
 /// Persists the v2 registry (provider-registry-v2.json) and its migration
 /// journal (migration-journal.json) with atomic writes.
-final class ProviderRegistryV2Repository: @unchecked Sendable {
+final class ProviderRegistryV2Repository: ProviderRegistryRepository, @unchecked Sendable {
     private let registryPath: URL
     private let journalPath: URL
     private let fileManager: FileManager
@@ -294,7 +322,14 @@ final class RegistryMigrationService: Sendable {
         let sourceHash = Self.sourceHash(of: store)
         if let last = repository.loadJournal().lastEntry(sourceHash: sourceHash),
            last.verified, last.rolledBack != true {
-            return .alreadyMigrated
+            // 已经迁移过，但注册表可能停在旧的 schema 版本上——sourceHash 只
+            // 反映 v1 存储有没有变，管不到"我们把 currentVersion 提上去了"。
+            //
+            // 不补这一步的后果是静默的：`V2RouteResolver` 要求版本严格等于
+            // currentVersion，否则返回 `registryUnavailable` 回落 v1。于是老用户
+            // 升级 App 之后 v2 路由（打分、转移、trace）全部停摆，界面上却什么
+            // 都不报——他们只会觉得"最近选模型好像不太准"。
+            return upgradeVersionIfNeeded(sourceHash: sourceHash)
         }
 
         var registry = repository.loadRegistry()
@@ -307,6 +342,13 @@ final class RegistryMigrationService: Sendable {
             let definition = Self.matchDefinition(for: provider)
             if !registry.definitions.contains(where: { $0.id == definition.id }) {
                 registry.definitions.append(definition)
+            }
+            // 种子里没有的定义（迁移补充、用户自定义）还要进覆盖层：供应商页
+            // 是"种子 + userDefinitions"渲染的，只写 definitions 的话，迁移过来的
+            // 火山方舟 / Antigravity / 自定义端点在新页面上一条都看不见。
+            if !Self.isSeeded(definition.id),
+               !registry.userDefinitions.contains(where: { $0.id == definition.id }) {
+                registry.userDefinitions.append(definition)
             }
 
             // Credential reference only — the values live in the keychain
@@ -332,22 +374,23 @@ final class RegistryMigrationService: Sendable {
                 registry.credentials.append(credential)
             }
 
-            if !registry.instances.contains(where: { $0.id == instanceID }) {
-                registry.instances.append(
-                    ProviderInstance(
-                        id: instanceID,
-                        definitionID: definition.id,
-                        displayName: provider.name,
-                        endpoint: provider.baseURL,
-                        credentialID: credential.id,
-                        protocolBindings: Dictionary(
-                            uniqueKeysWithValues: provider.modelProtocols.map { ($0.key, APIDialect($0.value)) }
-                        ),
-                        defaultProtocol: APIDialect(provider.defaultProtocol),
-                        enabled: true,
-                        addedAt: provider.addedAt
-                    )
-                )
+            let instance = ProviderInstance(
+                id: instanceID,
+                definitionID: definition.id,
+                displayName: provider.name,
+                endpoint: provider.baseURL,
+                credentialID: credential.id,
+                protocolBindings: Dictionary(
+                    uniqueKeysWithValues: provider.modelProtocols.map { ($0.key, APIDialect($0.value)) }
+                ),
+                defaultProtocol: APIDialect(provider.defaultProtocol),
+                enabled: true,
+                addedAt: provider.addedAt
+            )
+            if let index = registry.instances.firstIndex(where: { $0.id == instanceID }) {
+                registry.instances[index] = instance
+            } else {
+                registry.instances.append(instance)
             }
 
             // Catalog: model entries keyed by instance + backend model.
@@ -397,6 +440,69 @@ final class RegistryMigrationService: Sendable {
         return .migrated
     }
 
+    /// 把一次失败的迁移记进账本（`verified: false`）。
+    ///
+    /// 迁移整个跑在后台、没有任何 UI，不留痕的话失败与成功在外部看起来完全
+    /// 一样——用户只会发现"模型页是空的"，而没有任何地方说得清为什么。
+    ///
+    /// 复用同一份账本而不是另开日志：支持包与设置页都已经在读它，多一条通道
+    /// 就多一处会漏读的地方。原因必须脱敏（INV-1），失败信息里可能带着上游
+    /// 错误体或路径。
+    func journalFailure(reason: String, v1 store: ProviderStore) {
+        repository.appendJournalEntry(
+            MigrationEntry(
+                journalID: UUID().uuidString,
+                migratedAt: now(),
+                fromVersion: repository.loadRegistry().version,
+                toVersion: ProviderRegistryV2.currentVersion,
+                shadowed: false,
+                verified: false,
+                rolledBack: nil,
+                sourceHash: Self.sourceHash(of: store),
+                failureReason: SecretRedactor.redactText(reason)
+            )
+        )
+    }
+
+    /// 把已存在的注册表提到当前 schema 版本（MIG-02）。
+    ///
+    /// 只改 `version` 字段，不重建内容：v2→v3 这类升级新增的都是可选字段，
+    /// 解码时已经落到各自的默认值了（`fallbackPolicy`、`requestProfiles`…）。
+    /// 重新跑一遍完整迁移反而有害——那会用 v1 存储覆盖用户在 v2 里做过的
+    /// 编辑（改过的展示名、手动禁用的模型、策展过的目录）。
+    ///
+    /// 版本比 currentVersion 还新时不动它：那是用户降级了 App，把版本号往回
+    /// 写只会让新版本再打开时以为这是一份旧数据，触发一次没必要的重建。
+    private func upgradeVersionIfNeeded(sourceHash: String) -> MigrationOutcome {
+        var registry = repository.loadRegistry()
+        guard registry.version < ProviderRegistryV2.currentVersion else {
+            return .alreadyMigrated
+        }
+        let fromVersion = registry.version
+        registry.version = ProviderRegistryV2.currentVersion
+        do {
+            try repository.saveRegistry(registry)
+        } catch {
+            return .failed("version upgrade failed: \(error.localizedDescription)")
+        }
+        repository.appendJournalEntry(
+            MigrationEntry(
+                journalID: UUID().uuidString,
+                migratedAt: now(),
+                fromVersion: fromVersion,
+                toVersion: ProviderRegistryV2.currentVersion,
+                shadowed: false,
+                verified: repository.loadRegistry().version == ProviderRegistryV2.currentVersion,
+                rolledBack: nil,
+                // 沿用触发这次升级的那个 sourceHash，让升级记录和它所升级的
+                // 那次迁移在账本里串得起来；也让下次 `lastEntry(sourceHash:)`
+                // 查到的是这条最新的。
+                sourceHash: sourceHash
+            )
+        )
+        return .migrated
+    }
+
     // MARK: - Helpers
 
     /// Deterministic fingerprint of the v1 store (ignores secret fields so a
@@ -406,7 +512,14 @@ final class RegistryMigrationService: Sendable {
     static func sourceHash(of store: ProviderStore) -> String {
         var digest = ""
         for provider in store.providers.sorted(by: { $0.id < $1.id }) {
-            digest += "\(provider.id)|\(provider.name)|\(provider.baseURL)|\(provider.defaultProtocol.rawValue);"
+            let models = provider.models
+                .sorted { $0.id < $1.id }
+                .map { model in
+                    let protocolName = provider.modelProtocols[model.id]?.rawValue ?? provider.defaultProtocol.rawValue
+                    return "\(model.id):\(protocolName)"
+                }
+                .joined(separator: ",")
+            digest += "\(provider.id)|\(provider.name)|\(provider.baseURL)|\(provider.defaultProtocol.rawValue)|\(models);"
         }
         guard !digest.isEmpty else { return "empty" }
 
@@ -418,16 +531,33 @@ final class RegistryMigrationService: Sendable {
         return String(format: "%016llx", hash)
     }
 
+    /// 把一条 v1 provider 匹配到内置定义上。
+    ///
+    /// 右列必须是**种子里真实存在的 id**。匹配到一个种子里没有的 id，实例就会
+    /// 挂在不存在的 definition 上——供应商页按种子分组，那条实例一辈子都不显示，
+    /// 而用户只看到"我的配置没了"。
+    ///
+    /// 顺序敏感：先长后短、先专后泛。`z.ai` 要排在 `zai` 前面（域名里带点），
+    /// `moonshot` 与 `kimi` 指向同一家。
     static func matchDefinition(for provider: ProviderConfig) -> ProviderDefinition {
         let name = provider.name.lowercased()
         let url = provider.baseURL.lowercased()
         let candidates: [(String, String)] = [
-            ("deepseek", "deepseek"), ("qwen", "qwen"), ("z.ai", "zai"), ("zai", "zai"),
-            ("minimax", "minimax"), ("kimi", "kimi"), ("moonshot", "kimi"),
-            ("openrouter", "openrouter"), ("volcengine", "volcengine"), ("火山", "volcengine"),
-            ("anthropic", "anthropic"), ("claude", "anthropic"), ("antigravity", "antigravity"),
-            ("agy", "antigravity"), ("grok", "grok"), ("x.ai", "grok"),
-            ("gemini", "google"), ("generativelanguage", "google"),
+            ("deepseek", "deepseek"), ("qwen", "qwen-plan"), ("dashscope", "qwen-plan"),
+            ("aliyuncs", "qwen-plan"),
+            ("z.ai", "zai-coding"), ("zai", "zai-coding"), ("glm", "zai-coding"),
+            ("minimax", "minimax-token-plan"),
+            ("kimi", "kimi-api"), ("moonshot", "kimi-api"),
+            ("openrouter", "openrouter"),
+            ("volcengine", "volcengine"), ("volces", "volcengine"), ("火山", "volcengine"),
+            ("antigravity", "antigravity"), ("agy", "antigravity"),
+            ("anthropic", "anthropic-api"), ("claude", "anthropic-api"),
+            ("grok", "grok-api"), ("x.ai", "grok-api"),
+            ("gemini", "gemini-api"), ("generativelanguage", "gemini-api"),
+            ("opencode", "opencode-go"), ("groq", "groq"), ("together", "together"),
+            ("fireworks", "fireworks"), ("cerebras", "cerebras"), ("mistral", "mistral"),
+            ("nvidia", "nvidia-nim"), ("siliconflow", "siliconflow"), ("硅基流动", "siliconflow"),
+            ("huggingface", "huggingface"), ("ollama", "ollama-cloud"),
         ]
         for (needle, definitionID) in candidates where name.contains(needle) || url.contains(needle) {
             if let definition = BuiltInProviderRegistry.definition(id: definitionID) {
@@ -446,11 +576,16 @@ final class RegistryMigrationService: Sendable {
         )
     }
 
-    static func credentialKind(of provider: ProviderConfig) -> CredentialKind {
-        switch provider.authKind {
+    /// 该 definition id 是否来自种子。种子里已有的不必再写覆盖层——
+    /// 写了反而会把一份当时的快照钉死，日后种子改了域名也拿不到新值。
+    static func isSeeded(_ definitionID: String) -> Bool {
+        BuiltInProviderRegistry.seeded.contains { $0.id == definitionID }
+    }
+
+    static func credentialKind(of provider: ProviderConfig) -> CredentialKind {        switch provider.authKind {
         case .subscriptionImport: return .subscriptionImport
         case .apiKey:
-            return provider.refreshToken == nil ? .apiKey : .oauth
+            return provider.refreshToken == nil ? .apiKey : .oauthDeviceFlow
         }
     }
 

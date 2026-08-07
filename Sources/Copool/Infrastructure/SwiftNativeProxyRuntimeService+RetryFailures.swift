@@ -1,31 +1,123 @@
 import Foundation
 
 extension SwiftNativeProxyRuntimeService {
+    /// 分类一次上游失败。
+    ///
+    /// 返回 nil 表示**确定性客户端错误**（FR-RTE-04 的 `.requestError`：
+    /// 400/404/422），调用方应原样透传、不重试、不换凭据——换一个凭据重发一个
+    /// 格式错误的请求，只会把同一个 400 再收一遍。
+    ///
+    /// 这里同时产出两样东西：
+    /// - `failureClass`：FR-RTE-04 七分类，**重试决策的唯一依据**；
+    /// - `category`：P1 既有的冷却/汇总词汇表，比状态码更细（它能从响应体认出
+    ///   "配额耗尽"和"该账号无此模型权限"，这两种在 HTTP 层都可能是 403/404）。
+    ///
+    /// 之所以保留两套而不是删掉一套：状态码给不出"账号 A 没有 gpt-5-pro 权限"
+    /// 这种信息，而这恰恰是多账号池最有价值的转移信号；反过来，响应体关键词
+    /// 匹配又不该决定"要不要重发同一个请求"这种花钱的事。各管各的。
     func classifyRetryFailure(statusCode: Int, bodyText: String) -> RetryFailureInfo? {
         let signals = extractErrorSignals(rawText: bodyText)
         let status = statusCode
 
+        // 响应体信号优先于状态码：上游把限流塞进 500 里返回是常态，
+        // body 比 status 更接近事实。
         if status == 402 || containsQuotaSignal(signals.normalized) {
-            return RetryFailureInfo(category: .quotaExceeded, detail: L10n.tr("error.proxy_runtime.retry.quota_exceeded_format", signals.brief))
+            return RetryFailureInfo(
+                category: .quotaExceeded,
+                failureClass: .rateLimited,
+                detail: L10n.tr("error.proxy_runtime.retry.quota_exceeded_format", signals.brief)
+            )
         }
         if containsModelRestrictionSignal(signals.normalized) {
-            return RetryFailureInfo(category: .modelRestricted, detail: L10n.tr("error.proxy_runtime.retry.model_restricted_format", signals.brief))
+            // 模型权限受限：同一凭据重发必然再失败，但**别的账号可能有权限**，
+            // 所以按 forbidden 处理（零同凭据重试 + 允许转移）。
+            return RetryFailureInfo(
+                category: .modelRestricted,
+                failureClass: .forbidden,
+                detail: L10n.tr("error.proxy_runtime.retry.model_restricted_format", signals.brief)
+            )
         }
         if status == 429 || containsRateLimitSignal(signals.normalized) {
-            return RetryFailureInfo(category: .rateLimited, detail: L10n.tr("error.proxy_runtime.retry.rate_limited_format", signals.brief))
+            return RetryFailureInfo(
+                category: .rateLimited,
+                failureClass: .rateLimited,
+                detail: L10n.tr("error.proxy_runtime.retry.rate_limited_format", signals.brief)
+            )
         }
         if status == 401 || containsAuthSignal(signals.normalized) {
-            return RetryFailureInfo(category: .authentication, detail: L10n.tr("error.proxy_runtime.retry.auth_failed_format", signals.brief))
+            return RetryFailureInfo(
+                category: .authentication,
+                failureClass: .unauthorized,
+                detail: L10n.tr("error.proxy_runtime.retry.auth_failed_format", signals.brief)
+            )
         }
         if status == 403 || containsPermissionSignal(signals.normalized) {
-            return RetryFailureInfo(category: .permission, detail: L10n.tr("error.proxy_runtime.retry.permission_denied_format", signals.brief))
+            // FR-RTE-04：403 必须区分配额型与禁止型。配额型走限流路径
+            // （换凭据/退避后仍可能成功），禁止型是硬拒绝。
+            return RetryFailureInfo(
+                category: .permission,
+                failureClass: UpstreamFailureClass.classify(statusCode: 403, responseBody: bodyText),
+                detail: L10n.tr("error.proxy_runtime.retry.permission_denied_format", signals.brief)
+            )
         }
         // AC-013: transient 5xx (except 501/505 — "not implemented"/"version
         // not supported" are permanent) are retriable on another candidate.
         if status >= 500 && status <= 599 && status != 501 && status != 505 {
-            return RetryFailureInfo(category: .serverError, detail: L10n.tr("error.proxy_runtime.retry.server_error_format", signals.brief))
+            return RetryFailureInfo(
+                category: .serverError,
+                // 520+ 是 CloudFlare 边缘错误，属于网络层而非上游应用层。
+                failureClass: status >= 520 ? .networkTimeout : .upstreamError,
+                detail: L10n.tr("error.proxy_runtime.retry.server_error_format", signals.brief)
+            )
         }
         return nil
+    }
+
+    /// 网络层异常分类（FR-RTE-04）。超时/连接失败允许在同一凭据上重试；
+    /// 其余（TLS 失败、意外 EOF）按上游错误处理。
+    nonisolated static func classifyNetworkFailure(_ error: Error) -> UpstreamFailureClass {
+        UpstreamFailureClass.classifyNetworkError(error)
+    }
+
+    /// SSE 流中断的收尾帧（FR-RTE-04 `.streamInterrupted`）。
+    ///
+    /// **不重试**：客户端已经收到了部分 token，上游也已经按这些 token 计费。
+    /// 重发会让用户为同一段内容付两次钱，并且下游会收到两份互相矛盾的开头。
+    ///
+    /// 但也不能就这么把连接掐掉——SSE 没有帧长度，静默断开在客户端看来和
+    /// "正常结束"完全一样，用户会拿到一段被截断的回答却以为它是完整的。
+    /// 所以显式发一个 error 事件再发 `[DONE]`。
+    ///
+    /// - Parameter includeDoneSentinel: Chat Completions 协议约定以
+    ///   `data: [DONE]` 结束，Responses 协议不需要。
+    nonisolated static func sseStreamInterruptedFrame(
+        _ error: Error,
+        includeDoneSentinel: Bool
+    ) -> Data {
+        let message = truncateForErrorStatic(error.localizedDescription, maxLength: 200)
+        let payload: [String: Any] = [
+            "error": [
+                "message": message,
+                "type": UpstreamFailureClass.streamInterrupted.rawValue,
+                "code": "stream_interrupted",
+            ],
+        ]
+        let json = (try? JSONSerialization.data(withJSONObject: payload))
+            .flatMap { String(data: $0, encoding: .utf8) }
+            ?? "{\"error\":{\"message\":\"stream interrupted\",\"type\":\"streamInterrupted\"}}"
+
+        var frame = "event: error\ndata: \(json)\n\n"
+        if includeDoneSentinel {
+            frame += "data: [DONE]\n\n"
+        }
+        return Data(frame.utf8)
+    }
+
+    /// `truncateForError` 的 nonisolated 版本，供流中断收尾使用。
+    nonisolated static func truncateForErrorStatic(_ text: String, maxLength: Int) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > maxLength else { return trimmed }
+        return String(trimmed.prefix(maxLength)) + "…"
     }
 
     /// Parses a Retry-After header: integer seconds, or an HTTP-date.
@@ -189,6 +281,7 @@ enum RetryFailureCategory {
 
 struct RetryFailureInfo {
     var category: RetryFailureCategory
+    var failureClass: UpstreamFailureClass
     var detail: String
 }
 

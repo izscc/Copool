@@ -24,3 +24,6 @@ alfred/team654301-card-tool-src/__pycache__/
 # Local tool metadata
 .commandcode/
 .reasonix/
+
+# Local reference checkouts (read-only analysis inputs)
+.refs/

@@ -93,7 +93,83 @@ extension SwiftNativeProxyRuntimeService {
         if !tools.isEmpty {
             anthropicBody["tools"] = tools
         }
+
+        // FR-PRO-06：把 chat 侧的采样参数带过去。丢掉它们意味着用户在客户端
+        // 设的 temperature 静默失效——上游用它自己的默认值，输出风格与用户
+        // 预期不符，而且没有任何一处会提示"你的设置被忽略了"。
+        if let temperature = chatBody["temperature"] as? Double {
+            anthropicBody["temperature"] = temperature
+        }
+        if let topP = chatBody["top_p"] as? Double {
+            anthropicBody["top_p"] = topP
+        }
+        if let stop = chatBody["stop"] {
+            // Anthropic 只接受数组形式。
+            if let single = stop as? String {
+                anthropicBody["stop_sequences"] = [single]
+            } else if let many = stop as? [String] {
+                anthropicBody["stop_sequences"] = many
+            }
+        }
+
+        // FR-PRO-05 / FR-PRO-06：extended thinking。
+        //
+        // `RequestProfileApplicator` 按 anthropic-reasoning profile 写入的是
+        // `thinking_budget`（整数），Anthropic Messages 要的却是
+        // `{"type": "enabled", "budget_tokens": N}`。不做这层转换的话，
+        // profile 算出来的预算根本到不了上游——推理档位设置全程无效。
+        if let budget = chatBody["thinking_budget"] as? Int {
+            anthropicBody["thinking"] = budget > 0
+                ? ["type": "enabled", "budget_tokens": budget]
+                : ["type": "disabled"]
+            // Anthropic 要求 max_tokens > budget_tokens，否则 400。
+            let maxTokens = (anthropicBody["max_tokens"] as? Int) ?? 4096
+            if budget > 0, maxTokens <= budget {
+                anthropicBody["max_tokens"] = budget + 4096
+            }
+        } else if let thinking = chatBody["thinking"] as? [String: Any] {
+            // 下游已经用 Anthropic 形状表达了，原样透传。
+            anthropicBody["thinking"] = thinking
+        }
+
+        // FR-PRO-06：tool_choice 映射。OpenAI 的四种形状 → Anthropic 的三种。
+        if let toolChoice = Self.anthropicToolChoice(from: chatBody["tool_choice"]), !tools.isEmpty {
+            anthropicBody["tool_choice"] = toolChoice
+        }
+
         return anthropicBody
+    }
+
+    /// OpenAI `tool_choice` → Anthropic `tool_choice`（FR-PRO-06）。
+    ///
+    /// OpenAI 侧有四种形状：`"none"` / `"auto"` / `"required"` /
+    /// `{"type":"function","function":{"name":"x"}}`。Anthropic 侧对应
+    /// `{"type":"auto"}` / `{"type":"any"}` / `{"type":"tool","name":"x"}`，
+    /// 以及"不传"表示 none。
+    ///
+    /// 返回 nil 表示不附加该字段——`"none"` 走这条路，因为 Anthropic 没有
+    /// 显式的"禁止调用工具"值，省略 `tool_choice` 就是默认可不调。
+    nonisolated static func anthropicToolChoice(from value: Any?) -> [String: Any]? {
+        if let text = value as? String {
+            switch text.lowercased() {
+            case "auto": return ["type": "auto"]
+            case "required", "any": return ["type": "any"]
+            default: return nil  // "none" 及未知值
+            }
+        }
+        if let object = value as? [String: Any] {
+            // {"type":"function","function":{"name":"x"}}
+            if let function = object["function"] as? [String: Any],
+               let name = function["name"] as? String, !name.isEmpty {
+                return ["type": "tool", "name": name]
+            }
+            // 已经是 Anthropic 形状则原样透传。
+            if let type = object["type"] as? String,
+               ["auto", "any", "tool"].contains(type) {
+                return object
+            }
+        }
+        return nil
     }
 
     /// Converts OpenAI content (string / parts) into Anthropic user content blocks.

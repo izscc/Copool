@@ -55,7 +55,7 @@ final class ProviderFileRepository: ProviderStoreRepository, @unchecked Sendable
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(strippingSecrets(from: store))
+        let data = try encoder.encode(try strippingSecrets(from: store))
         try writeAtomically(data: data, to: paths.providerStorePath)
     }
 
@@ -101,24 +101,28 @@ final class ProviderFileRepository: ProviderStoreRepository, @unchecked Sendable
     /// A secret is only removed from the file once the keychain has confirmed
     /// it stored it. If the keychain is unavailable the value stays in the
     /// file exactly as before — degraded, but never lost.
-    private func strippingSecrets(from store: ProviderStore) -> ProviderStore {
+    private func strippingSecrets(from store: ProviderStore) throws -> ProviderStore {
         var result = store
         for index in result.providers.indices {
             let provider = result.providers[index]
-            if !provider.apiKey.isEmpty,
-               secrets.write(account: ProviderSecretAccount.apiKey(providerID: provider.id), value: provider.apiKey) {
+            if !provider.apiKey.isEmpty {
+                guard secrets.write(account: ProviderSecretAccount.apiKey(providerID: provider.id), value: provider.apiKey) else {
+                    throw AppError.io("Provider credential could not be stored securely")
+                }
                 result.providers[index].apiKey = ""
             }
-            if let token = provider.refreshToken, !token.isEmpty,
-               secrets.write(account: ProviderSecretAccount.refreshToken(providerID: provider.id), value: token) {
+            if let token = provider.refreshToken, !token.isEmpty {
+                guard secrets.write(account: ProviderSecretAccount.refreshToken(providerID: provider.id), value: token) else {
+                    throw AppError.io("Provider refresh credential could not be stored securely")
+                }
                 result.providers[index].refreshToken = ""
             }
         }
         // Drop keychain entries for providers the user removed.
         let liveIDs = Set(result.providers.map(\.id))
         for id in removedProviderIDs(keeping: liveIDs) {
-            secrets.delete(account: ProviderSecretAccount.apiKey(providerID: id))
-            secrets.delete(account: ProviderSecretAccount.refreshToken(providerID: id))
+            _ = secrets.delete(account: ProviderSecretAccount.apiKey(providerID: id))
+            _ = secrets.delete(account: ProviderSecretAccount.refreshToken(providerID: id))
         }
         return result
     }

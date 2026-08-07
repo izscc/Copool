@@ -1,7 +1,7 @@
 import SwiftUI
 
 private enum AccountCardOverlayLayout {
-    static let actionReservationWidth: CGFloat = 144
+    static let actionReservationWidth = LayoutRules.accountCardActionReservationWidth
     static let compactActionControlHeight = LayoutRules.compactActionControlHeight
 }
 
@@ -64,7 +64,7 @@ private struct AccountCardSurfaceModifier: ViewModifier {
 
 extension View {
     func accountCardSurface(
-        cornerRadius: CGFloat = 12,
+        cornerRadius: CGFloat = LayoutRules.accountCardRadius,
         tint: Color? = nil
     ) -> some View {
         modifier(AccountCardSurfaceModifier(cornerRadius: cornerRadius, tint: tint))
@@ -80,8 +80,8 @@ struct AccountCardHeaderSection: View {
 
     var body: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: LayoutRules.accountCardItemSpacing) {
+                HStack(spacing: LayoutRules.accountCardItemSpacing) {
                     AccountTagView(
                         text: presentation.planLabel,
                         backgroundColor: palette.toneColor.opacity(0.18),
@@ -137,10 +137,10 @@ struct AccountCardExpandedUsageSection: View {
     let presentation: AccountCardPresentation
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: LayoutRules.accountCardContentSpacing) {
             AccountWindowSection(presentation: presentation.oneWeekWindow, tint: .teal)
 
-            HStack(spacing: 8) {
+            HStack(spacing: LayoutRules.accountCardContentSpacing) {
                 Text(L10n.tr("accounts.card.credits_format", presentation.creditsText))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -195,7 +195,7 @@ struct AccountCardBottomOverlay: View {
 
     var body: some View {
         if !isCollapsed {
-            HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .bottom, spacing: LayoutRules.listRowSpacing) {
                 if let usageError, !usageError.isEmpty {
                     AccountUsageErrorOverlay(text: usageError)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -216,7 +216,7 @@ struct AccountCardBottomOverlay: View {
                     onReauthenticate: onReauthenticate
                 )
             }
-            .padding(8)
+            .padding(LayoutRules.accountCardContentSpacing)
         }
     }
 }
@@ -230,10 +230,10 @@ struct AccountCollapsedSwitchOverlay: View {
     var body: some View {
         if isVisible {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: LayoutRules.accountCardRadius, style: .continuous)
                     .fill(.regularMaterial)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: LayoutRules.accountCardRadius, style: .continuous)
                             .strokeBorder(Color.secondary.opacity(0.22), lineWidth: 1)
                     }
                     .onTapGesture {
@@ -256,7 +256,7 @@ private struct AccountWindowSection: View {
     let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: LayoutRules.accountCardTightSpacing) {
             HStack {
                 Text(presentation.title)
                     .font(.caption.weight(.semibold))
@@ -384,7 +384,7 @@ private struct AccountTrailingActionCluster: View {
         if showsReauthenticateButton {
             AccountReauthenticateButton(onReauthenticate: onReauthenticate)
         } else {
-            HStack(spacing: 8) {
+            HStack(spacing: LayoutRules.accountCardContentSpacing) {
                 if isCurrent {
                     AccountTagView(
                         text: L10n.tr("accounts.card.current"),
@@ -421,11 +421,11 @@ private struct AccountUsageErrorOverlay: View {
             .foregroundStyle(.red)
             .multilineTextAlignment(.leading)
             .lineLimit(3)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, LayoutRules.accountCardChipHorizontalPadding)
+            .padding(.vertical, LayoutRules.accountCardChipVerticalPadding)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: LayoutRules.accountCardCompactRadius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: LayoutRules.accountCardCompactRadius, style: .continuous)
                     .strokeBorder(.red.opacity(0.18), lineWidth: 1)
             }
     }

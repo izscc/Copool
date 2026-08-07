@@ -111,7 +111,7 @@ extension SwiftNativeProxyRuntimeService {
                     var discarded = 0
                     for try await _ in upstream.bytes {
                         discarded += 1
-                        if discarded > ProxyRuntimeLimits.maxUpstreamResponseBytes { break }
+                        if discarded > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes { break }
                     }
                     upstream = try await openThirdPartyStreamingRequest(
                         route: route,
@@ -124,7 +124,7 @@ extension SwiftNativeProxyRuntimeService {
                     var buffered = Data()
                     for try await byte in upstream.bytes {
                         buffered.append(byte)
-                        if buffered.count > ProxyRuntimeLimits.maxUpstreamResponseBytes { break }
+                        if buffered.count > ProxyRuntimeLimits.maxUpstreamResponseDecodedBytes { break }
                     }
                     let bodyText = String(data: buffered, encoding: .utf8) ?? ""
                     return CompactionSummaryResult(

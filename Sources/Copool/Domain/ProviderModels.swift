@@ -76,10 +76,26 @@ struct ProviderModel: Codable, Equatable, Hashable, Sendable {
         contextWindow ?? Self.fallbackContextWindow
     }
 
-    /// Levels to offer for this model. Undiscovered models keep the common
-    /// three; a provider that explicitly returned none keeps none.
+    /// **v1 兼容路径专用。新代码不要用它。**
+    ///
+    /// `nil`（未发现）时兜底三档是 v1 的既有行为。它与 FR-CAT-05 的"绝对不
+    /// 猜测"直接冲突——猜错的代价是请求被上游 400 拒掉，而用户在界面上看不到
+    /// 任何线索。但 v1 存量用户的模型元数据大多是空的，此刻改掉等于让他们
+    /// 一次升级就集体丢失档位选择器，所以保留到迁移完成为止（MIG-02）。
+    ///
+    /// v2 路径用 `ModelCapabilitiesV2.effectiveReasoningEfforts`，
+    /// 同一份数据的 v2 语义读法是 `declaredReasoningEfforts`。
     var effectiveReasoningEfforts: [String] {
         supportedReasoningEfforts ?? ["low", "medium", "high"]
+    }
+
+    /// v2 语义：**只报已知的档位，未知就是空**（FR-CAT-05）。
+    ///
+    /// 与 `effectiveReasoningEfforts` 的唯一差别是 `nil` 的处理。区分两者而
+    /// 不是加一个布尔开关，是因为调用点想要哪套语义在读代码时必须一目了然——
+    /// 一个 `guessWhenUnknown: false` 参数只会被复制粘贴到不该用它的地方。
+    var declaredReasoningEfforts: [String] {
+        supportedReasoningEfforts ?? []
     }
 
     /// Whether a newly discovered value may replace what is stored.
@@ -137,11 +153,27 @@ struct ProviderConfig: Codable, Equatable, Identifiable, Sendable {
         self.addedAt = addedAt
     }
 
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case baseURL
+        case apiKey
+        case refreshToken
+        case authKind
+        case models
+        case modelProtocols
+        case defaultProtocol
+        case addedAt
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
         baseURL = try container.decodeIfPresent(String.self, forKey: .baseURL) ?? ""
+        // These keys are accepted only for one-way migration from v1 files.
+        // New encodings never write them; ProviderFileRepository hydrates the
+        // values from SecureStore at the transport boundary.
         apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey) ?? ""
         refreshToken = try container.decodeIfPresent(String.self, forKey: .refreshToken)
         authKind = try container.decodeIfPresent(ProviderAuthKind.self, forKey: .authKind) ?? .apiKey
@@ -151,21 +183,53 @@ struct ProviderConfig: Codable, Equatable, Identifiable, Sendable {
         addedAt = try container.decodeIfPresent(Int64.self, forKey: .addedAt) ?? 0
     }
 
-    /// Normalized routing key used as the model namespace prefix in ChatGPT.app.
+    /// Secret values are deliberately excluded from every ProviderConfig
+    /// encoding. The decoder remains backward-compatible with v1 plaintext
+    /// fields so ProviderFileRepository can migrate old files safely.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(baseURL, forKey: .baseURL)
+        try container.encode(authKind, forKey: .authKind)
+        try container.encode(models, forKey: .models)
+        try container.encode(modelProtocols, forKey: .modelProtocols)
+        try container.encode(defaultProtocol, forKey: .defaultProtocol)
+        try container.encode(addedAt, forKey: .addedAt)
+    }
+
+    /// Stable routing namespace. Provider display names are mutable and must
+    /// never become persistent route identity.
     var routePrefix: String {
+        id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// The pre-vNext name namespace accepted only as a compatibility alias.
+    var legacyRoutePrefix: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
-    /// Namespace-safe model id exposed to the client, e.g. `deepseek/deepseek-chat`.
+    /// Namespace-safe model id exposed to the client using stable identity.
     func clientModelID(for backendModel: String) -> String {
         "\(routePrefix)/\(backendModel)"
+    }
+
+    /// Legacy model namespace used to read already-persisted catalog entries.
+    func legacyClientModelID(for backendModel: String) -> String {
+        "\(legacyRoutePrefix)/\(backendModel)"
+    }
+
+    func matchesClientModel(_ requested: String, backendModel: String) -> Bool {
+        requested == backendModel
+            || requested == clientModelID(for: backendModel)
+            || requested == legacyClientModelID(for: backendModel)
     }
 
     func resolvedProtocol(forModel backendModel: String) -> ProviderProtocol {
         modelProtocols[backendModel] ?? defaultProtocol
     }
 
-    /// Enumerates every backend model with the client-visible id.
+    /// Enumerates every backend model with the stable client-visible id.
     var clientModels: [(clientID: String, backendID: String)] {
         models.map { (clientModelID(for: $0.id), $0.id) }
     }

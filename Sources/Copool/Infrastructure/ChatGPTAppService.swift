@@ -4,13 +4,16 @@ import Foundation
 final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
     private let modelsCacheService: CodexModelsCacheService
     private let providerStoreRepository: ProviderStoreRepository?
+    private let registryRepository: ProviderRegistryV2Repository?
 
     init(
         paths: FileSystemPaths? = nil,
         providerStoreRepository: ProviderStoreRepository? = nil,
+        registryRepository: ProviderRegistryV2Repository? = nil,
         fileManager: FileManager = .default
     ) {
         self.providerStoreRepository = providerStoreRepository
+        self.registryRepository = registryRepository
         if let paths {
             modelsCacheService = CodexModelsCacheService(paths: paths, fileManager: fileManager)
         } else {
@@ -28,6 +31,8 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
                     usageEventsPath: fileManager.temporaryDirectory.appendingPathComponent("usage-events.jsonl"),
                     routeDecisionsPath: fileManager.temporaryDirectory.appendingPathComponent("route-decisions.jsonl"),
                     taskEnvelopesPath: fileManager.temporaryDirectory.appendingPathComponent("task-envelopes.jsonl"),
+                    targetBindingsPath: fileManager.temporaryDirectory.appendingPathComponent("target-bindings.json"),
+                    consentLogPath: fileManager.temporaryDirectory.appendingPathComponent("consent-log.jsonl"),
                     agentStorePath: fileManager.temporaryDirectory.appendingPathComponent("agents.json"),
                     agentRouteEventsPath: fileManager.temporaryDirectory.appendingPathComponent("agent-routes.json"),
                     codexAuthPath: fileManager.temporaryDirectory.appendingPathComponent("auth.json"),
@@ -49,7 +54,7 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
 
         // Inject third-party models into the cache before the app restarts so
         // the model menu is refreshed in the new process.
-        try? syncThirdPartyModels(providers: currentProviders())
+        try? syncThirdPartyModels(providers: currentProviders(), registry: currentRegistry())
 
         forceStopRunningChatGPT(at: appPath)
 
@@ -68,9 +73,20 @@ final class ChatGPTAppService: ChatGPTAppServiceProtocol, @unchecked Sendable {
         _ = try modelsCacheService.sync(providers: providers)
     }
 
+    func syncThirdPartyModels(
+        providers: [ProviderConfig],
+        registry: ProviderRegistryV2
+    ) throws {
+        _ = try modelsCacheService.sync(providers: providers, registry: registry)
+    }
+
     private func currentProviders() -> [ProviderConfig] {
         guard let providerStoreRepository else { return [] }
         return (try? providerStoreRepository.loadProviders())?.providers ?? []
+    }
+
+    private func currentRegistry() -> ProviderRegistryV2 {
+        registryRepository?.loadRegistry() ?? ProviderRegistryV2()
     }
 
     private func forceStopRunningChatGPT(at appPath: URL) {

@@ -159,7 +159,7 @@ final class SimpleHTTPServer: @unchecked Sendable {
                     statusCode: 413,
                     text: L10n.tr(
                         "error.http_server.request_too_large_format",
-                        ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxInboundRequestBytes)
+                        ProxyRuntimeLimits.limitDescription(for: ProxyRuntimeLimits.maxInboundRequestEncodedBytes)
                     )
                 )
                 Task {
@@ -275,12 +275,16 @@ final class SimpleHTTPServer: @unchecked Sendable {
         )
     }
 
+    /// 第一道限制（SEC-11）：编码前（线上原始字节）大小。
+    ///
+    /// 这里看到的是压缩状态下的 body，因此这道限制挡不住解压炸弹——
+    /// 那由 `decompressRequestBody` 里的第二道解码后限制负责。
     static func isPayloadOversized(buffer: Data) -> Bool {
-        if buffer.count > ProxyRuntimeLimits.maxInboundRequestBytes {
+        if buffer.count > ProxyRuntimeLimits.maxInboundRequestEncodedBytes {
             return true
         }
         if let contentLength = extractContentLength(from: buffer),
-           contentLength > ProxyRuntimeLimits.maxInboundRequestBytes {
+           contentLength > ProxyRuntimeLimits.maxInboundRequestEncodedBytes {
             return true
         }
         return false

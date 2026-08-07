@@ -87,6 +87,14 @@ struct AgentPageView: View {
                 .textFieldStyle(.roundedBorder)
                 .controlSize(.small)
 
+            if !model.sessionImportPreviews.isEmpty {
+                ForEach(model.sessionImportPreviews) { preview in
+                    Text("\(preview.source.rawValue): \(preview.recordCount) · \(preview.mappedFields.count) mapped · \(preview.droppedFields.count) omitted")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if model.filteredSessions.isEmpty {
                 Text(L10n.tr("agents.sessions.empty"))
                     .font(.caption)
@@ -162,6 +170,33 @@ struct AgentPageView: View {
             }
             .padding(10)
             .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+
+            if model.mcpServers.isEmpty {
+                Text(L10n.tr("agents.tools.mcp.empty"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.mcpServers) { server in
+                    HStack(spacing: 8) {
+                        Image(systemName: server.status == .discovered ? "server.rack" : "exclamationmark.triangle")
+                            .foregroundStyle(server.status == .discovered ? .green : .orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(server.name)
+                                .font(.caption.weight(.medium))
+                            Text(server.command ?? server.endpoint ?? L10n.tr("agents.tools.mcp.invalid"))
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                        Text(server.permission.rawValue)
+                            .font(.caption2)
+                            .foregroundStyle(server.permission == .denied ? .red : .secondary)
+                    }
+                    .padding(8)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
         }
         .padding(14)
         .frostedRoundedSurface(cornerRadius: 12, prominent: false)

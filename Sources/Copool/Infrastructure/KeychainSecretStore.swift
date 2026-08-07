@@ -115,7 +115,7 @@ struct KeychainSecretStore: Sendable, SecureStore {
         }
     }
 
-    private func runOnBackground<T>(timeout: TimeInterval, _ body: @escaping () -> T) -> T? {
+    private func runOnBackground<T>(timeout: TimeInterval, _ body: @escaping @Sendable () -> T) -> T? {
         #if canImport(Security)
         let box = Box()
         let semaphore = DispatchSemaphore(value: 0)

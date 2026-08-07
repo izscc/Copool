@@ -12,6 +12,9 @@ struct FileSystemPaths {
     var usageEventsPath: URL
     var routeDecisionsPath: URL
     var taskEnvelopesPath: URL
+    var targetBindingsPath: URL
+    /// 同意审计日志（FR-IDT-06）。只追加的 jsonl。
+    var consentLogPath: URL
     var agentStorePath: URL
     var agentRouteEventsPath: URL
     var codexAuthPath: URL
@@ -47,6 +50,8 @@ struct FileSystemPaths {
             usageEventsPath: appSupportDirectory.appendingPathComponent("usage-events.jsonl", isDirectory: false),
             routeDecisionsPath: appSupportDirectory.appendingPathComponent("route-decisions.jsonl", isDirectory: false),
             taskEnvelopesPath: appSupportDirectory.appendingPathComponent("task-envelopes.jsonl", isDirectory: false),
+            targetBindingsPath: appSupportDirectory.appendingPathComponent("target-bindings.json", isDirectory: false),
+            consentLogPath: appSupportDirectory.appendingPathComponent("consent-log.jsonl", isDirectory: false),
             agentStorePath: appSupportDirectory.appendingPathComponent("agents.json", isDirectory: false),
             agentRouteEventsPath: appSupportDirectory.appendingPathComponent("agent-routes.json", isDirectory: false),
             codexAuthPath: codexDirectory.appendingPathComponent("auth.json", isDirectory: false),

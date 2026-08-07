@@ -52,5 +52,6 @@ final class RemoteNodeControlTests: XCTestCase {
         XCTAssertEqual(completed.version, "1.1")
         XCTAssertEqual(completed.status, .online)
         XCTAssertNil(completed.pendingOperation)
+        XCTAssertNotEqual(completed.version, "upgraded")
     }
 }

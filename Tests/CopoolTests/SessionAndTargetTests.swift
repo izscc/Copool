@@ -117,6 +117,29 @@ final class SessionAndTargetTests: XCTestCase {
         XCTAssertFalse(stripped.contains("copool-managed"))
     }
 
+    func testTargetBindingDefaultsAreIndependent() {
+        let store = TargetBindingStore.defaults
+        XCTAssertEqual(store.bindings.map(\.id), ["codex", "cursor", "opencode"])
+        XCTAssertEqual(Set(store.bindings.map(\.stateDirectoryPath)).count, 3)
+        XCTAssertEqual(Set(store.bindings.map(\.callerCapability)).count, 3)
+        XCTAssertTrue(store.bindings.first(where: { $0.id == "codex" })?.enabled == true)
+        XCTAssertTrue(store.bindings.filter { $0.id != "codex" }.allSatisfy { !$0.enabled })
+    }
+
+    func testTargetBindingRepositoryRoundTrip() throws {
+        let path = tempDir.appendingPathComponent("target-bindings.json")
+        let repository = TargetBindingRepository(path: path)
+        var store = TargetBindingStore.defaults
+        store.bindings[0].listenerPort = 8787
+        store.bindings[0].enabledProviderInstanceIDs = ["provider-1"]
+        try repository.save(store)
+        XCTAssertEqual(try repository.load(), store)
+        let data = try Data(contentsOf: path)
+        let text = String(data: data, encoding: .utf8) ?? ""
+        XCTAssertFalse(text.contains("apiKey"))
+        XCTAssertFalse(text.contains("refreshToken"))
+    }
+
     func testTargetConfigFileAdapterNeverCarriesSecrets() {
         let adapter = makeAdapter()
         let desired = adapter.desiredConfig(port: 19787, baseURLTemplate: "http://127.0.0.1:%d/v1")

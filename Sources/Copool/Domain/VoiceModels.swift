@@ -62,6 +62,41 @@ protocol VoicePlugin: Sendable {
     func synthesize(_ request: SpeechSynthesisRequest) async throws -> Data
 }
 
+protocol RealtimeTransport: Sendable {
+    func connect(session: RealtimeSession) async throws
+    func send(text: String, session: RealtimeSession) async throws
+    func receive(session: RealtimeSession) async throws -> AsyncThrowingStream<String, Error>
+    func close(session: RealtimeSession) async
+}
+
+/// Deterministic transport used by the app's plugin boundary and tests. A
+/// production audio provider can implement the same protocol without changing
+/// session or confirmation semantics.
+actor InMemoryRealtimeTransport: RealtimeTransport {
+    private var messages: [String: [String]] = [:]
+
+    func connect(session: RealtimeSession) async throws {
+        messages[session.id] = []
+    }
+
+    func send(text: String, session: RealtimeSession) async throws {
+        guard !session.cancelled else { return }
+        messages[session.id, default: []].append(text)
+    }
+
+    func receive(session: RealtimeSession) async throws -> AsyncThrowingStream<String, Error> {
+        let buffered = messages[session.id, default: []]
+        return AsyncThrowingStream { continuation in
+            buffered.forEach { continuation.yield($0) }
+            continuation.finish()
+        }
+    }
+
+    func close(session: RealtimeSession) async {
+        messages.removeValue(forKey: session.id)
+    }
+}
+
 // MARK: - Realtime separation (AC-202)
 
 /// Realtime sessions are split by purpose: a conversation session can never
@@ -210,8 +245,7 @@ struct RealtimeSessionManager: Sendable {
         guard let plugin = enabledPlugins.first(where: { $0.pluginID == pluginID && $0.enabled }) else {
             return nil
         }
-        let required: VoiceCapability = kind == .codingExecution ? .realtime : .realtime
-        guard plugin.capabilities.contains(required) else { return nil }
+        guard plugin.capabilities.contains(.realtime) else { return nil }
         return RealtimeSession(
             id: UUID().uuidString,
             kind: kind,
@@ -220,5 +254,22 @@ struct RealtimeSessionManager: Sendable {
             cancelled: false,
             transcriptCount: 0
         )
+    }
+
+    /// Cancellation is terminal and discards any in-memory transcript count;
+    /// no audio persistence path exists in the domain manager.
+    func cancel(_ session: RealtimeSession) -> RealtimeSession {
+        var cancelled = session
+        cancelled.cancelled = true
+        cancelled.transcriptCount = 0
+        return cancelled
+    }
+
+    func makeTransport(for session: RealtimeSession) -> (any RealtimeTransport)? {
+        guard isRealtimeEnabled(),
+              enabledPlugins.contains(where: { $0.pluginID == session.pluginID && $0.enabled }) else {
+            return nil
+        }
+        return InMemoryRealtimeTransport()
     }
 }

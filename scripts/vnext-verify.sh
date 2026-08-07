@@ -68,23 +68,42 @@ fi
 
 echo
 echo "## 5. RouterHost (Phase 6)"
-pkill -f CopoolRouterHost 2>/dev/null; sleep 1
+rm -f "$HOME/Library/Application Support/CodexToolsSwift/host/control.sock"
 .build/release/CopoolRouterHost > /tmp/host.log 2>&1 &
 HOSTPID=$!
-sleep 2
 python3 -c "
-import socket, os
-sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-sock.connect(os.path.expanduser('~/Library/Application Support/CodexToolsSwift/host/control.sock'))
-sock.sendall(b'capabilities')
-resp = sock.recv(4096).decode()
-assert 'supportedPaths' in resp
-print('   UDS capabilities OK')
-sock.close()
-" && ok "RouterHost UDS control 响应" || bad "UDS control 失败"
-kill $HOSTPID 2>/dev/null
-sleep 1
-curl -s -m 3 http://127.0.0.1:8787/health >/dev/null 2>&1 && ok "kill host 后主代理不受影响 (崩溃隔离)" || bad "主代理受影响"
+import json, socket, os, time
+root = os.path.expanduser('~/Library/Application Support/CodexToolsSwift/host')
+def request(payload):
+  last = None
+  for _ in range(50):
+    try:
+      sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); sock.settimeout(1); sock.connect(os.path.join(root, 'control.sock')); sock.sendall(payload); data = sock.recv(65536).decode(); sock.close(); return data
+    except Exception as e: last = e; time.sleep(.1)
+  raise last
+assert 'unauthorized' in request(b'capabilities\\n')
+cap = open(os.path.join(root, 'internal-capability')).read().strip()
+caps = json.loads(request((cap + '\\ncapabilities').encode())); assert 'supportedPaths' in caps
+for _ in range(20):
+  status = json.loads(request((cap + '\\nstatus').encode()))
+  if 'running' in status: break
+  time.sleep(.1)
+assert status['running'] and status['bindings']['codex']['port'] > 0
+port = status['bindings']['codex']['port']
+print(port)
+" > /tmp/host-port
+ok "RouterHost UDS capability authentication" || bad "UDS control authentication failed"
+PORT=$(cat /tmp/host-port 2>/dev/null)
+python3 -c "import socket, os
+port=int('$PORT'); root=os.path.expanduser('~/Library/Application Support/CodexToolsSwift/host'); caller=open(os.path.join(root,'targets/codex/caller-capability')).read().strip()
+s=socket.create_connection(('127.0.0.1',port),2); s.sendall(b'GET /v1/models HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n'); data=s.recv(4096).decode(); s.close(); assert '401' in data
+s=socket.create_connection(('127.0.0.1',port),2); s.sendall(('GET /v1/models HTTP/1.1\\r\\nHost: localhost\\r\\nX-Copool-Caller-Capability: '+caller+'\\r\\n\\r\\n').encode()); data=s.recv(65536).decode(); s.close(); assert '200' in data
+" && ok "RouterHost caller capability data plane" || bad "RouterHost data plane failed"
+python3 -c "import socket, os
+root=os.path.expanduser('~/Library/Application Support/CodexToolsSwift/host'); cap=open(os.path.join(root,'internal-capability')).read().strip(); s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); s.connect(os.path.join(root,'control.sock')); s.sendall((cap+'\\nshutdown').encode()); assert 'shutdown' in s.recv(4096).decode(); s.close()"
+for i in $(seq 1 20); do [ ! -e "$HOME/Library/Application Support/CodexToolsSwift/host/control.sock" ] && break; sleep .1; done
+[ ! -e "$HOME/Library/Application Support/CodexToolsSwift/host/control.sock" ] && ok "RouterHost authenticated shutdown" || bad "RouterHost shutdown cleanup failed"
+curl -s -m 3 http://127.0.0.1:8787/health >/dev/null 2>&1 && ok "shutdown host 后主代理不受影响 (崩溃隔离)" || bad "主代理受影响"
 
 echo
 echo "## 结果: $PASS 通过 / $FAIL 失败"

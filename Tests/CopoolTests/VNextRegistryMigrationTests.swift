@@ -52,7 +52,17 @@ final class VNextRegistryMigrationTests: XCTestCase {
         ])
     }
 
-    // MARK: - AC-003: no secret value in v2 encoding
+    // MARK: - AC-003: no secret value in persisted encoding
+
+    func testProviderConfigEncodingContainsNoSecretValues() throws {
+        let provider = makeV1Store().providers[0]
+        let data = try JSONEncoder().encode(provider)
+        let text = String(data: data, encoding: .utf8) ?? ""
+        XCTAssertFalse(text.contains("sk-should-never-persist-12345"))
+        XCTAssertFalse(text.contains("rt-should-never-persist-67890"))
+        XCTAssertFalse(text.contains("apiKey"))
+        XCTAssertFalse(text.contains("refreshToken"))
+    }
 
     func testV2RegistryEncodingContainsNoSecretValues() throws {
         let service = RegistryMigrationService(repository: makeRepository())
@@ -158,18 +168,27 @@ final class VNextRegistryMigrationTests: XCTestCase {
         _ = service.migrateIfNeeded(v1: makeV1Store(providerName: "antigravity"))
 
         // Rename the provider in v1 and migrate a second store (different
-        // source hash → separate journal entry). Keys must stay stable.
+        // source hash → separate journal entry). The same stable id must be
+        // updated in place, never duplicated.
         let renamed = makeV1Store(providerName: "AGY Beta")
         _ = service.migrateIfNeeded(v1: renamed)
 
         let registry = repository.loadRegistry()
         let instanceIDs = Set(registry.instances.map(\.id))
-        XCTAssertTrue(instanceIDs.contains("fixed-uuid-0001"), "instance id changed with displayName")
+        XCTAssertEqual(instanceIDs, ["fixed-uuid-0001"])
+        XCTAssertEqual(registry.instances.first?.displayName, "AGY Beta")
         let catalogIDs = Set(registry.catalog.map(\.id))
         XCTAssertTrue(catalogIDs.contains("fixed-uuid-0001/gemini-3.6-flash-high"))
-        // The renamed store got its own instance (new UUID from v1 id), so
-        // two instances exist — but the stable key of the first is untouched.
-        XCTAssertEqual(registry.instances.count, 2)
+        XCTAssertEqual(registry.instances.count, 1)
+    }
+
+    func testLegacyNameMatchesButStableRouteUsesID() {
+        let provider = makeV1Store(providerName: "Friendly Name").providers[0]
+        let model = provider.models[0].id
+        XCTAssertEqual(provider.clientModelID(for: model), "fixed-uuid-0001/\(model)")
+        XCTAssertNotEqual(provider.clientModelID(for: model), provider.legacyClientModelID(for: model))
+        XCTAssertTrue(provider.matchesClientModel("friendly name/\(model)", backendModel: model))
+        XCTAssertTrue(provider.matchesClientModel("fixed-uuid-0001/\(model)", backendModel: model))
     }
 
     func testDefinitionMatchingFallsBackToUserOverlay() {

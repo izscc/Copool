@@ -76,10 +76,12 @@ struct RemoteNodeControlService {
                 shellQuote: shellRunner.shellQuote
             )
             _ = try shellRunner.runSSH(server: server, command: install)
-            // The new binary's version is not known until the next handshake;
-            // marking it "upgraded" keeps the gate honest instead of echoing a
-            // stale version (review: RemoteNodeControlService.swift:74).
-            updating = monitor.completeUpgrade(node: updating, newVersion: "upgraded")
+            guard let handshake = try handshake(server: server), handshake.accepted else {
+                updating.pendingOperation = nil
+                updating.status = .degraded
+                throw AppError.network("Remote node upgrade handshake failed")
+            }
+            updating = monitor.completeUpgrade(node: updating, newVersion: handshake.nodeVersion)
         } catch {
             updating.pendingOperation = nil
             updating.status = node.status

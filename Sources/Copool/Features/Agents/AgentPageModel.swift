@@ -10,17 +10,20 @@ final class AgentPageModel: ObservableObject {
     @Published private(set) var events: [AgentRouteEvent] = []
     /// Third-party models a profile may be bound to.
     @Published private(set) var availableModels: [AgentCatalogModel] = []
+    @Published private(set) var mcpServers: [MCPServerRecord] = []
     @Published var notice: NoticeMessage?
     /// Secondary tab (Profiles/Sessions/Tools/Live).
     @Published var subTab: AgentSubTab = .profiles
     /// Session center (AC-102): index + search + preview.
     @Published private(set) var sessions: [SessionRecord] = []
+    @Published private(set) var sessionImportPreviews: [SessionImportPreview] = []
     @Published var sessionSearchText = ""
     @Published var selectedSession: SessionRecord?
 
     private let agentRepository: AgentProfileRepository
     private let providerStoreRepository: ProviderStoreRepository
     private let sessionIndexRepository: SessionIndexRepository
+    private let mcpDiscoveryService: MCPDiscoveryService?
 
     init(
         agentRepository: AgentProfileRepository,
@@ -30,11 +33,13 @@ final class AgentPageModel: ObservableObject {
                 .appendingPathComponent(".codex/session_index.jsonl"),
             storePath: FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent(".codex-tools-proxyd/session-index.json")
-        )
+        ),
+        mcpDiscoveryService: MCPDiscoveryService? = nil
     ) {
         self.agentRepository = agentRepository
         self.providerStoreRepository = providerStoreRepository
         self.sessionIndexRepository = sessionIndexRepository
+        self.mcpDiscoveryService = mcpDiscoveryService
     }
 
     /// Sessions filtered by the search text (AC-102): matches display name
@@ -51,6 +56,7 @@ final class AgentPageModel: ObservableObject {
 
     func loadSessions() {
         sessions = sessionIndexRepository.sync()
+        sessionImportPreviews = sessionIndexRepository.importPreviews()
     }
 
     func load() {
@@ -59,6 +65,7 @@ final class AgentPageModel: ObservableObject {
         settings = store.settings
         events = ((try? agentRepository.loadRouteEvents())?.events ?? []).reversed()
         availableModels = Self.catalogModels(from: providerStoreRepository)
+        mcpServers = mcpDiscoveryService?.discover(targetID: "codex").servers ?? []
     }
 
     /// Only configured third-party models can be a routing target — a native

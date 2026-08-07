@@ -8,6 +8,7 @@ final class TargetConfigContractTests: XCTestCase {
     private var tempDir: URL!
     private var paths: FileSystemPaths!
     private var adapter: CodexTargetAdapter!
+    private var modelsCacheService: CodexModelsCacheService!
 
     override func setUp() {
         super.setUp()
@@ -34,6 +35,7 @@ final class TargetConfigContractTests: XCTestCase {
             cloudflaredLogDirectory: tempDir.appendingPathComponent("cloudflared-logs", isDirectory: true)
         )
         adapter = CodexTargetAdapter(paths: paths)
+        modelsCacheService = CodexModelsCacheService(paths: paths)
     }
 
     override func tearDown() {
@@ -46,6 +48,19 @@ final class TargetConfigContractTests: XCTestCase {
     }
 
     // MARK: - AC-007: full cycle
+
+    func testModelsCacheServiceCreatesMissingCodexConfig() throws {
+        XCTAssertFalse(FileManager.default.fileExists(atPath: paths.codexConfigPath.path))
+
+        try modelsCacheService.setModelCatalogInConfig()
+        try modelsCacheService.applyProxyRouting(port: 8787)
+
+        let config = try String(contentsOf: paths.codexConfigPath, encoding: .utf8)
+        XCTAssertTrue(config.contains("model_catalog_json ="))
+        XCTAssertTrue(config.contains("model_provider = \"opencodex\""))
+        XCTAssertTrue(config.contains("base_url = \"http://127.0.0.1:8787/v1\""))
+        XCTAssertEqual(modelsCacheService.installedRoutingPort(), 8787)
+    }
 
     func testDetectPlanApplyVerifyRollbackCycle() throws {
         writeConfig("""

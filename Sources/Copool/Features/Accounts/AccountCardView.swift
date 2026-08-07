@@ -67,9 +67,9 @@ struct AccountCardView: View {
 
     @ViewBuilder
     private var cardBody: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: LayoutRules.accountCardContentSpacing) {
             if card.isCollapsed {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: LayoutRules.accountCardContentSpacing) {
                     AccountCompactHeaderContent(
                         planLabel: presentation.planLabel,
                         workspaceLabel: presentation.teamNameTag,
@@ -78,12 +78,12 @@ struct AccountCardView: View {
                         accentColor: palette.toneColor,
                         titleFont: .headline,
                         titleColor: card.account.isCurrent ? palette.toneColor : .primary,
-                        spacing: 8
+                        spacing: LayoutRules.accountCardContentSpacing
                     )
                     AccountCardCompactUsageSection(presentation: presentation)
                 }
             } else {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: LayoutRules.accountCardContentSpacing) {
                     AccountCardHeaderSection(
                         presentation: presentation,
                         isCollapsed: card.isCollapsed,
@@ -102,10 +102,10 @@ struct AccountCardView: View {
                 }
             }
         }
-        .padding(card.isCollapsed ? 8 : 10)
-        .accountCardSurface(cornerRadius: 12, tint: palette.surfaceTint)
+        .padding(card.isCollapsed ? LayoutRules.accountCardCollapsedPadding : LayoutRules.accountCardExpandedPadding)
+        .accountCardSurface(cornerRadius: LayoutRules.accountCardRadius, tint: palette.surfaceTint)
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: LayoutRules.accountCardRadius, style: .continuous)
                 .strokeBorder(palette.selectionBorderColor ?? .clear, lineWidth: 1)
         )
         .overlay(alignment: .bottomTrailing) {

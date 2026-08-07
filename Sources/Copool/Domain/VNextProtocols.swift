@@ -89,4 +89,7 @@ protocol TargetConfigManaging: Sendable {
 
     /// Restores the pre-apply snapshot.
     func rollback(_ diff: TargetConfigDiff) throws
+
+    /// Removes only Copool-managed configuration and leaves user-owned state.
+    func uninstall() throws
 }

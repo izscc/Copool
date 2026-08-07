@@ -40,6 +40,50 @@ final class RouteDecisionLedger: @unchecked Sendable {
         }
     }
 
+    /// 回填一条 trace 的请求结局（FR-RTE-05：耗时与结果两列）。
+    ///
+    /// 为什么要改已落盘的行，而不是再 append 一条完成记录：路由 tab 是一份
+    /// "每条请求一行"的清单，追加会让同一个请求出现两行——用户看到的请求数
+    /// 是真实数量的两倍，而且两行的模型名一样、时间差几百毫秒，没法分辨哪行
+    /// 才是结论。
+    ///
+    /// 读改写整份文件在这里是可以接受的：文件本来就封顶 500 行，`trimIfNeeded`
+    /// 也已经在做同样的事。best-effort，失败不影响请求。
+    func complete(
+        requestID: String,
+        durationMS: Int,
+        outcome: RouteDecisionTrace.Outcome,
+        httpStatus: Int? = nil,
+        fallbackAttempts: [String] = [],
+        failureChain: [String] = []
+    ) {
+        io.lock()
+        defer { io.unlock() }
+        guard let data = try? Data(contentsOf: fileURL) else { return }
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+
+        var lines = data.split(separator: 0x0A).map(Data.init)
+        // 从后往前找：同一个 requestID 理论上只有一条，但真出现重复时
+        // 最新的那条才是当前请求。
+        guard let index = lines.lastIndex(where: { line in
+            guard let trace = try? decoder.decode(RouteDecisionTrace.self, from: line) else { return false }
+            return trace.requestID == requestID
+        }) else { return }
+
+        guard var trace = try? decoder.decode(RouteDecisionTrace.self, from: lines[index]) else { return }
+        trace.durationMS = durationMS
+        trace.outcome = outcome
+        trace.httpStatus = httpStatus
+        if !fallbackAttempts.isEmpty { trace.fallbackAttempts = fallbackAttempts }
+        if !failureChain.isEmpty { trace.failureChain = failureChain }
+        guard let encoded = try? encoder.encode(trace) else { return }
+        lines[index] = encoded
+        let joined = lines.joined(separator: Data("\n".utf8))
+        try? Data(joined + Data("\n".utf8)).write(to: fileURL, options: .atomic)
+    }
+
     /// Latest decisions, newest first.
     func recent(limit: Int = 50) -> [RouteDecisionTrace] {
         io.lock()
@@ -48,7 +92,8 @@ final class RouteDecisionLedger: @unchecked Sendable {
         let lines = data.split(separator: 0x0A)
         let decoder = JSONDecoder()
         var traces: [RouteDecisionTrace] = []
-        for line in lines.suffix(max(limit, maxEntries)) {
+        let boundedLimit = min(max(limit, 0), maxEntries)
+        for line in lines.suffix(boundedLimit) {
             if let trace = try? decoder.decode(RouteDecisionTrace.self, from: Data(line)) {
                 traces.append(trace)
             }

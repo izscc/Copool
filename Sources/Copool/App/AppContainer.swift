@@ -36,6 +36,8 @@ final class AppContainer {
     private var accountsPageSnapshotCancellable: AnyCancellable?
     private var widgetUsageProgressDisplayMode: UsageProgressDisplayMode
     private let paths: FileSystemPaths
+    private let targetBindingRepository: TargetBindingRepositoryProtocol
+    private let registryRepository: ProviderRegistryRepository
 
     lazy var proxyModel: ProxyPageModel = {
         let model = ProxyPageModel(        coordinator: proxyCoordinator,
@@ -60,23 +62,67 @@ final class AppContainer {
             self?.makeTargetSnapshots() ?? []
         }
         model.targetConfigCoordinator = TargetConfigCoordinator(paths: paths)
+        model.targetBindingCoordinator = makeTargetBindingCoordinator()
         return model
     }()
 
-    /// Derives per-target snapshots (AC-008/AC-012) from the provider store:
-    /// stable UUID route key, endpoint, dialect, model count, credential
-    /// presence. No secret values ever leave the store.
+    /// 组装 M3 的目标绑定协调器。
+    ///
+    /// 适配器的构造知识留在这里：`CodexTargetAdapter` 和
+    /// `TargetJSONConfigAdapter` 都是 Infrastructure 类型，
+    /// 协调器只认 `TargetConfigManaging` 协议（见 TargetBindingCoordinator）。
+    private func makeTargetBindingCoordinator() -> TargetBindingCoordinator {
+        let paths = self.paths
+        let stateRoot = paths.applicationSupportDirectory
+            .appendingPathComponent("targets", isDirectory: true)
+        let home = FileManager.default.homeDirectoryForCurrentUser
+
+        return TargetBindingCoordinator(
+            bindingRepository: targetBindingRepository,
+            registryRepository: registryRepository,
+            makeBundle: { bindingID in
+                switch bindingID {
+                case "codex":
+                    let adapter = CodexTargetAdapter(paths: paths)
+                    return .init(adapter: adapter) { adapter.desiredConfig(port: $0) }
+                case "cursor":
+                    let adapter = TargetJSONConfigAdapter(
+                        targetID: "cursor",
+                        configPath: home.appendingPathComponent(
+                            "Library/Application Support/Cursor/User/globalStorage/copool.json"),
+                        stateRoot: stateRoot
+                    )
+                    return .init(adapter: adapter) { adapter.desiredConfig(port: $0) }
+                case "opencode":
+                    let adapter = TargetJSONConfigAdapter(
+                        targetID: "opencode",
+                        configPath: home.appendingPathComponent(".config/opencode/copool.json"),
+                        stateRoot: stateRoot
+                    )
+                    return .init(adapter: adapter) { adapter.desiredConfig(port: $0) }
+                default:
+                    return nil
+                }
+            }
+        )
+    }
+
+    /// Loads real target bindings. Provider instances are associated with the
+    /// Codex binding only; Cursor and opencode remain independent beta targets.
     private func makeTargetSnapshots() -> [ProxyTargetSnapshot] {
-        guard let store = try? providerRepository.loadProviders() else { return [] }
-        return store.providers.map { provider in
-            ProxyTargetSnapshot(
-                id: provider.id,
-                name: provider.name,
-                endpoint: provider.baseURL,
-                dialect: provider.defaultProtocol.rawValue,
-                modelCount: provider.models.count,
-                credentialed: !provider.apiKey.isEmpty || provider.refreshToken != nil,
-                enabled: true
+        guard let targetStore = try? targetBindingRepository.load() else { return [] }
+        let providers = (try? providerRepository.loadProviders())?.providers ?? []
+        let providerByID = Dictionary(uniqueKeysWithValues: providers.map { ($0.id, $0) })
+        return targetStore.bindings.map { binding in
+            let boundProviders = binding.enabledProviderInstanceIDs.compactMap { providerByID[$0] }
+            return ProxyTargetSnapshot(
+                id: binding.id,
+                name: binding.displayName,
+                endpoint: "\(binding.listenerHost):\(binding.listenerPort ?? 0)",
+                dialect: boundProviders.first?.defaultProtocol.rawValue ?? "—",
+                modelCount: boundProviders.reduce(0) { $0 + $1.models.count },
+                credentialed: binding.enabled && boundProviders.allSatisfy { !$0.apiKey.isEmpty || $0.refreshToken != nil },
+                enabled: binding.enabled
             )
         }
     }
@@ -88,6 +134,7 @@ final class AppContainer {
             let settingsRepository = SettingsFileRepository(paths: paths)
             let authRepository = AuthFileRepository(paths: paths)
             let providerRepository = ProviderFileRepository(paths: paths)
+            let targetBindingRepository = TargetBindingRepository(path: paths.targetBindingsPath)
             let usageRepository = ThirdPartyUsageFileRepository(paths: paths)
             let rateLimitRepository = ProviderRateLimitFileRepository(path: paths.providerRateLimitsPath)
             let usageLedger = UsageEventLedger(path: paths.usageEventsPath)
@@ -101,23 +148,21 @@ final class AppContainer {
                 ledger: routeDecisionLedger
             )
             let agentRepository = AgentProfileFileRepository(paths: paths)
-            // P2: real-time task delegation (AC-202) and remote node control
-            // (AC-204) — instantiated here so the runtime owns live instances;
-            // the voice plugin layer and remote UI consume them.
-            let taskEnvelopeDispatcher = TaskEnvelopeDispatcher(
-                trailURL: paths.taskEnvelopesPath,
-                agentRouteRepository: agentRepository
-            )
-            let remoteNodeControlService = RemoteNodeControlService(
-                shellRunner: RemoteShellCommandRunner(fileManager: .default)
-            )
             let initialAccounts = try initialAccountsSnapshot(using: storeRepository)
+            let initialProviders = (try? providerRepository.loadProviders())?.providers ?? []
+            var targetStore = (try? targetBindingRepository.load()) ?? TargetBindingStore.defaults
+            if let codexIndex = targetStore.bindings.firstIndex(where: { $0.id == "codex" }),
+               targetStore.bindings[codexIndex].enabledProviderInstanceIDs.isEmpty {
+                targetStore.bindings[codexIndex].enabledProviderInstanceIDs = initialProviders.map(\.id)
+                try? targetBindingRepository.save(targetStore)
+            }
             let usageService = DefaultUsageService(configPath: paths.codexConfigPath)
             let workspaceMetadataService = DefaultWorkspaceMetadataService(configPath: paths.codexConfigPath)
             let chatGPTOAuthLoginService = OpenAIChatGPTOAuthLoginService(configPath: paths.codexConfigPath)
             let chatGPTAppService = ChatGPTAppService(
                 paths: paths,
-                providerStoreRepository: providerRepository
+                providerStoreRepository: providerRepository,
+                registryRepository: registryRepository
             )
             let editorAppService = EditorAppService()
             let opencodeSyncService = OpencodeAuthSyncService()
@@ -146,6 +191,7 @@ final class AppContainer {
                     rateLimitRepository: rateLimitRepository,
                     usageLedger: usageLedger,
                     v2RouteResolver: v2RouteResolver,
+                    credentialHealthWriter: CredentialHealthWriter(repository: registryRepository),
                     onAccountsStoreChanged: {
                         accountsStoreChangeHandlerBox.handler?()
                     },
@@ -249,13 +295,17 @@ final class AppContainer {
                     // the model menu shows third-party models after the next
                     // ChatGPT.app restart.
                     let providers = (try? providerRepository.loadProviders())?.providers ?? []
-                    try? chatGPTAppService.syncThirdPartyModels(providers: providers)
+                    let registry = registryRepository.loadRegistry()
+                    try? chatGPTAppService.syncThirdPartyModels(providers: providers, registry: registry)
                 }
             )
 
             let agentModel = AgentPageModel(
                 agentRepository: agentRepository,
-                providerStoreRepository: providerRepository
+                providerStoreRepository: providerRepository,
+                mcpDiscoveryService: FileMCPDiscoveryService(configPaths: [
+                    "codex": paths.codexConfigPath.deletingLastPathComponent().appendingPathComponent("mcp.json")
+                ])
             )
             let providerModel = ProviderPageModel(
                 providerStoreRepository: providerRepository,
@@ -265,12 +315,17 @@ final class AppContainer {
                 usageLedger: usageLedger,
                 accountUsageService: ProviderAccountUsageService(),
                 registryRepository: registryRepository,
+                routeDecisionLedger: routeDecisionLedger,
+                proxySplitStateProvider: {
+                    await proxyCoordinator.providerSplitState()
+                },
                 onProvidersChanged: {
                     // Inject the updated catalog into ~/.codex/models_cache.json so
                     // the model menu shows third-party models after the next
                     // ChatGPT.app restart.
                     let providers = (try? providerRepository.loadProviders())?.providers ?? []
-                    try? chatGPTAppService.syncThirdPartyModels(providers: providers)
+                    let registry = registryRepository.loadRegistry()
+                    try? chatGPTAppService.syncThirdPartyModels(providers: providers, registry: registry)
                 }
             )
 
@@ -288,10 +343,15 @@ final class AppContainer {
                 trayModel: trayModel,
                 providerModel: providerModel,
                 agentModel: agentModel,
-                paths: paths
+                paths: paths,
+                targetBindingRepository: targetBindingRepository,
+                registryRepository: registryRepository
             )
             applySettingsToContainer = { settings in
                 container.applySettings(settings)
+            }
+            container.proxyModel.onProviderSplitStateChanged = { [weak container] in
+                container?.providerModel.refreshSplitState()
             }
             return container
         } catch {
@@ -313,7 +373,9 @@ final class AppContainer {
         trayModel: TrayMenuModel,
         providerModel: ProviderPageModel,
         agentModel: AgentPageModel,
-        paths: FileSystemPaths
+        paths: FileSystemPaths,
+        targetBindingRepository: TargetBindingRepositoryProtocol,
+        registryRepository: ProviderRegistryRepository
     ) {
         self.settingsCoordinator = settingsCoordinator
         self.accountsWidgetSnapshotWriter = accountsWidgetSnapshotWriter
@@ -329,6 +391,8 @@ final class AppContainer {
         self.providerModel = providerModel
         self.agentModel = agentModel
         self.paths = paths
+        self.targetBindingRepository = targetBindingRepository
+        self.registryRepository = registryRepository
         accountsWidgetDisplayModeStore.save(rawValue: widgetUsageProgressDisplayMode.rawValue)
         accountsWidgetSnapshotCancellable = trayModel.$accounts
             .removeDuplicates()
@@ -360,7 +424,8 @@ final class AppContainer {
     /// overwritten the cache with its own server-side list.
     func syncThirdPartyModelsToCodex() {
         let providers = (try? providerRepository.loadProviders())?.providers ?? []
-        try? chatGPTAppService.syncThirdPartyModels(providers: providers)
+        let registry = registryRepository.loadRegistry()
+        try? chatGPTAppService.syncThirdPartyModels(providers: providers, registry: registry)
     }
 
     /// Moves any plaintext provider secrets into the keychain, off the main
@@ -385,7 +450,16 @@ final class AppContainer {
             )
             let service = RegistryMigrationService(repository: repository)
             guard let v1 = try? ProviderFileRepository(paths: paths).loadProviders() else { return }
-            _ = service.migrateIfNeeded(v1: v1)
+            let outcome = service.migrateIfNeeded(v1: v1)
+            // 失败要留痕。这条路径整个在后台、没有任何 UI，`_ =` 掉结果的话
+            // 一次失败的迁移和一次成功的迁移在外部看起来完全一样——用户只会
+            // 发现"模型页是空的"，而没有任何地方说得清为什么。
+            //
+            // 记进迁移账本本身：`verified: false` 就是"这次没成"，支持包与设置页
+            // 都已经在读这份账本，不需要再引入第二条日志通道。
+            if case .failed(let reason) = outcome {
+                service.journalFailure(reason: reason, v1: v1)
+            }
         }
     }
 
