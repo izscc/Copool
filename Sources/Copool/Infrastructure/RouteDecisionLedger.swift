@@ -64,7 +64,7 @@ final class RouteDecisionLedger: @unchecked Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
 
-        var lines = data.split(separator: 0x0A).map(Data.init)
+        var lines = data.split(separator: UInt8(0x0A)).map { Data($0) }
         // 从后往前找：同一个 requestID 理论上只有一条，但真出现重复时
         // 最新的那条才是当前请求。
         guard let index = lines.lastIndex(where: { line in
