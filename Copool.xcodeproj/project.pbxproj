@@ -87,6 +87,7 @@
 		560FDB78E276CB205FEC8D2D /* BrotliDecompression.swift in Sources */ = {isa = PBXBuildFile; fileRef = 021965F40D0E011268F58FBA /* BrotliDecompression.swift */; };
 		58CEAB6C62D7D2E5943F44C8 /* ProxyPageModel+Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47E935339FC300B96B357BDC /* ProxyPageModel+Lifecycle.swift */; };
 		58FFE1102B10DC8CA545E9AB /* AuthWorkspaceMetadataExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E3BFD7B6E1336A0D4DCC75A /* AuthWorkspaceMetadataExtractor.swift */; };
+		5A1E4C404BE3EF37E00A7138 /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EDE9D2A4F071FF7B3701A3C /* StatusBarController.swift */; };
 		5AB29B37C4BFA69221663AC4 /* SettingsModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5D8275C38369238EC9CB40 /* SettingsModels.swift */; };
 		5C3B13F20D9388E14A60C578 /* AccountsPageSections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27DF402DBBA3E08C32494985 /* AccountsPageSections.swift */; };
 		5CD00B9E90D93041FA7775E7 /* TaskEnvelopeDispatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5DF1D636724F32C9077A7DA /* TaskEnvelopeDispatcherTests.swift */; };
@@ -380,6 +381,7 @@
 		4A3D53A39C1C70D3BE4538E7 /* EndpointRequestCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EndpointRequestCoordinatorTests.swift; sourceTree = "<group>"; };
 		4DEC342D5FDC9541EA737668 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		4E392AE1F9628E08B328403B /* SessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionModels.swift; sourceTree = "<group>"; };
+		4EDE9D2A4F071FF7B3701A3C /* StatusBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarController.swift; sourceTree = "<group>"; };
 		4FA2F993C0E37A53483FA175 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/Localizable.strings; sourceTree = "<group>"; };
 		4FF127DE03DF2348A3EA6A8F /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		5000155760C69A6117DF5E08 /* JSONValue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONValue.swift; sourceTree = "<group>"; };
@@ -598,6 +600,7 @@
 				4DEC342D5FDC9541EA737668 /* AppContainer.swift */,
 				38BD5BE0A332BCE32A46A463 /* AppVersion.swift */,
 				AF3990C942090A68CBEDDDE1 /* RootScene.swift */,
+				4EDE9D2A4F071FF7B3701A3C /* StatusBarController.swift */,
 				88EA6ECB13116EC2FBC3C384 /* TrayMenuModel.swift */,
 				D07807DA196970A72441B383 /* TrayMenuModel+Refresh.swift */,
 			);
@@ -1394,6 +1397,7 @@
 				6281C0500D4C03F4C18EA4DD /* SettingsSubTab.swift in Sources */,
 				46F70E216B2D9F94247190D5 /* ShellCommandRunner.swift in Sources */,
 				7614A610947D7CB86C7CDF9C /* SimpleHTTPServer.swift in Sources */,
+				5A1E4C404BE3EF37E00A7138 /* StatusBarController.swift in Sources */,
 				4B444A88CAFD9D0E713B7D96 /* StoreFileRepository.swift in Sources */,
 				ADD736509A8C6361C53DE496 /* SupportBundle.swift in Sources */,
 				FB4A18D9E2F69286E4CAC9C3 /* SwiftNativeProxyRuntimeService+Agents.swift in Sources */,
