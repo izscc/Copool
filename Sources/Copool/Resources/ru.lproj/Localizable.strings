@@ -118,7 +118,7 @@
 "settings.error.remote_servers_json_decode_format" = "Не удалось разобрать JSON удаленных серверов: %@";
 
 "accounts.action.smart_switch" = "Умное переключение";
-"accounts.action.launch_chatgpt" = "Запустить ChatGPT";
+"accounts.action.launch_chatgpt" = "Запустить Codex";
 "accounts.action.import_account" = "Импортировать аккаунт";
 "accounts.action.import_current_auth" = "Импортировать текущую auth";
 "accounts.action.import_auth_file" = "Импортировать JSON-файл";

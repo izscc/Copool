@@ -118,7 +118,7 @@
 "settings.error.remote_servers_json_decode_format" = "Remote servers JSON の解析に失敗しました: %@";
 
 "accounts.action.smart_switch" = "スマート切替";
-"accounts.action.launch_chatgpt" = "ChatGPTを起動";
+"accounts.action.launch_chatgpt" = "Codexを起動";
 "accounts.action.import_account" = "アカウントを取り込む";
 "accounts.action.import_current_auth" = "現在の認証を取り込む";
 "accounts.action.import_auth_file" = "JSON ファイルを取り込む";
