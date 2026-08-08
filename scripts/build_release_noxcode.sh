@@ -82,7 +82,7 @@ fi
 if [[ "$SKIP_BUILD" == "1" ]]; then
   log "跳过构建（--skip-build），使用现有 .build/release 产物"
 else
-  log "swift build -c release（--sdk $SDK）"
+  log "swift build -c release（--sdk ${SDK}）"
   swift build -c release --sdk "$SDK"
 fi
 
