@@ -3,6 +3,9 @@ import Combine
 #if canImport(AppKit)
 import AppKit
 #endif
+#if canImport(OSLog)
+import OSLog
+#endif
 
 @MainActor
 final class AppContainer {
@@ -215,6 +218,7 @@ final class AppContainer {
             )
             let initialSettings = try settingsRepository.loadSettings()
             var applySettingsToContainer: ((AppSettings) -> Void)?
+            var launchChatGPTHandler: (() -> Void)?
             try launchAtStartupService.syncWithStoreValue(initialSettings.launchAtStartup)
             let accountsWidgetDisplayModeStore = AccountsWidgetDisplayModeStore()
             let accountsWidgetSnapshotWriter = AccountsWidgetSnapshotWriter(
@@ -273,6 +277,9 @@ final class AppContainer {
                 },
                 onSettingsUpdated: { settings in
                     applySettingsToContainer?(settings)
+                },
+                onLaunchChatGPT: {
+                    launchChatGPTHandler?()
                 },
                 initialAccounts: initialAccounts,
                 thirdPartyUsageRepository: usageRepository
@@ -350,6 +357,9 @@ final class AppContainer {
             applySettingsToContainer = { settings in
                 container.applySettings(settings)
             }
+            launchChatGPTHandler = { [weak container] in
+                container?.launchChatGPTFromAccountsPage()
+            }
             container.proxyModel.onProviderSplitStateChanged = { [weak container] in
                 container?.providerModel.refreshSplitState()
             }
@@ -426,6 +436,19 @@ final class AppContainer {
         let providers = (try? providerRepository.loadProviders())?.providers ?? []
         let registry = registryRepository.loadRegistry()
         try? chatGPTAppService.syncThirdPartyModels(providers: providers, registry: registry)
+    }
+
+    /// 刷新模型配置并重启 ChatGPT.app，使最新模型列表生效。
+    func launchChatGPTFromAccountsPage() {
+        syncThirdPartyModelsToCodex()
+        do {
+            try chatGPTAppService.launchApp()
+        } catch {
+            #if canImport(OSLog)
+            Logger(subsystem: "Copool", category: "AppContainer")
+                .error("launchChatGPTFromAccountsPage: \(error.localizedDescription, privacy: .public)")
+            #endif
+        }
     }
 
     /// Moves any plaintext provider secrets into the keychain, off the main

@@ -118,6 +118,7 @@
 "settings.error.remote_servers_json_decode_format" = "遠端伺服器 JSON 解析失敗：%@";
 
 "accounts.action.smart_switch" = "智慧切換";
+"accounts.action.launch_chatgpt" = "啟動ChatGPT";
 "accounts.action.import_account" = "匯入帳號";
 "accounts.action.import_current_auth" = "匯入目前授權";
 "accounts.action.import_auth_file" = "匯入 JSON 檔案";

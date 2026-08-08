@@ -119,6 +119,7 @@
 "settings.error.remote_servers_json_decode_format" = "Error al analizar el JSON de servidores remotos: %@";
 
 "accounts.action.smart_switch" = "Cambio inteligente";
+"accounts.action.launch_chatgpt" = "Iniciar ChatGPT";
 "accounts.action.import_account" = "Importar cuenta";
 "accounts.action.import_current_auth" = "Importar auth actual";
 "accounts.action.import_auth_file" = "Importar archivo JSON";

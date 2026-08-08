@@ -9,6 +9,7 @@ enum AccountsPageActionIntent: String, Hashable {
     case smartSwitch
     case refreshUsage
     case toggleCollapse
+    case launchChatGPT
 }
 
 enum AccountsActionContentStyle: Equatable {
@@ -59,7 +60,8 @@ enum AccountsActionPresentation {
         isAdding: Bool,
         switchingAccountID: String?,
         canRefreshUsage: Bool,
-        isRefreshSpinnerActive: Bool
+        isRefreshSpinnerActive: Bool,
+        isLaunchingChatGPT: Bool = false
     ) -> [AccountsActionButtonDescriptor<AccountsPageActionIntent>] {
         [
             AccountsActionButtonDescriptor(
@@ -110,6 +112,17 @@ enum AccountsActionPresentation {
                 accessibilityLabel: L10n.tr("accounts.action.smart_switch"),
                 isEnabled: !isImporting && !isAdding && switchingAccountID == nil,
                 isSpinning: false,
+                contentStyle: .label,
+                surfaceStyle: .prominent,
+                menuItems: []
+            ),
+            AccountsActionButtonDescriptor(
+                intent: .launchChatGPT,
+                title: L10n.tr("accounts.action.launch_chatgpt"),
+                systemImage: "arrow.up.forward.app",
+                accessibilityLabel: L10n.tr("accounts.action.launch_chatgpt"),
+                isEnabled: !isImporting && !isAdding,
+                isSpinning: isLaunchingChatGPT,
                 contentStyle: .label,
                 surfaceStyle: .prominent,
                 menuItems: []

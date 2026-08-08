@@ -76,6 +76,13 @@ extension AccountsPageModel {
         }
     }
 
+    func launchChatGPT() async {
+        guard let onLaunchChatGPT else { return }
+        isLaunchingChatGPT = true
+        defer { isLaunchingChatGPT = false }
+        onLaunchChatGPT()
+    }
+
     func toggleAllAccountsCollapsed() {
         guard case .content(let accounts) = state else { return }
         let ids = Set(accounts.filter { !$0.isWorkspaceDeactivated }.map(\.id))

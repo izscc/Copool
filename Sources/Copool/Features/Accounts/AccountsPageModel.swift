@@ -10,6 +10,7 @@ final class AccountsPageModel: ObservableObject {
     let chooseAuthDocumentURL: (() -> URL?)?
     let onLocalAccountsChanged: (([AccountSummary]) -> Void)?
     let onSettingsUpdated: ((AppSettings) -> Void)?
+    let onLaunchChatGPT: (() -> Void)?
     let runtimePlatform: RuntimePlatform
     let thirdPartyUsageRepository: ThirdPartyUsageRepository?
 
@@ -34,6 +35,7 @@ final class AccountsPageModel: ObservableObject {
     @Published var remoteUsageRefreshingAccountIDs: Set<String> = []
     @Published var isImporting = false
     @Published var isAdding = false
+    @Published var isLaunchingChatGPT = false
     @Published var switchingAccountID: String?
     @Published var refreshingAccountIDs: Set<String> = []
     @Published var collapsedAccountIDs: Set<String> = []
@@ -52,6 +54,7 @@ final class AccountsPageModel: ObservableObject {
         usageProgressDisplayMode: UsageProgressDisplayMode = .used,
         onLocalAccountsChanged: (([AccountSummary]) -> Void)? = nil,
         onSettingsUpdated: ((AppSettings) -> Void)? = nil,
+        onLaunchChatGPT: (() -> Void)? = nil,
         initialAccounts: [AccountSummary]? = nil,
         thirdPartyUsageRepository: ThirdPartyUsageRepository? = nil
     ) {
@@ -64,6 +67,7 @@ final class AccountsPageModel: ObservableObject {
         self.usageProgressDisplayMode = usageProgressDisplayMode
         self.onLocalAccountsChanged = onLocalAccountsChanged
         self.onSettingsUpdated = onSettingsUpdated
+        self.onLaunchChatGPT = onLaunchChatGPT
         self.thirdPartyUsageRepository = thirdPartyUsageRepository
         self.state = initialAccounts.map { initialAccounts in
             Self.makeViewState(accounts: AccountRanking.sortForDisplay(initialAccounts))
@@ -108,7 +112,8 @@ final class AccountsPageModel: ObservableObject {
             isAdding: isAdding,
             switchingAccountID: switchingAccountID,
             canRefreshUsage: canRefreshUsageAction,
-            isRefreshSpinnerActive: isRefreshSpinnerActive
+            isRefreshSpinnerActive: isRefreshSpinnerActive,
+            isLaunchingChatGPT: isLaunchingChatGPT
         )
     }
 
@@ -168,6 +173,8 @@ final class AccountsPageModel: ObservableObject {
             await toggleUsageProgressDisplay()
         case .smartSwitch:
             await smartSwitch()
+        case .launchChatGPT:
+            await launchChatGPT()
         case .refreshUsage:
             await refreshUsage()
         case .toggleCollapse:

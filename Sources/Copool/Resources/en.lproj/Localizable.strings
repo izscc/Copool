@@ -119,6 +119,7 @@
 "settings.error.remote_servers_json_decode_format" = "Remote servers JSON parse failed: %@";
 
 "accounts.action.smart_switch" = "Smart switch";
+"accounts.action.launch_chatgpt" = "Launch ChatGPT";
 "accounts.action.import_account" = "Import account";
 "accounts.action.import_current_auth" = "Import current auth";
 "accounts.action.import_auth_file" = "Import JSON file";

@@ -118,6 +118,7 @@
 "settings.error.remote_servers_json_decode_format" = "Fehler beim Parsen der Remote-Server-JSON: %@";
 
 "accounts.action.smart_switch" = "Intelligenter Wechsel";
+"accounts.action.launch_chatgpt" = "ChatGPT starten";
 "accounts.action.import_account" = "Konto importieren";
 "accounts.action.import_current_auth" = "Aktuelle Auth importieren";
 "accounts.action.import_auth_file" = "JSON-Datei importieren";
